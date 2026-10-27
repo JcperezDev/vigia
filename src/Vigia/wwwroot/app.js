@@ -189,10 +189,147 @@
     send({ cmd: 'cleanRun', ids: selected() });
   });
 
+  // ---------- utilidades DOM ----------
+  const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
+  const stat = (label, value, extra) => { const d = el('div'); d.append(el('dt', null, label), el('dd', null, value)); if (extra) d.append(extra); return d; };
+  const LV = { ok: 'Bien', info: 'Aviso', warn: 'Revisar', bad: 'Problema' };
+  const nf = new Intl.NumberFormat('es', { useGrouping: 'always', maximumFractionDigits: 0 });
+  const num = (v) => nf.format(Number(v));
+  const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+  const LVN = { ok: ['bien', 'bien'], info: ['aviso', 'avisos'], warn: ['para revisar', 'para revisar'], bad: ['problema', 'problemas'] };
+
+  // ---------- salud de discos ----------
+  const busyBtn = (b, on, txt) => { b.classList.toggle('busy', on); b.disabled = on; if (txt) b.textContent = txt; };
+  $('h-scan').addEventListener('click', () => { busyBtn($('h-scan'), true, 'Escaneando…'); send({ cmd: 'healthScan' }); });
+  function renderHealth(list) {
+    busyBtn($('h-scan'), false, 'Escanear de nuevo');
+    const box = $('health-list');
+    if (!list.length) { box.replaceChildren(el('p', 'empty', 'No se encontraron discos.')); return; }
+    box.replaceChildren(...list.map((d) => {
+      const c = el('article', `hcard lv-${d.level}`);
+      const head = el('header', 'hcard-head');
+      const who = el('div', 'who');
+      who.append(el('strong', null, d.model), el('span', null, [d.bus, d.media, `${num(d.sizeGb)} GB`].join(' · ')));
+      head.append(el('span', 'letter', d.letters.join(' ') || '—'), who, el('span', 'pill', d.verdict));
+      const st = el('dl', 'stats');
+      const temp = d.temp != null ? `${fmt(d.temp)} °C` : 'N/D';
+      const tempBox = stat('Temperatura', temp);
+      if (d.warnTemp) tempBox.append(el('span', 'meta-sm', `alerta a ${fmt(d.warnTemp)} °C`));
+      st.append(tempBox);
+      if (d.lifePct != null) {
+        const bar = el('div', 'life'); const i = el('i'); i.style.width = `${d.lifePct}%`;
+        if (d.lifePct <= 10) i.style.background = 'var(--hot)'; bar.append(i);
+        st.append(stat('Vida restante', `${fmt(d.lifePct)} %`, bar));
+      } else st.append(stat('Vida restante', d.media === 'HDD' ? 'No aplica' : 'N/D'));
+      st.append(stat('Horas encendido', d.powerOnHours != null ? `${num(d.powerOnHours)} h` : 'N/D'));
+      st.append(stat('Encendidos', d.powerCycles != null ? num(d.powerCycles) : 'N/D'));
+      st.append(stat('Escrito', d.writtenTb != null ? `${fmt(d.writtenTb, 1)} TB` : 'N/D'));
+      st.append(stat('Reserva', d.availableSpare != null ? `${fmt(d.availableSpare)} % (mín. ${fmt(d.spareThreshold)})` : 'N/D'));
+      c.append(head, st);
+      if (d.attributes.length) {
+        const ul = el('ul', 'attrs');
+        d.attributes.forEach((a) => { const li = el('li', `lv-${a.level}`); li.title = a.hint || ''; li.append(el('span', null, a.name), el('b', null, num(a.raw))); ul.append(li); });
+        c.append(ul);
+      }
+      const notes = [...d.issues, ...d.attributes.filter((a) => a.hint).map((a) => a.hint)];
+      if (notes.length) { const ul = el('ul', 'issues'); notes.forEach((t) => ul.append(el('li', null, t))); c.append(ul); }
+      return c;
+    }));
+  }
+
+  // ---------- optimizar ----------
+  let optBusy = false;
+  $('o-analyze').addEventListener('click', () => { busyBtn($('o-analyze'), true, 'Analizando…'); send({ cmd: 'optStatus', analyze: true }); });
+  $('op-cancel').addEventListener('click', () => { $('op-cancel').disabled = true; send({ cmd: 'optCancel' }); });
+  function renderOpt(s) {
+    busyBtn($('o-analyze'), false, 'Analizar fragmentación');
+    const ul = $('vols');
+    ul.replaceChildren(...s.volumes.map((v) => {
+      const li = el('li', 'vol');
+      const who = el('div');
+      who.append(el('span', 'name', v.label), el('div', 'meta', `${v.media} · ${v.action}`));
+      const last = el('dl', 'col'); last.append(stat('Última vez', v.lastRun ? `${v.lastRun}${v.lastOp ? ` · ${v.lastOp}` : ''}` : 'Sin registro'));
+      const frag = el('dl', 'col frag');
+      frag.append(stat('Fragmentación', v.media === 'HDD' ? (v.fragmented != null ? `${v.fragmented} %` : 'Sin analizar') : 'No aplica (SSD)'));
+      const b = el('button', 'btn primary', 'Optimizar');
+      b.disabled = optBusy;
+      b.addEventListener('click', () => startOpt(v));
+      li.append(el('span', 'letter', v.letter), who, last, frag, b);
+      return li;
+    }));
+    $('sched').textContent = s.scheduled
+      ? 'Windows ya optimiza estas unidades una vez por semana. Usa el botón si quieres hacerlo ahora.'
+      : 'La optimización semanal automática de Windows está apagada.';
+  }
+  function startOpt(v) {
+    optBusy = true;
+    document.querySelectorAll('.vol .btn').forEach((b) => { b.disabled = true; });
+    $('oprun').hidden = false; $('op-cancel').disabled = false;
+    $('op-title').textContent = `${v.action} en ${v.letter} ${v.label}`;
+    $('op-bar').style.width = '0'; $('op-bar').parentElement.classList.add('indet');
+    $('op-line').textContent = 'Iniciando…'; $('op-result').textContent = '';
+    send({ cmd: 'optRun', letter: v.letter });
+  }
+
+  // ---------- diagnóstico ----------
+  $('d-run').addEventListener('click', () => { busyBtn($('d-run'), true, 'Revisando…'); send({ cmd: 'diagRun' }); });
+  function renderDiag(r) {
+    busyBtn($('d-run'), false, 'Volver a revisar');
+    const s = r.system;
+    const up = s.uptimeHours >= 48 ? `${Math.round(s.uptimeHours / 24)} días` : `${fmt(s.uptimeHours, 0)} h`;
+    $('sysinfo').replaceChildren(stat('Sistema', `${s.os} ${s.build}`), stat('Placa base', s.board || 'N/D'), stat('BIOS', s.bios || 'N/D'), stat('Encendido', up));
+    [...$('sysinfo').querySelectorAll('dd')].forEach((d) => { d.title = d.textContent; });
+    const count = (l) => r.items.filter((i) => i.level === l).length;
+    $('tally').replaceChildren(...['bad', 'warn', 'info', 'ok'].filter((l) => count(l)).map((l) => el('span', `pill lv-${l}`, `${count(l)} ${LVN[l][count(l) === 1 ? 0 : 1]}`)));
+    $('diag-sub').textContent = `Registro de eventos de Windows, últimos ${r.days} días. Solo lectura. Revisado a las ${new Date(r.ts).toLocaleTimeString('es')}.`;
+    const order = { bad: 0, warn: 1, info: 2, ok: 3 };
+    $('findings').replaceChildren(...[...r.items].sort((a, b) => order[a.level] - order[b.level]).map((i) => {
+      const li = el('li', `finding lv-${i.level}`);
+      const body = el('div'); body.append(el('p', null, i.detail));
+      if (i.examples.length) {
+        const det = el('details'); det.append(el('summary', null, `Ver ${plural(i.examples.length, 'detalle', 'detalles')}`));
+        const ul = el('ul'); i.examples.forEach((x) => ul.append(el('li', null, x))); det.append(ul); body.append(det);
+      }
+      li.append(el('span', 'dot'), el('strong', null, i.title), body);
+      return li;
+    }));
+  }
+
+  // primera visita a cada sección: cargar sus datos
+  const loaded = new Set();
+  document.querySelectorAll('.nav').forEach((b) => b.addEventListener('click', () => {
+    const v = b.dataset.view;
+    if (loaded.has(v)) return;
+    loaded.add(v);
+    if (v === 'health') $('h-scan').click();
+    else if (v === 'opt') send({ cmd: 'optStatus', analyze: false });
+    else if (v === 'diag') $('d-run').click();
+    else if (v === 'storage' && !targets.length) $('scan').click();
+  }));
+  // para --snap: abrir una sección
+  // 'opt-run' = abrir Optimizar y lanzar la primera unidad (prueba de extremo a extremo)
+  window.vigiaSnap = (v) => {
+    const [view, act] = v.split('-');
+    document.querySelector(`.nav[data-view="${view}"]`)?.click();
+    if (act === 'run') setTimeout(() => document.querySelector('.vol .btn')?.click(), 2500);
+  };
+
   // ---------- mensajes del backend ----------
   if (host) host.addEventListener('message', (e) => {
     const { type, payload } = e.data;
     if (type === 'telemetry') render(payload);
+    else if (type === 'healthScan') renderHealth(payload);
+    else if (type === 'diagRun') renderDiag(payload);
+    else if (type === 'optStatus') renderOpt(payload);
+    else if (type === 'optProgress') {
+      $('op-line').textContent = payload.line;
+      if (payload.pct != null) { $('op-bar').parentElement.classList.remove('indet'); $('op-bar').style.width = `${payload.pct}%`; }
+    } else if (type === 'optDone') {
+      optBusy = false; $('oprun').hidden = true;
+      $('op-result').textContent = payload.ok
+        ? `${payload.letter} optimizada en ${fmt(payload.seconds, 0)} s.`
+        : `${payload.letter}: ${payload.summary}`;
+    }
     else if (type === 'cleanScan') {
       $('scan').classList.remove('busy'); $('scan').textContent = 'Volver a analizar';
       targets = payload; renderTargets();

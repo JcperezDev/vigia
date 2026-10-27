@@ -156,6 +156,25 @@ public sealed class Telemetry : IDisposable
 
     static double? Gb(double? mb) => mb is null ? null : Math.Round(mb.Value / 1024, 1);
 
+    /// <summary>Sensores de cada disco (LHM): nombre del hardware -> "Tipo|Sensor" -> valor.</summary>
+    public Dictionary<string, Dictionary<string, double>> StorageSensors()
+    {
+        lock (_lock)
+        {
+            var res = new Dictionary<string, Dictionary<string, double>>();
+            foreach (var h in _pc.Hardware.SelectMany(All).Where(h => h.HardwareType == HardwareType.Storage))
+            {
+                try { h.Update(); } catch { }
+                var d = res.TryGetValue(h.Name, out var ex) ? ex : res[h.Name] = new();
+                foreach (var s in h.Sensors)
+                    if (s.Value is float v && !float.IsNaN(v)) d[$"{s.SensorType}|{s.Name}"] = v;
+            }
+            return res;
+        }
+    }
+
+    internal static string NormKey(string s) => Norm(s);
+
     /// <summary>Volcado de todos los sensores (diagnóstico).</summary>
     public IEnumerable<string> Dump()
     {

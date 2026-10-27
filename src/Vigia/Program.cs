@@ -18,7 +18,11 @@ static class Program
             using var t = new Telemetry();
             t.Read(); Thread.Sleep(1200);
             var snap = t.Read();
-            File.WriteAllText(args[1], JsonSerializer.Serialize(new { snapshot = snap, clean = Cleanup.Scan(), sensors = t.Dump().ToList() }, new JsonSerializerOptions(Json) { WriteIndented = true }));
+            File.WriteAllText(args[1], JsonSerializer.Serialize(new
+            {
+                snapshot = snap, clean = Cleanup.Scan(), health = Health.Scan(t), diag = Diagnostics.Run(),
+                optimize = Optimize.Status(analyzeHdd: true), sensors = t.Dump().ToList(),
+            }, new JsonSerializerOptions(Json) { WriteIndented = true }));
             return 0;
         }
         if (args.Length >= 2 && args[0] == "--selftest")
@@ -59,12 +63,13 @@ sealed class MainForm : Form
         try { Icon = new Icon(Path.Combine(AppContext.BaseDirectory, "vigia.ico")); } catch { }
         Controls.Add(_web);
         Load += async (_, _) => await InitAsync();
-        FormClosed += (_, _) => { _timer.Stop(); _tel.Dispose(); };
+        FormClosed += (_, _) => { _timer.Stop(); Optimize.Cancel(); _tel.Dispose(); };
     }
 
     async Task InitAsync()
     {
-        var data = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Vigia", "WebView2");
+        // --snap usa su propio perfil: si Vigía ya está abierta, compartir la carpeta bloquea WebView2
+        var data = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Vigia", _snapPath is null ? "WebView2" : "WebView2-snap");
         var env = await CoreWebView2Environment.CreateAsync(null, data);
         await _web.EnsureCoreWebView2Async(env);
         var core = _web.CoreWebView2;
@@ -86,14 +91,14 @@ sealed class MainForm : Form
     async Task SnapAsync()
     {
         await Task.Delay(5000);
-        if (_snapView == "storage")
+        if (_snapView is { Length: > 0 } v)
         {
-            await _web.CoreWebView2.ExecuteScriptAsync("document.querySelector('[data-view=storage]').click(); document.getElementById('scan').click();");
-            await Task.Delay(8000);
+            await _web.CoreWebView2.ExecuteScriptAsync($"window.vigiaSnap && vigiaSnap({JsonSerializer.Serialize(v)})");
+            await Task.Delay(12000);
         }
         else await Task.Delay(3000);
         var metrics = await _web.CoreWebView2.ExecuteScriptAsync(
-            "JSON.stringify({vw:innerWidth,vh:innerHeight,dpr:devicePixelRatio,main:document.querySelector('main').clientHeight,scroll:document.querySelector('main').scrollHeight,chart:document.getElementById('chart').getBoundingClientRect().toJSON()})");
+            "JSON.stringify({vw:innerWidth,vh:innerHeight,dpr:devicePixelRatio,main:document.querySelector('main').clientHeight,scroll:document.querySelector('main').scrollHeight,text:(document.querySelector('.view:not([hidden])')||document.body).innerText.slice(0,3000)})");
         File.WriteAllText(_snapPath + ".json", $"{{\"form\":\"{ClientSize.Width}x{ClientSize.Height}\",\"web\":\"{_web.Width}x{_web.Height}\",\"page\":{System.Text.Json.JsonSerializer.Deserialize<string>(metrics)}}}");
         using (var fs = File.Create(_snapPath!))
             await _web.CoreWebView2.CapturePreviewAsync(CoreWebView2CapturePreviewImageFormat.Png, fs);
@@ -125,6 +130,26 @@ sealed class MainForm : Form
                 case "cleanRun":
                     var ids = msg["ids"]!.AsArray().Select(x => (string)x!).ToList();
                     Send("cleanRun", await Task.Run(() => Cleanup.Run(ids)));
+                    break;
+                case "healthScan":
+                    Send("healthScan", await Task.Run(() => Health.Scan(_tel)));
+                    break;
+                case "diagRun":
+                    Send("diagRun", await Task.Run(() => Diagnostics.Run(7)));
+                    break;
+                case "optStatus":
+                    var analyze = (bool?)msg["analyze"] ?? false;
+                    Send("optStatus", await Task.Run(() => Optimize.Status(analyze)));
+                    break;
+                case "optRun":
+                    var letter = (string)msg["letter"]!;
+                    // el progreso llega desde otro hilo: volver al hilo de la UI para hablar con WebView2
+                    var res = await Task.Run(() => Optimize.RunAsync(letter, p => BeginInvoke(() => Send("optProgress", p))));
+                    Send("optDone", res);
+                    Send("optStatus", await Task.Run(() => Optimize.Status(false)));
+                    break;
+                case "optCancel":
+                    Optimize.Cancel();
                     break;
             }
         }
