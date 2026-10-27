@@ -209,7 +209,8 @@ sealed class MainForm : Form
                     Send("tools", new { root = _cfg.ToolsRoot, items = Toolbox.List(_cfg.ToolsRoot) });
                     break;
                 case "toolOpen":
-                    if (Toolbox.Open(_cfg.ToolsRoot, (string)msg["id"]!) is string err) Send("error", err);
+                    var tid = (string)msg["id"]!;
+                    Send("toolDone", tid == "restorepoint" ? await Task.Run(() => Toolbox.Open(_cfg.ToolsRoot, tid)) : Toolbox.Open(_cfg.ToolsRoot, tid));
                     break;
                 case "utilidad-externa":
                     var rp = await Task.Run(() => RestorePoint.Create("Vigía: antes de utilidad externa"));

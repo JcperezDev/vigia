@@ -439,15 +439,20 @@
 
   // ---------- herramientas ----------
   function renderTools(p) {
-    $('tl-sub').textContent = `Programas de ${p.root}. Vigía solo los abre; no los copia ni los cambia.`;
+    const mine = p.items.filter((t) => t.kind === 'folder');
+    $('tl-sub').textContent = `${mine.filter((t) => t.found).length} programas de ${p.root} y ${p.items.length - mine.length} herramientas de Windows. Vigía solo los abre; no los copia ni los cambia.`;
     const groups = [...new Set(p.items.map((t) => t.group))];
     $('tl-groups').replaceChildren(...groups.map((g) => {
       const sec = el('section', 'tw-group'); sec.append(el('h2', null, g));
       const grid = el('div', 'tools');
       p.items.filter((t) => t.group === g).forEach((t) => {
         const card = el('div', 'tool');
-        const b = el('button', 'btn', 'Abrir'); b.disabled = !t.found;
-        b.addEventListener('click', () => send({ cmd: 'toolOpen', id: t.id }));
+        const b = el('button', 'btn', t.kind === 'cmd' || t.kind === 'action' ? 'Ejecutar' : 'Abrir'); b.disabled = !t.found;
+        b.dataset.tool = t.id;
+        b.addEventListener('click', () => {
+          if (t.id === 'restorepoint') busyBtn(b, true, 'Creando…');
+          send({ cmd: 'toolOpen', id: t.id });
+        });
         card.append(el('strong', null, t.name), b, el('p', null, t.found ? t.detail : 'No está en la carpeta.'));
         if (t.warning) card.append(el('p', 'warn', t.warning));
         grid.append(card);
@@ -505,6 +510,12 @@
       $('ap-result').textContent = bad.length ? `No se pudieron quitar: ${bad.map((r) => `${r.id} (${r.error})`).join('; ')}.` : `${plural(payload.length, 'app quitada', 'apps quitadas')}.`;
     }
     else if (type === 'tools') renderTools(payload);
+    else if (type === 'toolDone') {
+      const b = document.querySelector(`[data-tool="${CSS.escape(payload.id)}"]`);
+      if (payload.id === 'restorepoint' && b) busyBtn(b, false, 'Ejecutar');
+      $('tl-result').textContent = payload.ok ? (payload.message || '') : `No se pudo abrir: ${payload.message}`;
+      $('tl-result').classList.toggle('bad', !payload.ok);
+    }
     else if (type === 'optProgress') {
       $('op-line').textContent = payload.line;
       if (payload.pct != null) { $('op-bar').parentElement.classList.remove('indet'); $('op-bar').style.width = `${payload.pct}%`; }
