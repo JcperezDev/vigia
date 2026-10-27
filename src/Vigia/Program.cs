@@ -104,7 +104,7 @@ sealed class MainForm : Form
         }
         else await Task.Delay(3000);
         var metrics = await _web.CoreWebView2.ExecuteScriptAsync(
-            "JSON.stringify({vw:innerWidth,vh:innerHeight,dpr:devicePixelRatio,main:document.querySelector('main').clientHeight,scroll:document.querySelector('main').scrollHeight,text:(document.querySelector('.view:not([hidden])')||document.body).innerText.slice(0,3000)," +
+            "JSON.stringify({vw:innerWidth,vh:innerHeight,dpr:devicePixelRatio,main:document.querySelector('main').clientHeight,scroll:document.querySelector('main').scrollHeight,text:(document.querySelector('.view:not([hidden])')||document.body).innerText.slice(0,20000)," +
             // elementos que se salen de su caja o del área principal: así se revisa el diseño sin mirar la imagen
             "bad:[...document.querySelectorAll('.view:not([hidden]) *')].filter(e=>{const r=e.getBoundingClientRect(),m=document.querySelector('main').getBoundingClientRect(),cs=getComputedStyle(e);if(!r.width)return false;return r.right>m.right+1||r.left<m.left-1||(e.scrollWidth>e.clientWidth+2&&cs.textOverflow!=='ellipsis'&&cs.overflowX!=='auto')}).slice(0,15).map(e=>e.tagName+'.'+e.className+' '+(e.innerText||'').slice(0,40)+' w='+Math.round(e.getBoundingClientRect().width))})");
         File.WriteAllText(_snapPath + ".json", $"{{\"form\":\"{ClientSize.Width}x{ClientSize.Height}\",\"web\":\"{_web.Width}x{_web.Height}\",\"page\":{System.Text.Json.JsonSerializer.Deserialize<string>(metrics)}}}");

@@ -232,5 +232,117 @@
       { "reg": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsUpdate\\AU", "name": "NoAutoRebootWithLoggedOnUsers", "type": "dword", "value": 1 },
       { "reg": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsUpdate", "name": "ExcludeWUDriversInQualityUpdate", "type": "dword", "value": 1 }
     ]
+  },
+  {
+    "id": "gpu-high", "group": "Juegos", "risk": "bajo", "reboot": false,
+    "title": "Juegos en la tarjeta gráfica potente",
+    "detail": "Windows manda los juegos a la NVIDIA y no a los gráficos del Ryzen. Solo cambia esa opción y deja las demás de gráficos como estaban.",
+    "source": "Comparado con externo Tweaks; escrito aparte",
+    "ops": [ { "reg": "HKCU\\Software\\Microsoft\\DirectX\\UserGpuPreferences", "name": "DirectXUserGlobalSettings", "kv": "GpuPreference", "value": "2" } ]
+  },
+  {
+    "id": "windowed-opt", "group": "Juegos", "risk": "bajo", "reboot": false,
+    "title": "Optimizaciones para juegos en ventana",
+    "detail": "Los juegos en ventana sin bordes van con la misma latencia que en pantalla completa. Es la opción de Windows 11 en Pantalla > Gráficos.",
+    "source": "Comparado con externo Tweaks; escrito aparte",
+    "ops": [ { "reg": "HKCU\\Software\\Microsoft\\DirectX\\UserGpuPreferences", "name": "DirectXUserGlobalSettings", "kv": "SwapEffectUpgradeEnable", "value": "1" } ]
+  },
+  {
+    "id": "hags", "group": "Juegos", "risk": "bajo", "reboot": true,
+    "title": "Programación de GPU acelerada por hardware",
+    "detail": "La tarjeta gráfica ordena su propia memoria y Windows trabaja menos por fotograma. Necesario para generación de fotogramas de DLSS.",
+    "source": "Comparado con externo Tweaks; escrito aparte",
+    "ops": [ { "reg": "HKLM\\SYSTEM\\CurrentControlSet\\Control\\GraphicsDrivers", "name": "HwSchMode", "type": "dword", "value": 2 } ]
+  },
+  {
+    "id": "game-mode", "group": "Juegos", "risk": "bajo", "reboot": false,
+    "title": "Modo juego de Windows",
+    "detail": "Mientras juegas, Windows no instala actualizaciones ni reinicia, y da prioridad al juego.",
+    "source": "Comparado con externo Tweaks; escrito aparte",
+    "ops": [
+      { "reg": "HKCU\\Software\\Microsoft\\GameBar", "name": "AutoGameModeEnabled", "type": "dword", "value": 1 },
+      { "reg": "HKCU\\Software\\Microsoft\\GameBar", "name": "AllowAutoGameMode", "type": "dword", "value": 1 }
+    ]
+  },
+  {
+    "id": "animations-off", "group": "Windows", "risk": "bajo", "reboot": true,
+    "title": "Menos animaciones de Windows",
+    "detail": "Quita las animaciones al abrir, minimizar y en la barra de tareas. Las letras siguen suavizadas. Se nota al volver a entrar en la sesión.",
+    "source": "Comparado con externo Tweaks; escrito aparte",
+    "ops": [
+      { "reg": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\VisualEffects", "name": "VisualFXSetting", "type": "dword", "value": 3 },
+      { "reg": "HKCU\\Control Panel\\Desktop\\WindowMetrics", "name": "MinAnimate", "type": "string", "value": "0" },
+      { "reg": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced", "name": "TaskbarAnimations", "type": "dword", "value": 0 },
+      { "reg": "HKCU\\Control Panel\\Desktop", "name": "FontSmoothing", "type": "string", "value": "2" }
+    ]
+  },
+  {
+    "id": "startup-delay", "group": "Windows", "risk": "bajo", "reboot": true,
+    "title": "Programas de inicio sin espera",
+    "detail": "Windows espera unos segundos antes de abrir lo que arranca contigo. Esto quita esa espera.",
+    "source": "Comparado con externo Tweaks; escrito aparte",
+    "ops": [
+      { "reg": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Serialize", "name": "StartupDelayInMSec", "type": "dword", "value": 0 },
+      { "reg": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Serialize", "name": "WaitForIdleState", "type": "dword", "value": 0 }
+    ]
+  },
+  {
+    "id": "boot-info", "group": "Windows", "risk": "bajo", "reboot": false,
+    "title": "Ver qué hace Windows al encender y apagar",
+    "detail": "En vez de «Espere», Windows dice qué está cargando. Sirve para ver dónde se traba.",
+    "source": "Comparado con externo Tweaks; escrito aparte",
+    "ops": [ { "reg": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System", "name": "VerboseStatus", "type": "dword", "value": 1 } ]
+  },
+  {
+    "id": "smb1-off", "group": "Windows", "risk": "bajo", "reboot": true,
+    "title": "Apagar el compartir archivos antiguo (SMB1)",
+    "detail": "Protocolo de los 90 que usó WannaCry. Solo lo necesitan NAS o impresoras muy viejas.",
+    "source": "Comparado con externo Tweaks; escrito aparte",
+    "ops": [ { "reg": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\LanmanServer\\Parameters", "name": "SMB1", "type": "dword", "value": 0 } ]
+  },
+  {
+    "id": "browsers-bg", "group": "Rendimiento", "risk": "bajo", "reboot": false,
+    "title": "Chrome y Edge se cierran de verdad",
+    "detail": "Al cerrar la ventana no se quedan en memoria ni arrancan con Windows. Chrome mostrará «Gestionado por tu organización»: es normal.",
+    "source": "Comparado con externo Tweaks; escrito aparte",
+    "ops": [
+      { "reg": "HKLM\\SOFTWARE\\Policies\\Google\\Chrome", "name": "BackgroundModeEnabled", "type": "dword", "value": 0 },
+      { "reg": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Edge", "name": "BackgroundModeEnabled", "type": "dword", "value": 0 },
+      { "reg": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Edge", "name": "StartupBoostEnabled", "type": "dword", "value": 0 }
+    ]
+  },
+  {
+    "id": "ad-id-off", "group": "Privacidad", "risk": "bajo", "reboot": false,
+    "title": "Sin identificador de anuncios",
+    "detail": "Las apps dejan de compartir un número tuyo para mostrarte anuncios.",
+    "source": "Comparado con externo Tweaks; escrito aparte",
+    "ops": [
+      { "reg": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\AdvertisingInfo", "name": "Enabled", "type": "dword", "value": 0 },
+      { "reg": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\AdvertisingInfo", "name": "DisabledByGroupPolicy", "type": "dword", "value": 1 }
+    ]
+  },
+  {
+    "id": "firefox-telemetry", "group": "Privacidad", "risk": "bajo", "reboot": false,
+    "title": "Firefox sin enviar datos de uso",
+    "detail": "Apaga la telemetría y el agente que revisa cuál es tu navegador predeterminado.",
+    "source": "Comparado con externo Tweaks; escrito aparte",
+    "ops": [
+      { "reg": "HKLM\\SOFTWARE\\Policies\\Mozilla\\Firefox", "name": "DisableTelemetry", "type": "dword", "value": 1 },
+      { "reg": "HKLM\\SOFTWARE\\Policies\\Mozilla\\Firefox", "name": "DisableDefaultBrowserAgent", "type": "dword", "value": 1 }
+    ]
+  },
+  {
+    "id": "wer-off", "group": "Privacidad", "risk": "bajo", "reboot": false,
+    "title": "No enviar informes de errores a Microsoft",
+    "detail": "Cuando un programa se cierra solo, Windows no prepara ni sube el informe. El Diagnóstico de Vigía sigue viendo los cierres.",
+    "source": "Comparado con externo Tweaks; escrito aparte",
+    "ops": [ { "reg": "HKLM\\SOFTWARE\\Microsoft\\Windows\\Windows Error Reporting", "name": "Disabled", "type": "dword", "value": 1 } ]
+  },
+  {
+    "id": "p2p-updates-off", "group": "Actualizaciones", "risk": "bajo", "reboot": false,
+    "title": "Actualizaciones sin compartir tu internet",
+    "detail": "Windows baja las actualizaciones solo de Microsoft y no usa tu conexión para mandarlas a otros PCs.",
+    "source": "Comparado con externo Tweaks; escrito aparte",
+    "ops": [ { "reg": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\DeliveryOptimization", "name": "DODownloadMode", "type": "dword", "value": 0 } ]
   }
 ]

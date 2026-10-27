@@ -73,6 +73,7 @@ public static class Tweaks
         if (op["reg"] is not null)
         {
             var (cur, _) = RegRead((string)op["reg"]!, (string)op["name"]!);
+            if (op["kv"] is not null) return KvGet(cur as string, (string)op["kv"]!) == (string)op["value"]!;
             if ((bool?)op["delete"] == true) return cur is null;
             return cur is not null && Same(cur, Target(op));
         }
@@ -168,7 +169,9 @@ public static class Tweaks
         for (int i = 0; i < d.Ops.Count; i++)
         {
             var op = d.Ops[i]!.AsObject();
-            if (op["reg"] is not null) o[i.ToString()] = Snap((string)op["reg"]!, (string)op["name"]!);
+            if (op["reg"] is not null && op["kv"] is not null)
+                o[i.ToString()] = new JsonObject { ["kvOld"] = KvGet(RegRead((string)op["reg"]!, (string)op["name"]!).value as string, (string)op["kv"]!) };
+            else if (op["reg"] is not null) o[i.ToString()] = Snap((string)op["reg"]!, (string)op["name"]!);
             else if (op["svc"] is not null)
             {
                 var k = $@"HKLM\SYSTEM\CurrentControlSet\Services\{(string)op["svc"]!}";
@@ -186,7 +189,8 @@ public static class Tweaks
     {
         if (op["reg"] is not null)
         {
-            if ((bool?)op["delete"] == true) RegDelete((string)op["reg"]!, (string)op["name"]!);
+            if (op["kv"] is not null) KvWrite((string)op["reg"]!, (string)op["name"]!, (string)op["kv"]!, (string)op["value"]!);
+            else if ((bool?)op["delete"] == true) RegDelete((string)op["reg"]!, (string)op["name"]!);
             else RegWrite((string)op["reg"]!, (string)op["name"]!, (string?)op["type"] ?? "dword", Target(op));
         }
         else if (op["svc"] is not null)
@@ -218,7 +222,8 @@ public static class Tweaks
     static void RevertOp(JsonObject op, JsonObject saved, int i)
     {
         var s = saved[i.ToString()] as JsonObject;
-        if (op["reg"] is not null && s is not null) Restore((string)op["reg"]!, (string)op["name"]!, s);
+        if (op["reg"] is not null && op["kv"] is not null && s is not null) KvWrite((string)op["reg"]!, (string)op["name"]!, (string)op["kv"]!, (string?)s["kvOld"]);
+        else if (op["reg"] is not null && s is not null) Restore((string)op["reg"]!, (string)op["name"]!, s);
         else if (op["svc"] is not null && s is not null)
         {
             var k = $@"HKLM\SYSTEM\CurrentControlSet\Services\{(string)op["svc"]!}";
@@ -306,6 +311,31 @@ public static class Tweaks
             return;
         }
         RegWrite(path, name, type, type is "dword" or "qword" ? long.Parse(val) : val);
+    }
+
+    // ---------- listas «clave=valor;» (p. ej. DirectXUserGlobalSettings) ----------
+    // Se cambia una sola clave y se respetan las demás: escribir la cadena entera borraría lo que puso Windows u otra app.
+    static List<(string k, string v)> KvParse(string? s) => (s ?? "").Split(';', StringSplitOptions.RemoveEmptyEntries)
+        .Select(p => p.Split('=', 2)).Where(p => p[0].Trim().Length > 0).Select(p => (p[0].Trim(), p.Length > 1 ? p[1].Trim() : "")).ToList();
+
+    internal static string? KvGet(string? s, string key) =>
+        KvParse(s).Where(p => p.k.Equals(key, StringComparison.OrdinalIgnoreCase)).Select(p => p.v).Cast<string?>().FirstOrDefault();
+
+    internal static string KvSet(string? s, string key, string? value)
+    {
+        var list = KvParse(s);
+        var i = list.FindIndex(p => p.k.Equals(key, StringComparison.OrdinalIgnoreCase));
+        if (value is null) { if (i >= 0) list.RemoveAt(i); }
+        else if (i >= 0) list[i] = (list[i].k, value);
+        else list.Add((key, value));
+        return string.Concat(list.Select(p => $"{p.k}={p.v};"));
+    }
+
+    static void KvWrite(string path, string name, string key, string? value)
+    {
+        var cur = RegRead(path, name).value as string;
+        var next = KvSet(cur, key, value);
+        if (next.Length == 0) RegDelete(path, name); else RegWrite(path, name, "string", next);
     }
 
     static object Target(JsonObject op)
@@ -409,12 +439,15 @@ public static class Tweaks
         try
         {
             RegDelete(K, "nuevo"); RegWrite(K, "existente", "dword", 7L); RegWrite(K, "texto", "string", "original"); RegWrite(K, "borrar", "dword", 1L);
+            RegWrite(K, "lista", "string", "SwapEffectUpgradeEnable=1;VRROptimizeEnable=0;");
             CatalogOverride = () => [JsonNode.Parse($$"""
                 {"id":"st","group":"t","title":"t","detail":"t","tested":true,"ops":[
                   {"reg":"{{K.Replace("\\", "\\\\")}}","name":"nuevo","type":"dword","value":4294967295},
                   {"reg":"{{K.Replace("\\", "\\\\")}}","name":"existente","type":"dword","value":0},
                   {"reg":"{{K.Replace("\\", "\\\\")}}","name":"texto","type":"string","value":"cambiado"},
                   {"reg":"{{K.Replace("\\", "\\\\")}}","name":"borrar","delete":true},
+                  {"reg":"{{K.Replace("\\", "\\\\")}}","name":"lista","kv":"GpuPreference","value":"2"},
+                  {"reg":"{{K.Replace("\\", "\\\\")}}","name":"lista","kv":"VRROptimizeEnable","value":"1"},
                   {"svc":"VigiaServicioQueNoExiste","start":4}]}
                 """)!.AsObject()];
             Check(List()[0].State == "off", "estado inicial = off");
@@ -422,6 +455,7 @@ public static class Tweaks
             Check(a.Ok && a.Results[0].State == "applied", $"aplicar -> {a.Results[0].State} {a.Results[0].Error}");
             Check(RegRead(K, "nuevo").value is int n && (uint)n == 0xFFFFFFFF, "dword 0xFFFFFFFF escrito");
             Check(RegRead(K, "borrar").value is null, "valor borrado");
+            Check((string?)RegRead(K, "lista").value == "SwapEffectUpgradeEnable=1;VRROptimizeEnable=1;GpuPreference=2;", $"lista: cambia una clave y respeta las demás ({RegRead(K, "lista").value})");
             var a2 = Apply(["st"]);
             Check(a2.Ok, "aplicar dos veces no pisa la copia original");
             var r = Revert(["st"]);
@@ -430,6 +464,7 @@ public static class Tweaks
             Check(RegRead(K, "existente").value is 7, "dword original restaurado (7)");
             Check((string?)RegRead(K, "texto").value == "original", "texto original restaurado");
             Check(RegRead(K, "borrar").value is 1, "valor borrado vuelve a existir");
+            Check((string?)RegRead(K, "lista").value == "SwapEffectUpgradeEnable=1;VRROptimizeEnable=0;", $"lista restaurada ({RegRead(K, "lista").value})");
             Check(!LoadBackup().ContainsKey("st"), "copia eliminada tras revertir");
             Check(Revert(["st"]).Results[0].Error is not null, "revertir sin copia avisa en vez de inventar");
         }

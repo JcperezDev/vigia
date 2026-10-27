@@ -160,7 +160,39 @@ public static class Diagnostics
             pending ? $"Windows tiene actualizaciones esperando un reinicio (encendido hace {uptime:0} h)." : $"Nada pendiente. Encendido hace {uptime:0} h.",
             Array.Empty<string>()));
 
+        items.Add(Clock());
+
         return new DiagReport(sys, days, items, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+    }
+
+    // --- Reloj del sistema ---
+    // Guías viejas de «más FPS» dejan opciones de arranque que empeoran la latencia en CPUs modernas.
+    // Solo se leen; Vigía no las cambia.
+    [System.Runtime.InteropServices.DllImport("ntdll.dll")]
+    static extern int NtQueryTimerResolution(out uint min, out uint max, out uint cur);
+
+    static DiagItem Clock()
+    {
+        var bad = new List<string>();
+        try
+        {
+            var bcd = Tweaks.Run("bcdedit.exe", "/enum {current}").output;
+            foreach (var (key, why) in new[] {
+                ("useplatformclock", "useplatformclock: obliga a usar el reloj HPET, más lento. Suele bajar FPS."),
+                ("useplatformtick", "useplatformtick: tick fijo de la placa en vez del de la CPU."),
+                ("disabledynamictick", "disabledynamictick: la CPU no descansa entre ticks. Más consumo, casi sin ganancia."),
+                ("tscsyncpolicy", "tscsyncpolicy: cambia cómo se sincroniza el reloj entre núcleos.") })
+                if (System.Text.RegularExpressions.Regex.IsMatch(bcd, $@"^\s*{key}\s+(Yes|Enhanced|Legacy|Default)\b", System.Text.RegularExpressions.RegexOptions.Multiline | System.Text.RegularExpressions.RegexOptions.IgnoreCase))
+                    bad.Add(why);
+        }
+        catch { }
+        var res = "";
+        try { if (NtQueryTimerResolution(out _, out var max, out var cur) == 0) { var es = System.Globalization.CultureInfo.GetCultureInfo("es-ES"); res = $" Resolución actual del temporizador: {(cur / 10000.0).ToString("0.0##", es)} ms (mejor posible {(max / 10000.0).ToString("0.0##", es)} ms)."; } }
+        catch { }
+        return bad.Count == 0
+            ? new DiagItem("ok", "Reloj del sistema", "El arranque usa el reloj por defecto de Windows." + res, Array.Empty<string>())
+            : new DiagItem("warn", "Reloj del sistema",
+                $"El arranque tiene {bad.Count} {(bad.Count == 1 ? "opción cambiada" : "opciones cambiadas")} por alguna guía de optimización. Para quitarla: bcdedit /deletevalue <nombre> como administrador." + res, bad);
     }
 
     static string BugCode(Ev e)
