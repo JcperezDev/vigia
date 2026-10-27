@@ -440,20 +440,22 @@
   // ---------- herramientas ----------
   function renderTools(p) {
     const mine = p.items.filter((t) => t.kind === 'folder');
-    $('tl-sub').textContent = `${mine.filter((t) => t.found).length} programas de ${p.root} y ${p.items.length - mine.length} herramientas de Windows. Vigía solo los abre; no los copia ni los cambia.`;
+    const apps = p.items.filter((t) => t.kind === 'app');
+    $('tl-sub').textContent = `${mine.filter((t) => t.found).length} programas de ${p.root}, ${apps.length === 1 ? '1 programa instalado' : `${apps.length} programas instalados`} y ${p.items.length - mine.length - apps.length} herramientas de Windows. Vigía solo los abre; no los copia ni los cambia.`;
     const groups = [...new Set(p.items.map((t) => t.group))];
     $('tl-groups').replaceChildren(...groups.map((g) => {
       const sec = el('section', 'tw-group'); sec.append(el('h2', null, g));
       const grid = el('div', 'tools');
       p.items.filter((t) => t.group === g).forEach((t) => {
         const card = el('div', 'tool');
-        const b = el('button', 'btn', t.kind === 'cmd' || t.kind === 'action' ? 'Ejecutar' : 'Abrir'); b.disabled = !t.found;
+        const install = t.kind === 'app' && !t.found;
+        const b = el('button', 'btn', install ? 'Instalar' : t.kind === 'cmd' || t.kind === 'action' ? 'Ejecutar' : 'Abrir'); b.disabled = !t.found && !install;
         b.dataset.tool = t.id;
         b.addEventListener('click', () => {
           if (t.id === 'restorepoint') busyBtn(b, true, 'Creando…');
           send({ cmd: 'toolOpen', id: t.id });
         });
-        card.append(el('strong', null, t.name), b, el('p', null, t.found ? t.detail : 'No está en la carpeta.'));
+        card.append(el('strong', null, t.name), b, el('p', null, t.found || install ? t.detail + (install ? ' No está instalado: se instala desde winget.' : '') : 'No está en la carpeta.'));
         if (t.warning) card.append(el('p', 'warn', t.warning));
         grid.append(card);
       });

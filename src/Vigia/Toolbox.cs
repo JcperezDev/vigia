@@ -13,10 +13,11 @@ public record ToolDone(string Id, bool Ok, string? Message);
 public static class Toolbox
 {
     // Kind: "folder" = ruta dentro de la carpeta; "win" = programa, panel o página de Configuración;
-    //       "cmd" = orden de consola que se abre en su propia ventana; "action" = la hace Vigía.
-    record Def(string Id, string Group, string Name, string Detail, string Target, string Kind = "folder", string? Warning = null);
+    //       "cmd" = orden de consola que se abre en su propia ventana; "action" = la hace Vigía;
+    //       "app" = programa instalado (rutas separadas por |); si no está, se instala con winget (id en Winget).
+    record Def(string Id, string Group, string Name, string Detail, string Target, string Kind = "folder", string? Warning = null, string? Winget = null);
 
-    const string Folder = "folder", Win = "win", Cmd = "cmd", Act = "action";
+    const string Folder = "folder", Win = "win", Cmd = "cmd", Act = "action", App = "app";
 
     static readonly Def[] Catalog =
     [
@@ -24,6 +25,9 @@ public static class Toolbox
         new("autoruns", "Inicio de Windows", "Autoruns", "Todo lo que arranca con Windows: programas, servicios, tareas y drivers.", @"5 - Programs\Autoruns.exe"),
         new("geek", "Programas", "Geek Uninstaller", "Desinstala programas y borra las carpetas y claves que dejan atrás.", @"12- Apps\geek.exe"),
         new("cpuz", "Información", "CPU-Z", "Modelo exacto de CPU, placa y RAM con sus tiempos.", @"12- Apps\cpu-z_2.13-en.exe"),
+        new("fancontrol", "Ventiladores", "FanControl", "Curvas de ventiladores de CPU, GPU y caja según la temperatura que elijas. Gratis.",
+            @"%ProgramFiles(x86)%\FanControl\FanControl.exe|%ProgramFiles%\FanControl\FanControl.exe|%LOCALAPPDATA%\Programs\FanControl\FanControl.exe", App,
+            "No uses a la vez la curva de ventiladores de MSI Afterburner: los dos se pelean por la GPU.", "Rem0o.FanControl"),
         new("afterburner", "GPU", "MSI Afterburner (instalador)", "Curva de ventiladores, límite de energía y contador de FPS en pantalla.", @"12- Apps\MSIAfterburnerSetup466Beta3.exe"),
         new("inspector", "GPU", "NVIDIA Profile Inspector", "Ajustes ocultos del driver por juego. Tu perfil «Nvidia Perfil Optimizado.nip» está en la misma carpeta: se carga con «Import profile».", @"7- AMD OR NVIDIA\NVIDIA\Nvidia Inspector\nvidiaProfileInspector.exe"),
         new("nvcleanstall", "GPU", "NVCleanstall", "Instala el driver de NVIDIA sin telemetría ni extras.", @"7- AMD OR NVIDIA\NVIDIA\NVCleanstall_1.17.0.exe"),
@@ -104,6 +108,11 @@ public static class Toolbox
     {
         var items = Catalog.Select(d =>
         {
+            if (d.Kind == App)
+            {
+                var exe = AppPath(d);
+                return new ToolItem(d.Id, d.Group, d.Name, d.Detail, exe ?? "", exe is not null, d.Warning, d.Kind);
+            }
             var p = d.Kind == Folder ? Path.Combine(root, d.Target) : Environment.ExpandEnvironmentVariables(d.Target);
             return new ToolItem(d.Id, d.Group, d.Name, d.Detail, p, d.Kind != Folder || File.Exists(p), d.Warning, d.Kind);
         }).ToList();
@@ -132,6 +141,8 @@ public static class Toolbox
             yield return new ToolItem("x:" + rel, "Otros de tu carpeta", Path.GetFileNameWithoutExtension(f), rel, f, true, null, Folder);
         }
     }
+
+    static string? AppPath(Def d) => d.Target.Split('|').Select(Environment.ExpandEnvironmentVariables).FirstOrDefault(File.Exists);
 
     public static ToolDone Open(string root, string id)
     {
@@ -163,6 +174,13 @@ public static class Toolbox
                     // el eco lleva los & escapados: si no, cmd ejecutaría la orden dos veces
                     Start("cmd.exe", $"/k title {d.Name} & echo {d.Target.Replace("&", "^&")} & echo. & {d.Target}", null);
                     return new(id, true, $"{d.Name}: se abrió en otra ventana.");
+                case App:
+                    var exe = AppPath(d);
+                    if (exe is not null) { Start(exe, null, Path.GetDirectoryName(exe)); return new(id, true, null); }
+                    if (d.Winget is null) return new(id, false, $"{d.Name} no está instalado.");
+                    // instalación oficial con winget en su propia ventana, para ver el progreso
+                    Start("cmd.exe", $"/k title Instalando {d.Name} & winget install -e --id {d.Winget} --accept-package-agreements --accept-source-agreements", null);
+                    return new(id, true, $"{d.Name} se está instalando en otra ventana. Cuando termine, vuelve a Herramientas.");
                 case Act when id == "restorepoint":
                     var r = RestorePoint.Create("Vigía: punto manual");
                     return new(id, r.Ok, r.Message);
