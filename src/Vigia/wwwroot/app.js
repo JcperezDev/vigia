@@ -52,6 +52,7 @@
     $('ram-bar').style.width = r.totalGb ? `${(r.usedGb / r.totalGb) * 100}%` : '0';
     $('ram-speed').textContent = r.speedMts ? `${r.speedMts} MT/s` : 'N/D';
     $('ram-lat').textContent = r.cl ? `CL${r.cl} · ${fmt(r.latencyNs, 1)} ns` : 'N/D';
+    $('ram-temp').textContent = fmt(r.temp, 0, ' °C');
 
     $('privilege').innerHTML = s.elevated
       ? '<strong>Modo administrador</strong>Sensores completos.'
@@ -74,7 +75,7 @@
       li.className = 'drive';
       li.innerHTML = `<span class="letter"></span><div><span class="name"></span><div class="bar"><i></i></div></div><div class="nums"><b></b><span></span></div>`;
       li.querySelector('.letter').textContent = d.letter;
-      li.querySelector('.name').textContent = `${d.label}${d.temp != null ? ` · ${fmt(d.temp)} °C` : ''}`;
+      li.querySelector('.name').textContent = [d.label, d.model, d.temp != null ? `${fmt(d.temp)} °C` : null].filter(Boolean).join(' · ');
       const bar = li.querySelector('.bar i');
       bar.style.width = `${pct}%`;
       bar.classList.toggle('full', pct >= 90);
@@ -97,7 +98,7 @@
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     draw();
   }
-  window.addEventListener('resize', resize);
+  new ResizeObserver(resize).observe(cv);
 
   function draw() {
     const w = cv.clientWidth, h = cv.clientHeight;

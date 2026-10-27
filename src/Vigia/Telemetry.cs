@@ -5,8 +5,8 @@ namespace Vigia;
 
 public sealed record CpuInfo(string Name, int Cores, int Threads, double? ClockGhz, double? Load, double? Temp);
 public sealed record GpuInfo(string Name, double? Load, double? Temp, double? CoreClockMhz, double? VramUsedGb, double? VramTotalGb);
-public sealed record RamInfo(double UsedGb, double TotalGb, int? SpeedMts, string? Type, int? Cl, double? LatencyNs);
-public sealed record DiskInfo(string Letter, string Label, double UsedGb, double FreeGb, double TotalGb, double? Temp);
+public sealed record RamInfo(double UsedGb, double TotalGb, int? SpeedMts, string? Type, int? Cl, double? LatencyNs, double? Temp);
+public sealed record DiskInfo(string Letter, string Label, double UsedGb, double FreeGb, double TotalGb, double? Temp, string? Model);
 public sealed record Snapshot(long Ts, bool Elevated, CpuInfo Cpu, GpuInfo? Gpu, RamInfo Ram, IReadOnlyList<DiskInfo> Drives, IReadOnlyList<string> Notes);
 
 /// <summary>Lecturas de hardware: LibreHardwareMonitor para sensores, WMI para datos estáticos.</summary>
@@ -17,6 +17,8 @@ public sealed class Telemetry : IDisposable
     readonly string _cpuName; readonly int _cores, _threads;
     readonly int? _ramSpeed; readonly string? _ramType;
     readonly List<string> _notes = new();
+    readonly Dictionary<string, string> _diskModel = new(StringComparer.OrdinalIgnoreCase);
+    static string Norm(string s) => new string(s.Where(char.IsLetterOrDigit).ToArray()).ToUpperInvariant();
 
     public Telemetry()
     {
@@ -35,6 +37,13 @@ public sealed class Telemetry : IDisposable
             _ramSpeed ??= o["ConfiguredClockSpeed"] is null ? null : Convert.ToInt32(o["ConfiguredClockSpeed"]);
             _ramType ??= Convert.ToInt32(o["SMBIOSMemoryType"] ?? 0) switch { 34 => "DDR5", 26 => "DDR4", 24 => "DDR3", _ => null };
         }
+        // letra de unidad -> modelo del disco físico
+        var models = new Dictionary<uint, string>();
+        foreach (var disk in Wmi("SELECT Index, Model FROM Win32_DiskDrive"))
+            if (disk["Index"] is uint ix && ((string?)disk["Model"])?.Trim() is { Length: > 0 } m) models[ix] = m;
+        foreach (var p in Wmi("SELECT DiskNumber, DriveLetter FROM MSFT_Partition", @"root\Microsoft\Windows\Storage"))
+            if ((p["DriveLetter"] switch { char ch => ch, ushort u => (char)u, _ => '\0' }) is var c && char.IsLetter(c) && models.TryGetValue(Convert.ToUInt32(p["DiskNumber"]), out var model))
+                _diskModel[$"{c}:"] = model;
         if (!Elevated) _notes.Add("Sin privilegios de administrador: temperaturas y timings pueden no estar disponibles.");
     }
 
@@ -47,12 +56,12 @@ public sealed class Telemetry : IDisposable
         }
     }
 
-    static IEnumerable<ManagementBaseObject> Wmi(string q)
+    // Materializa dentro del try: WMI puede fallar durante la enumeración, no solo en Get().
+    static List<ManagementBaseObject> Wmi(string q, string scope = @"root\cimv2")
     {
-        ManagementObjectCollection? res = null;
-        try { res = new ManagementObjectSearcher(q).Get(); } catch { }
-        if (res is null) yield break;
-        foreach (var o in res) yield return o;
+        var list = new List<ManagementBaseObject>();
+        try { using var s = new ManagementObjectSearcher(scope, q); foreach (var o in s.Get()) list.Add(o); } catch { }
+        return list;
     }
 
     static double? S(IHardware h, SensorType t, params string[] names)
@@ -87,9 +96,10 @@ public sealed class Telemetry : IDisposable
                 foreach (var o in Wmi("SELECT CurrentClockSpeed FROM Win32_Processor")) { clock = Math.Round(Convert.ToDouble(o["CurrentClockSpeed"]) / 1000, 2); break; }
             var cpu = new CpuInfo(_cpuName, _cores, _threads, clock, load, temp);
 
-            // GPU (dedicada primero, luego integrada)
-            var gpuH = hw.FirstOrDefault(h => h.HardwareType is HardwareType.GpuNvidia or HardwareType.GpuAmd)
-                       ?? hw.FirstOrDefault(h => h.HardwareType == HardwareType.GpuIntel);
+            // GPU: la de más VRAM dedicada (evita escoger la integrada del procesador)
+            var gpuH = hw.Where(h => h.HardwareType is HardwareType.GpuNvidia or HardwareType.GpuAmd or HardwareType.GpuIntel)
+                         .OrderByDescending(h => S(h, SensorType.SmallData, "GPU Memory Total", "D3D Dedicated Memory Total") ?? 0)
+                         .FirstOrDefault();
             GpuInfo? gpu = gpuH is null ? null : new GpuInfo(
                 gpuH.Name,
                 S(gpuH, SensorType.Load, "GPU Core", "D3D 3D"),
@@ -108,21 +118,37 @@ public sealed class Telemetry : IDisposable
                 {
                     var tot = Convert.ToDouble(o["TotalVisibleMemorySize"]) / 1048576; avail = Convert.ToDouble(o["FreePhysicalMemory"]) / 1048576; used = tot - avail;
                 }
-            // CL desde SPD si LHM expone la DIMM (requiere admin + PawnIO)
-            int? cl = null;
-            foreach (var d in hw.Where(h => h.HardwareType == HardwareType.Memory))
-                foreach (var s in d.Sensors)
-                    if (s.Name.Contains("CAS", StringComparison.OrdinalIgnoreCase) || s.Name.Equals("tCL", StringComparison.OrdinalIgnoreCase))
-                        if (s.Value is float v && v > 0) { cl ??= (int)v; }
-            double? ns = cl is int c && _ramSpeed is int sp && sp > 0 ? Math.Round(c * 2000.0 / sp, 1) : null;
-            var ram = new RamInfo(Math.Round(used, 1), Math.Round(used + avail, 1), _ramSpeed, _ramType, cl, ns);
+            // CL: el SPD da tAA en nanosegundos (no en ciclos). CL = ceil(tAA / tCK) a la velocidad actual;
+            // en DDR5 el CL es par. Es el CL JEDEC del módulo, no el timing leído del controlador.
+            var dimms = hw.Where(h => h.HardwareType == HardwareType.Memory && h.Sensors.Any(s => s.SensorType == SensorType.Timing)).ToList();
+            double? taa = dimms.Select(d => S(d, SensorType.Timing, "tAA (CAS Latency Time)")).FirstOrDefault(v => v > 0);
+            int? cl = null; double? ns = null;
+            if (taa is double t && _ramSpeed is int sp && sp > 0)
+            {
+                var tck = 2000.0 / sp;
+                var c = (int)Math.Ceiling(t / tck - 0.025);
+                if (_ramType == "DDR5" && c % 2 == 1) c++;
+                cl = c; ns = Math.Round(c * tck, 1);
+            }
+            var ramTemp = dimms.Select(d => d.Sensors.Where(s => s.SensorType == SensorType.Temperature && s.Name.StartsWith("DIMM #") && s.Value > 0)
+                                                     .Select(s => (double?)s.Value).Max()).Max();
+            var ram = new RamInfo(Math.Round(used, 1), Math.Round(used + avail, 1), _ramSpeed, _ramType, cl, ns, ramTemp is double rt ? Math.Round(rt, 1) : null);
 
             // Discos
-            var storTemps = hw.Where(h => h.HardwareType == HardwareType.Storage).Select(h => S(h, SensorType.Temperature, "Temperature", "Composite Temperature")).Where(t => t is not null).ToList();
-            var drives = System.IO.DriveInfo.GetDrives().Where(d => d.IsReady && d.DriveType == DriveType.Fixed).Select((d, i) =>
-                new DiskInfo(d.Name.TrimEnd('\\'), string.IsNullOrWhiteSpace(d.VolumeLabel) ? "Disco local" : d.VolumeLabel,
+            // Temperatura por letra: letra -> modelo físico (WMI) -> sensor LHM con ese nombre
+            var storage = hw.Where(h => h.HardwareType == HardwareType.Storage).ToList();
+            var drives = System.IO.DriveInfo.GetDrives().Where(d => d.IsReady && d.DriveType == DriveType.Fixed).Select(d =>
+            {
+                var letter = d.Name.TrimEnd('\\');
+                _diskModel.TryGetValue(letter, out var model);
+                var sh = model is null ? null : storage.FirstOrDefault(h => Norm(h.Name) == Norm(model))
+                         ?? storage.FirstOrDefault(h => Norm(h.Name).Contains(Norm(model)) || Norm(model).Contains(Norm(h.Name)));
+                return new DiskInfo(letter, string.IsNullOrWhiteSpace(d.VolumeLabel) ? "Disco local" : d.VolumeLabel,
                     Math.Round((d.TotalSize - d.TotalFreeSpace) / 1073741824.0, 1), Math.Round(d.TotalFreeSpace / 1073741824.0, 1),
-                    Math.Round(d.TotalSize / 1073741824.0, 1), i < storTemps.Count ? storTemps[i] : null)).ToList();
+                    Math.Round(d.TotalSize / 1073741824.0, 1),
+                    sh is null ? null : S(sh, SensorType.Temperature, "Composite Temperature", "Temperature"),
+                    model);
+            }).ToList();
 
             return new Snapshot(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), Elevated, cpu, gpu, ram, drives, _notes);
         }

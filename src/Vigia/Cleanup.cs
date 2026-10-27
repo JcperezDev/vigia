@@ -46,13 +46,55 @@ public static class Cleanup
     public static CleanResult Run(IEnumerable<string> ids)
     {
         var set = ids.ToHashSet();
+        return RunPaths(Roots().Where(r => set.Contains(r.id)).Select(r => r.path));
+    }
+
+    /// <summary>Borra solo archivos (nunca carpetas ni enlaces) con más de 24 h bajo las rutas dadas.</summary>
+    internal static CleanResult RunPaths(IEnumerable<string> roots)
+    {
         long freed = 0; int del = 0, skip = 0;
-        foreach (var r in Roots().Where(r => set.Contains(r.id)))
-            foreach (var f in Files(r.path).ToList())
+        foreach (var root in roots)
+            foreach (var f in Files(root).ToList())
             {
                 try { var len = f.Length; f.Delete(); freed += len; del++; }
                 catch { skip++; }
             }
         return new CleanResult(freed, del, skip);
+    }
+
+    /// <summary>Prueba en una carpeta aislada: archivo viejo, archivo nuevo, archivo bloqueado y junction hacia fuera.</summary>
+    internal static string SelfTest()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "vigia-selftest-" + Guid.NewGuid().ToString("N"));
+        var outside = root + "-outside";
+        Directory.CreateDirectory(Path.Combine(root, "sub"));
+        Directory.CreateDirectory(outside);
+        var old = DateTime.UtcNow.AddDays(-3);
+        void Mk(string p, bool aged) { File.WriteAllText(p, new string('x', 1000)); if (aged) File.SetLastWriteTimeUtc(p, old); }
+        Mk(Path.Combine(root, "viejo.tmp"), true);
+        Mk(Path.Combine(root, "sub", "viejo2.tmp"), true);
+        Mk(Path.Combine(root, "nuevo.tmp"), false);
+        Mk(Path.Combine(root, "bloqueado.tmp"), true);
+        Mk(Path.Combine(outside, "protegido.txt"), true);
+        var link = Path.Combine(root, "enlace");
+        var mk = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("cmd.exe", $"/c mklink /J \"{link}\" \"{outside}\"") { CreateNoWindow = true, UseShellExecute = false });
+        mk!.WaitForExit();
+        CleanResult r;
+        using (File.Open(Path.Combine(root, "bloqueado.tmp"), FileMode.Open, FileAccess.Read, FileShare.None))
+            r = RunPaths(new[] { root });
+        var checks = new (string what, bool ok)[]
+        {
+            ("viejo borrado", !File.Exists(Path.Combine(root, "viejo.tmp"))),
+            ("viejo en subcarpeta borrado", !File.Exists(Path.Combine(root, "sub", "viejo2.tmp"))),
+            ("nuevo (<24h) intacto", File.Exists(Path.Combine(root, "nuevo.tmp"))),
+            ("bloqueado saltado", File.Exists(Path.Combine(root, "bloqueado.tmp")) && r.Skipped == 1),
+            ("junction creada", Directory.Exists(link)),
+            ("destino del junction intacto", File.Exists(Path.Combine(outside, "protegido.txt"))),
+            ("conteo = 2 borrados / 2000 bytes", r.Deleted == 2 && r.FreedBytes == 2000),
+        };
+        try { Directory.Delete(link); } catch { }
+        try { Directory.Delete(root, true); Directory.Delete(outside, true); } catch { }
+        var lines = checks.Select(c => $"{(c.ok ? "OK  " : "FAIL")} {c.what}");
+        return string.Join(Environment.NewLine, lines) + Environment.NewLine + (checks.All(c => c.ok) ? "SELFTEST PASS" : "SELFTEST FAIL");
     }
 }
