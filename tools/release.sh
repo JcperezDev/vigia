@@ -20,9 +20,11 @@ V=$(sed -n 's|.*<Version>\(.*\)</Version>.*|\1|p' src/Vigia/Vigia.csproj)
 
 TOKEN=$(printf 'protocol=https\nhost=github.com\n\n' | git credential fill 2>/dev/null | sed -n 's/^password=//p')
 [ -n "$TOKEN" ] || { echo "git no tiene sesión de GitHub."; exit 1; }
+DISCARD="$ROOT/out/.discard"  # mingw curl falla (23) al escribir en /dev/null
 api() { curl -sS -H "Authorization: token $TOKEN" -H "Accept: application/vnd.github+json" "$@"; }
 
-if [ "$(api -o /dev/null -w '%{http_code}' "https://api.github.com/repos/$PUB_REPO/releases/tags/v$V")" = 200 ]; then
+mkdir -p out
+if [ "$(api -o "$DISCARD" -w '%{http_code}' "https://api.github.com/repos/$PUB_REPO/releases/tags/v$V")" = 200 ]; then
   echo "v$V ya está publicada. Sube <Version> en src/Vigia/Vigia.csproj y src/Vigia/app.manifest."; exit 1
 fi
 
@@ -49,7 +51,7 @@ node -e "require('fs').writeFileSync(process.argv[1], JSON.stringify({tag_name:'
 api -o "$OUT/release-out.json" -H "Content-Type: application/json; charset=utf-8" --data-binary "@$OUT/release.json" "https://api.github.com/repos/$PUB_REPO/releases"
 RID=$(node -e "const r=require(process.argv[1]); if(!r.id){console.error(JSON.stringify(r)); process.exit(1)} console.log(r.id)" "$OUT/release-out.json")
 for f in "$ZIP" "$ZIP.sig" Puente.exe Puente.exe.sig; do
-  code=$(api -o /dev/null -w '%{http_code}' -H "Content-Type: application/octet-stream" --data-binary "@$OUT/$f" \
+  code=$(api -o "$DISCARD" -w '%{http_code}' -H "Content-Type: application/octet-stream" --data-binary "@$OUT/$f" \
     "https://uploads.github.com/repos/$PUB_REPO/releases/$RID/assets?name=$f")
   echo "  $f: $code"; [ "$code" = 201 ] || exit 1
 done
