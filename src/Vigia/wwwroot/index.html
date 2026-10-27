@@ -24,8 +24,22 @@
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-4.4-7-10.2A4.3 4.3 0 0 1 12 8a4.3 4.3 0 0 1 7 2.8C19 16.6 12 21 12 21Z"/><path d="M8 12.5h2.2l1.3-2.5 2 4 1.2-1.5H16"/></svg>Salud de discos
     </button>
     <button class="nav" data-view="opt">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 3 5 13.5h6L10 21l8-10.5h-6L13 3Z"/></svg>Optimizar
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 3 5 13.5h6L10 21l8-10.5h-6L13 3Z"/></svg>Optimizar discos
     </button>
+    <p class="rail-sep">Rendimiento</p>
+    <button class="nav" data-view="mem">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="7" width="18" height="10" rx="1.5"/><path d="M7 7v10M11 7v10M15 7v10M6 17v3M18 17v3"/></svg>Memoria
+    </button>
+    <button class="nav" data-view="tweaks">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>Ajustes
+    </button>
+    <button class="nav" data-view="apps">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1"/><rect x="13" y="4" width="7" height="7" rx="1"/><rect x="4" y="13" width="7" height="7" rx="1"/><path d="m14 14 5 5M19 14l-5 5"/></svg>Apps de Windows
+    </button>
+    <button class="nav" data-view="tools">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.2L4 16.8V20h3.2l5.3-5.3a4 4 0 0 0 5.2-5.4l-2.4 2.4-2.6-.6-.6-2.6 2.6-2.2Z"/></svg>Herramientas
+    </button>
+    <p class="rail-sep">Sistema</p>
     <button class="nav" data-view="diag">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4h6M10 4v2M14 4v2"/><rect x="5" y="6" width="14" height="15" rx="2"/><path d="M9 11h6M9 15h4"/></svg>Diagnóstico
     </button>
@@ -36,7 +50,7 @@
     <section class="view" id="view-monitor">
       <header class="head">
         <h1>Monitor</h1>
-        <p class="live"><span class="dot" aria-hidden="true"></span><span id="clock">conectando…</span></p>
+        <p class="stale" id="clock" hidden></p>
       </header>
 
       <div class="band" role="group" aria-label="Lecturas actuales">
@@ -133,6 +147,81 @@
         <p class="op-line" id="op-line"></p>
       </section>
       <p class="op-result" id="op-result" aria-live="polite"></p>
+    </section>
+
+    <section class="view" id="view-mem" hidden>
+      <header class="head">
+        <div><h1>Memoria</h1><p class="sub">Libera RAM sin cerrar programas, con las mismas funciones de Windows que usan Mem Reduct e ISLC.</p></div>
+        <button class="btn primary" id="m-free">Liberar ahora</button>
+      </header>
+      <div class="memmap" aria-hidden="true"><i class="m-used"></i><i class="m-mod"></i><i class="m-stby"></i><i class="m-free"></i></div>
+      <dl class="sysinfo" id="memstats"></dl>
+      <p class="result" id="m-result" aria-live="polite"></p>
+      <div class="cols">
+        <fieldset class="box">
+          <legend>Qué liberar</legend>
+          <label class="chk"><input type="checkbox" data-opt="workingSets" checked><span><b>Memoria de los procesos</b>Saca a disco las páginas que los programas no están usando. Vuelven solas si las necesitan.</span></label>
+          <label class="chk"><input type="checkbox" data-opt="fileCache" checked><span><b>Caché de archivos del sistema</b>Archivos que Windows dejó abiertos en memoria.</span></label>
+          <label class="chk"><input type="checkbox" data-opt="modified" checked><span><b>Páginas modificadas</b>Escribe al disco lo pendiente para que esa memoria quede libre.</span></label>
+          <label class="chk"><input type="checkbox" data-opt="standby" checked><span><b>Caché en espera</b>Lo que más ocupa. Es lo que limpia ISLC.</span></label>
+          <label class="chk"><input type="checkbox" data-opt="combine" checked><span><b>Combinar páginas repetidas</b>Junta copias idénticas de la misma página.</span></label>
+        </fieldset>
+        <fieldset class="box">
+          <legend>Automático</legend>
+          <label class="chk"><input type="checkbox" id="m-auto"><span><b>Liberar sola cuando la memoria pase de <input type="number" id="m-thr" min="50" max="98" step="1" value="85"> %</b>Como máximo una vez cada <input type="number" id="m-int" min="1" max="120" step="1" value="5"> min. Solo vacía la caché de baja prioridad, para no dar tirones en mitad de una partida.</span></label>
+          <p class="note">Funciona mientras Vigía esté abierta.</p>
+          <p class="note">Windows usa la RAM libre como caché porque así abre las cosas más rápido, y la vuelve a llenar. Liberarla ayuda cuando un juego se queda corto de memoria o da tirones después de horas; no acelera el PC por sí sola.</p>
+        </fieldset>
+      </div>
+    </section>
+
+    <section class="view" id="view-tweaks" hidden>
+      <header class="head">
+        <div><h1>Ajustes</h1><p class="sub" id="tw-sub">De tus carpetas de pack externo, de externo y de los recomendados de externo. Vigía guarda el valor que tenías antes de cada cambio y lo puede devolver.</p></div>
+        <div class="actions">
+          <button class="btn" id="tw-revert" disabled>Deshacer</button>
+          <button class="btn primary" id="tw-apply" disabled>Aplicar</button>
+        </div>
+      </header>
+      <p class="result" id="tw-result" aria-live="polite"></p>
+      <div id="tw-groups"><p class="empty">Leyendo el estado actual…</p></div>
+      <section class="box utilidad-externa">
+        <div><h2>utilidad externa de externo</h2><p class="note">Abre la herramienta original en PowerShell. Se descarga de externo.com en ese momento y corre como administrador; Vigía crea antes un punto de restauración. Lo que marques ahí no lo puede deshacer Vigía.</p></div>
+        <button class="btn" id="tw-utilidad-externa">Abrir utilidad externa</button>
+      </section>
+      <details class="box excluded">
+        <summary>Lo que Vigía deja fuera de tus carpetas, y por qué</summary>
+        <ul>
+          <li><b>Aplicar antes de comenzar.reg</b> (externo): apaga el Control de cuentas (UAC). Cualquier programa tendría permisos de administrador sin preguntarte.</li>
+          <li><b>Ajustes de configuración de características.bat</b>: quita las protecciones contra Spectre y Meltdown. Con Defender apagado en este PC, es demasiado.</li>
+          <li><b>5; Optimización de la memoria</b> (externo): quita el archivo de paginación. Juegos y Chrome se cierran solos cuando se llena la RAM.</li>
+          <li><b>9- Disable Windows Update</b> (Wub): sin parches de seguridad. Vigía lo cambia por «Windows Update sin sorpresas».</li>
+          <li><b>2.bat</b> (DisableDynamicPstate): deja la GPU siempre a máxima frecuencia. Más calor y consumo; solo en la máquina virtual de pruebas.</li>
+          <li><b>Extra\Internet</b> y <b>7; Optimizar la Red</b>: TcpWindowSize, TcpNumConnections, chimney, netdma y dca no tienen efecto en Windows 11.</li>
+          <li><b>Extra\Configuraciones bajos recursos</b>: escriben en la GPU número 0000 sin comprobar que sea tu NVIDIA.</li>
+          <li><b>Eliminar limite de ram</b> e <b>IoPageLockLimit</b>: Windows ignora ese valor desde XP.</li>
+          <li><b>Enable Clear Pagefile at Shutdown</b>: solo hace que apagar tarde más.</li>
+          <li><b>DPS, NcbService, SharedAccess y wlidsvc</b> (externo 3): rompen el solucionador de red, el estado de la conexión, la zona Wi-Fi y el inicio de sesión con cuenta Microsoft.</li>
+          <li><b>Mouse Overcloock</b> y <b>Boost de USB</b>: instalan un driver sin firma de Microsoft.</li>
+          <li><b>Active win 11 pro</b>, <b>IObit Driver Booster Pro</b> y <b>Optimizer</b>: activación no oficial, versión Pro sin licencia, y un optimizador que apaga Defender.</li>
+        </ul>
+      </details>
+    </section>
+
+    <section class="view" id="view-apps" hidden>
+      <header class="head">
+        <div><h1>Apps de Windows</h1><p class="sub">Quita apps que vienen con Windows. Se borran solo para tu usuario y se pueden volver a instalar desde Microsoft Store.</p></div>
+        <button class="btn primary" id="ap-remove" disabled>Quitar seleccionadas</button>
+      </header>
+      <p class="result" id="ap-result" aria-live="polite"></p>
+      <ul class="rows" id="ap-list"><li class="empty">Buscando apps instaladas…</li></ul>
+    </section>
+
+    <section class="view" id="view-tools" hidden>
+      <header class="head">
+        <div><h1>Herramientas</h1><p class="sub" id="tl-sub">Programas de tu carpeta. Vigía solo los abre.</p></div>
+      </header>
+      <div id="tl-groups"></div>
     </section>
 
     <section class="view" id="view-diag" hidden>

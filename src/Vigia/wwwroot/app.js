@@ -4,7 +4,8 @@
   const host = window.chrome && window.chrome.webview;
   const send = (msg) => host && host.postMessage(msg);
 
-  const fmt = (v, d = 0, unit = '') => (v === null || v === undefined || Number.isNaN(v)) ? 'N/D' : `${Number(v).toFixed(d)}${unit}`;
+  const fmt = (v, d = 0, unit = '') => (v === null || v === undefined || Number.isNaN(v)) ? 'N/D'
+    : `${Number(v).toLocaleString('es', { minimumFractionDigits: d, maximumFractionDigits: d })}${unit}`;
   const gb = (b) => b >= 1073741824 ? `${(b / 1073741824).toFixed(2)} GB` : b >= 1048576 ? `${(b / 1048576).toFixed(1)} MB` : `${Math.round(b / 1024)} KB`;
 
   // ---------- navegación ----------
@@ -15,6 +16,12 @@
   }));
 
   // ---------- telemetría ----------
+  // Solo se avisa cuando los datos dejan de llegar; si todo va bien no hace falta decirlo.
+  let lastTs = 0;
+  setInterval(() => {
+    const s = Math.round((Date.now() - lastTs) / 1000);
+    if (lastTs && s >= 5) { $('clock').hidden = false; $('clock').textContent = `Sin lecturas desde hace ${s} s`; }
+  }, 1000);
   const hist = [];      // {t, ct, gt, cl}
   const MAX = 300;
   let win = 60;
@@ -28,8 +35,8 @@
   }
 
   function render(s) {
-    $('clock').textContent = `en vivo · ${new Date(s.ts).toLocaleTimeString('es')}`;
-    $('clock').parentElement.classList.add('on');
+    lastTs = Date.now();
+    $('clock').hidden = true;
 
     const c = s.cpu;
     $('cpu-name').textContent = c.name;
@@ -295,6 +302,161 @@
     }));
   }
 
+
+  // ---------- memoria ----------
+  const GBf = (v) => `${(v ?? 0).toLocaleString('es', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} GB`;
+  function renderMem(m) {
+    const t = m.totalGb || 1;
+    const procs = Math.max(0, m.usedGb - m.modifiedGb);
+    const w = (v) => `${Math.max(0, (v / t) * 100)}%`;
+    const map = document.querySelector('.memmap');
+    map.querySelector('.m-used').style.width = w(procs);
+    map.querySelector('.m-mod').style.width = w(m.modifiedGb);
+    map.querySelector('.m-stby').style.width = w(m.standbyGb);
+    const sw = (c) => { const i = el('i'); i.style.background = c; return i; };
+    const dt = (c, label) => { const d = el('dt'); if (c) d.append(sw(c)); d.append(label); return d; };
+    const item = (c, label, value) => { const d = el('div'); d.append(dt(c, label), el('dd', null, value)); return d; };
+    $('memstats').replaceChildren(
+      item('var(--violet)', 'En uso', `${GBf(m.usedGb)} de ${GBf(m.totalGb)} · ${m.loadPct} %`),
+      item('oklch(0.48 0.04 245)', 'Caché en espera', `${GBf(m.standbyGb)} · ${GBf(m.standbyLowGb)} de baja prioridad`),
+      item('var(--amber)', 'Modificada', GBf(m.modifiedGb)),
+      item(null, 'Libre sin caché', GBf(m.freeGb)),
+    );
+  }
+  function memOpts() {
+    const o = {};
+    document.querySelectorAll('#view-mem [data-opt]').forEach((c) => { o[c.dataset.opt] = c.checked; });
+    return o;
+  }
+  $('m-free').addEventListener('click', () => {
+    busyBtn($('m-free'), true, 'Liberando…');
+    send({ cmd: 'memFree', opts: memOpts() });
+  });
+  let cfg = null;
+  function saveCfg() {
+    if (!cfg) return;
+    cfg.memAuto = $('m-auto').checked;
+    cfg.memAutoThreshold = Number($('m-thr').value) || 85;
+    cfg.memAutoIntervalMin = Number($('m-int').value) || 5;
+    send({ cmd: 'settingsSet', cfg });
+  }
+  ['m-auto', 'm-thr', 'm-int'].forEach((id) => $(id).addEventListener('change', saveCfg));
+  function renderFreed(r) {
+    const mb = r.freedMb;
+    const amount = mb >= 1024 ? GBf(mb / 1024) : `${num(Math.round(mb))} MB`;
+    const failed = r.steps.filter((s) => !s.ok);
+    let txt = `${r.auto ? 'Liberación automática: ' : ''}${mb < 1 ? 'No había nada que liberar' : `Liberados ${amount}`}. Uso ${r.before.loadPct} % → ${r.after.loadPct} %.`;
+    if (failed.length) txt += ` No se pudo: ${failed.map((s) => `${s.name.toLowerCase()} (${s.error})`).join('; ')}.`;
+    const skipped = r.steps.filter((s) => s.ok && s.error);
+    if (skipped.length) txt += ` ${skipped.map((s) => `${s.name}: ${s.error}`).join('; ')}.`;
+    $('m-result').textContent = txt;
+    $('m-result').classList.toggle('bad', failed.length === r.steps.length);
+    busyBtn($('m-free'), false, 'Liberar ahora');
+  }
+
+  // ---------- ajustes ----------
+  const STATE = { applied: 'Aplicado', partial: 'A medias', off: 'Sin aplicar', na: 'No aplica aquí' };
+  let tweaks = [];
+  const twSel = () => [...document.querySelectorAll('#tw-groups input:checked')].map((c) => c.dataset.id);
+  function twButtons() {
+    const ids = new Set(twSel());
+    const sel = tweaks.filter((t) => ids.has(t.id));
+    $('tw-apply').disabled = !sel.some((t) => !t.blocked && t.state !== 'applied' && t.state !== 'na');
+    $('tw-revert').disabled = !sel.some((t) => t.hasBackup);
+    $('tw-apply').textContent = sel.length ? `Aplicar (${sel.length})` : 'Aplicar';
+  }
+  function renderTweaks(p) {
+    tweaks = p.items;
+    const keep = new Set(twSel());
+    const groups = [...new Set(tweaks.map((t) => t.group))];
+    $('tw-groups').replaceChildren(...groups.map((g) => {
+      const sec = el('section', 'tw-group');
+      sec.append(el('h2', null, g));
+      const ul = el('ul', 'rows');
+      tweaks.filter((t) => t.group === g).forEach((t) => {
+        const li = el('li', `row${t.blocked ? ' off-limits' : ''}`);
+        const cb = el('input'); cb.type = 'checkbox'; cb.dataset.id = t.id; cb.checked = keep.has(t.id);
+        cb.disabled = !!t.blocked && !t.hasBackup;
+        cb.addEventListener('change', twButtons);
+        const id = `tw-${t.id}`; cb.id = id;
+        const body = el('label'); body.htmlFor = id;
+        body.append(el('strong', null, t.title), el('p', null, t.detail));
+        const src = el('p', 'src');
+        src.append(t.source);
+        if (t.risk !== 'bajo') { src.append(' · '); src.append(el('span', `risk-${t.risk}`, `riesgo ${t.risk}`)); }
+        if (t.reboot) src.append(' · pide reiniciar');
+        body.append(src);
+        if (t.blocked) body.append(el('p', 'src why', t.blocked));
+        li.append(cb, body, el('span', `state ${t.state}`, STATE[t.state] || t.state));
+        ul.append(li);
+      });
+      sec.append(ul);
+      return sec;
+    }));
+    const applied = tweaks.filter((t) => t.state === 'applied').length;
+    const rp = p.restorePoints < 0 ? 'no se pudo leer los puntos de restauración' : plural(p.restorePoints, 'punto de restauración', 'puntos de restauración');
+    $('tw-sub').textContent = `${applied} de ${tweaks.length} ya están aplicados en este PC · ${rp}. Antes de aplicar se crea uno nuevo; Vigía guarda además el valor que tenías en cada cambio.`;
+    twButtons();
+  }
+  $('tw-apply').addEventListener('click', () => { busyBtn($('tw-apply'), true, 'Aplicando…'); $('tw-revert').disabled = true; send({ cmd: 'tweaksApply', ids: twSel() }); });
+  $('tw-revert').addEventListener('click', () => { busyBtn($('tw-revert'), true, 'Deshaciendo…'); $('tw-apply').disabled = true; send({ cmd: 'tweaksRevert', ids: twSel() }); });
+  $('tw-utilidad-externa').addEventListener('click', () => { busyBtn($('tw-utilidad-externa'), true, 'Creando punto de restauración…'); send({ cmd: 'utilidad-externa' }); });
+  function renderTweaksDone(b) {
+    busyBtn($('tw-apply'), false, 'Aplicar'); busyBtn($('tw-revert'), false, 'Deshacer');
+    const ok = b.results.filter((r) => r.ok).length, bad = b.results.filter((r) => !r.ok);
+    let txt = `${plural(ok, 'cambio hecho', 'cambios hechos')}`;
+    if (bad.length) txt += `; ${bad.length} con problemas: ${bad.map((r) => `${(tweaks.find((t) => t.id === r.id) || {}).title || r.id} (${r.error})`).join('; ')}`;
+    if (b.restorePoint) txt += `. ${b.restorePoint}`;
+    if (b.needsReboot) txt += ' Algunos cambios se notan después de reiniciar.';
+    $('tw-result').textContent = txt.endsWith('.') ? txt : `${txt}.`;
+    $('tw-result').classList.toggle('bad', ok === 0 && bad.length > 0);
+    document.querySelectorAll('#tw-groups input:checked').forEach((c) => { c.checked = false; });
+  }
+
+  // ---------- apps de Windows ----------
+  let bloat = [];
+  const apSel = () => [...document.querySelectorAll('#ap-list input:checked')].map((c) => c.dataset.id);
+  function renderBloat(list) {
+    bloat = list;
+    const shown = list.filter((a) => a.installed);
+    $('ap-remove').disabled = true;
+    if (!shown.length) {
+      $('ap-list').replaceChildren(el('li', 'empty', `No queda instalada ninguna de las ${list.length} apps de la lista. No hay nada que quitar.`));
+      return;
+    }
+    $('ap-list').replaceChildren(...shown.map((a) => {
+      const li = el('li', `row${a.blocked ? ' off-limits' : ''}`);
+      const cb = el('input'); cb.type = 'checkbox'; cb.dataset.id = a.id; cb.id = `ap-${a.id}`; cb.disabled = !!a.blocked;
+      cb.addEventListener('change', () => { const n = apSel().length; $('ap-remove').disabled = !n; $('ap-remove').textContent = n ? `Quitar (${n})` : 'Quitar seleccionadas'; });
+      const body = el('label'); body.htmlFor = cb.id;
+      body.append(el('strong', null, a.name), el('p', null, a.detail));
+      if (a.blocked) body.append(el('p', 'src why', a.blocked));
+      li.append(cb, body, el('span', 'state', a.version ? `v${a.version}` : ''));
+      return li;
+    }));
+  }
+  $('ap-remove').addEventListener('click', () => { busyBtn($('ap-remove'), true, 'Quitando…'); send({ cmd: 'bloatRemove', ids: apSel() }); });
+
+  // ---------- herramientas ----------
+  function renderTools(p) {
+    $('tl-sub').textContent = `Programas de ${p.root}. Vigía solo los abre; no los copia ni los cambia.`;
+    const groups = [...new Set(p.items.map((t) => t.group))];
+    $('tl-groups').replaceChildren(...groups.map((g) => {
+      const sec = el('section', 'tw-group'); sec.append(el('h2', null, g));
+      const grid = el('div', 'tools');
+      p.items.filter((t) => t.group === g).forEach((t) => {
+        const card = el('div', 'tool');
+        const b = el('button', 'btn', 'Abrir'); b.disabled = !t.found;
+        b.addEventListener('click', () => send({ cmd: 'toolOpen', id: t.id }));
+        card.append(el('strong', null, t.name), b, el('p', null, t.found ? t.detail : 'No está en la carpeta.'));
+        if (t.warning) card.append(el('p', 'warn', t.warning));
+        grid.append(card);
+      });
+      sec.append(grid);
+      return sec;
+    }));
+  }
+
   // primera visita a cada sección: cargar sus datos
   const loaded = new Set();
   document.querySelectorAll('.nav').forEach((b) => b.addEventListener('click', () => {
@@ -305,13 +467,19 @@
     else if (v === 'opt') send({ cmd: 'optStatus', analyze: false });
     else if (v === 'diag') $('d-run').click();
     else if (v === 'storage' && !targets.length) $('scan').click();
+    else if (v === 'mem') send({ cmd: 'settingsGet' });
+    else if (v === 'tweaks') send({ cmd: 'tweaksList' });
+    else if (v === 'apps') send({ cmd: 'bloatList' });
+    else if (v === 'tools') send({ cmd: 'toolsList' });
   }));
   // para --snap: abrir una sección
   // 'opt-run' = abrir Optimizar y lanzar la primera unidad (prueba de extremo a extremo)
   window.vigiaSnap = (v) => {
     const [view, act] = v.split('-');
     document.querySelector(`.nav[data-view="${view}"]`)?.click();
-    if (act === 'run') setTimeout(() => document.querySelector('.vol .btn')?.click(), 2500);
+    if (act === 'run' && view === 'opt') setTimeout(() => document.querySelector('.vol .btn')?.click(), 2500);
+    if (act === 'run' && view === 'mem') setTimeout(() => $('m-free').click(), 2500);
+    if (act === 'excl') setTimeout(() => { document.querySelector('.excluded').open = true; }, 500);
   };
 
   // ---------- mensajes del backend ----------
@@ -321,6 +489,22 @@
     else if (type === 'healthScan') renderHealth(payload);
     else if (type === 'diagRun') renderDiag(payload);
     else if (type === 'optStatus') renderOpt(payload);
+    else if (type === 'memStatus') renderMem(payload);
+    else if (type === 'memFreed') renderFreed(payload);
+    else if (type === 'settings') {
+      cfg = payload.cfg;
+      $('m-auto').checked = cfg.memAuto; $('m-thr').value = cfg.memAutoThreshold; $('m-int').value = cfg.memAutoIntervalMin;
+    }
+    else if (type === 'tweaks') renderTweaks(payload);
+    else if (type === 'tweaksDone') renderTweaksDone(payload);
+    else if (type === 'utilidad-externaRp') { busyBtn($('tw-utilidad-externa'), false, 'Abrir utilidad externa'); $('tw-result').textContent = `${payload.message} utilidad externa se abre en otra ventana.`; }
+    else if (type === 'bloat') renderBloat(payload);
+    else if (type === 'bloatDone') {
+      busyBtn($('ap-remove'), false, 'Quitar seleccionadas');
+      const bad = payload.filter((r) => !r.ok);
+      $('ap-result').textContent = bad.length ? `No se pudieron quitar: ${bad.map((r) => `${r.id} (${r.error})`).join('; ')}.` : `${plural(payload.length, 'app quitada', 'apps quitadas')}.`;
+    }
+    else if (type === 'tools') renderTools(payload);
     else if (type === 'optProgress') {
       $('op-line').textContent = payload.line;
       if (payload.pct != null) { $('op-bar').parentElement.classList.remove('indet'); $('op-bar').style.width = `${payload.pct}%`; }

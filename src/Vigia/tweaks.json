@@ -1,0 +1,236 @@
+[
+  {
+    "id": "power-ultimate", "group": "Rendimiento", "risk": "bajo", "reboot": false,
+    "title": "Plan de energía Máximo rendimiento",
+    "detail": "Crea y activa el plan oculto de Windows. La CPU no baja de frecuencia entre fotogramas. Gasta algo más en reposo.",
+    "source": "pack externo · 5 - Programs\\High Performance.txt",
+    "ops": [ { "special": "power-ultimate" } ]
+  },
+  {
+    "id": "mmcss-games", "group": "Rendimiento", "risk": "bajo", "reboot": true,
+    "title": "Prioridad alta para juegos",
+    "detail": "El programador multimedia de Windows da más CPU y GPU a los juegos (prioridad 6, GPU 8, categoría High).",
+    "source": "pack externo · 1 - CPU Priority\\AMD",
+    "ops": [
+      { "reg": "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Multimedia\\SystemProfile\\Tasks\\Games", "name": "GPU Priority", "type": "dword", "value": 8 },
+      { "reg": "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Multimedia\\SystemProfile\\Tasks\\Games", "name": "Priority", "type": "dword", "value": 6 },
+      { "reg": "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Multimedia\\SystemProfile\\Tasks\\Games", "name": "Scheduling Category", "type": "string", "value": "High" },
+      { "reg": "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Multimedia\\SystemProfile\\Tasks\\Games", "name": "SFIO Priority", "type": "string", "value": "High" }
+    ]
+  },
+  {
+    "id": "responsiveness", "group": "Rendimiento", "risk": "bajo", "reboot": true,
+    "title": "Sin reserva de CPU para tareas de fondo",
+    "detail": "SystemResponsiveness 0 y sin límite de red para multimedia. Windows deja de apartar el 20 % de la CPU.",
+    "source": "pack externo · 4 - Windows Important Tweaks\\Improve system responsiveness.reg",
+    "ops": [
+      { "reg": "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Multimedia\\SystemProfile", "name": "NetworkThrottlingIndex", "type": "dword", "value": 4294967295 },
+      { "reg": "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Multimedia\\SystemProfile", "name": "SystemResponsiveness", "type": "dword", "value": 0 }
+    ]
+  },
+  {
+    "id": "priority-separation", "group": "Rendimiento", "risk": "bajo", "reboot": false,
+    "title": "Más tiempo de CPU para la ventana activa",
+    "detail": "Win32PrioritySeparation = 0x16. El juego en primer plano recibe turnos más largos que lo que corre detrás.",
+    "source": "pack externo · 4 - Windows Important Tweaks\\Win32PrioritySeperation.reg",
+    "ops": [ { "reg": "HKLM\\SYSTEM\\CurrentControlSet\\Control\\PriorityControl", "name": "Win32PrioritySeparation", "type": "dword", "value": 22 } ]
+  },
+  {
+    "id": "svchost-split", "group": "Memoria", "risk": "bajo", "reboot": true,
+    "title": "Agrupar los servicios de Windows",
+    "detail": "Ajusta SvcHostSplitThresholdInKB a tu RAM. Menos procesos svchost.exe y algo menos de memoria usada.",
+    "source": "pack externo · 2 - RAM Optimization (calculado para tu RAM)",
+    "ops": [ { "reg": "HKLM\\SYSTEM\\CurrentControlSet\\Control", "name": "SvcHostSplitThresholdInKB", "type": "dword", "value": "$ramKB" } ]
+  },
+  {
+    "id": "hibernate-off", "group": "Memoria", "risk": "bajo", "reboot": false,
+    "title": "Apagar la hibernación",
+    "detail": "Borra hiberfil.sys (ocupa casi lo mismo que tu RAM en C:). También desactiva el inicio rápido.",
+    "source": "externo · recomendados",
+    "ops": [ { "special": "hibernate-off" } ]
+  },
+  {
+    "id": "game-dvr-off", "group": "Juegos", "risk": "bajo", "reboot": false,
+    "title": "Apagar la grabación de fondo de Xbox",
+    "detail": "Game DVR graba los últimos segundos de juego todo el tiempo. Apagado, la barra de juegos sigue funcionando.",
+    "source": "externo · recomendados · Fortnite Optimization Guide",
+    "ops": [
+      { "reg": "HKCU\\System\\GameConfigStore", "name": "GameDVR_Enabled", "type": "dword", "value": 0 },
+      { "reg": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\GameDVR", "name": "AppCaptureEnabled", "type": "dword", "value": 0 },
+      { "reg": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\GameDVR", "name": "AllowGameDVR", "type": "dword", "value": 0 }
+    ]
+  },
+  {
+    "id": "background-apps", "group": "Juegos", "risk": "bajo", "reboot": false,
+    "title": "Apps de la Tienda sin trabajo de fondo",
+    "detail": "Las apps de Microsoft Store dejan de ejecutarse cuando no están abiertas.",
+    "source": "pack externo · 4 - Windows Important Tweaks\\Disable Background Apps.reg",
+    "ops": [
+      { "reg": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\BackgroundAccessApplications", "name": "GlobalUserDisabled", "type": "dword", "value": 1 },
+      { "reg": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Search", "name": "BackgroundAppGlobalToggle", "type": "dword", "value": 0 }
+    ]
+  },
+  {
+    "id": "transparency-off", "group": "Juegos", "risk": "bajo", "reboot": false,
+    "title": "Quitar la transparencia de Windows",
+    "detail": "La barra de tareas y los menús dejan de difuminar el fondo. Menos trabajo para la GPU en el escritorio.",
+    "source": "pack externo · 4 - Windows Important Tweaks\\Disable Transparency.reg",
+    "ops": [ { "reg": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize", "name": "EnableTransparency", "type": "dword", "value": 0 } ]
+  },
+  {
+    "id": "mouse-raw", "group": "Ratón y teclado", "risk": "bajo", "reboot": false,
+    "title": "Ratón sin aceleración",
+    "detail": "Quita «Mejorar la precisión del puntero» y aplica la curva 1:1. El movimiento depende solo de la distancia, no de la velocidad.",
+    "source": "pack externo · Extra\\Input delay\\Configuraciones de Mouse.reg",
+    "ops": [
+      { "reg": "HKCU\\Control Panel\\Mouse", "name": "MouseSpeed", "type": "string", "value": "0" },
+      { "reg": "HKCU\\Control Panel\\Mouse", "name": "MouseThreshold1", "type": "string", "value": "0" },
+      { "reg": "HKCU\\Control Panel\\Mouse", "name": "MouseThreshold2", "type": "string", "value": "0" },
+      { "reg": "HKCU\\Control Panel\\Mouse", "name": "SmoothMouseXCurve", "type": "binary", "value": "0000000000000000C0CC0C0000000000809919000000000040662600000000000033330000000000" },
+      { "reg": "HKCU\\Control Panel\\Mouse", "name": "SmoothMouseYCurve", "type": "binary", "value": "0000000000000000000038000000000000007000000000000000A800000000000000E00000000000" },
+      { "special": "mouse-refresh", "post": true }
+    ]
+  },
+  {
+    "id": "accessibility-keys", "group": "Ratón y teclado", "risk": "bajo", "reboot": false,
+    "title": "Sin atajos de accesibilidad en mitad de la partida",
+    "detail": "Pulsar Mayús cinco veces ya no abre «Teclas especiales». Lo mismo con teclas filtro, alternancia y teclas de ratón.",
+    "source": "pack externo · Extra\\Input delay\\Elimina lagazos.reg",
+    "ops": [
+      { "reg": "HKCU\\Control Panel\\Accessibility\\StickyKeys", "name": "Flags", "type": "string", "value": "506" },
+      { "reg": "HKCU\\Control Panel\\Accessibility\\Keyboard Response", "name": "Flags", "type": "string", "value": "122" },
+      { "reg": "HKCU\\Control Panel\\Accessibility\\ToggleKeys", "name": "Flags", "type": "string", "value": "58" },
+      { "reg": "HKCU\\Control Panel\\Accessibility\\MouseKeys", "name": "Flags", "type": "string", "value": "0" }
+    ]
+  },
+  {
+    "id": "input-queue", "group": "Ratón y teclado", "risk": "medio", "reboot": true,
+    "title": "Cola corta de ratón y teclado",
+    "detail": "Baja el búfer de entrada de 100 a 20 eventos. Con ratones de 4000-8000 Hz puede perder movimientos: pruébalo antes.",
+    "source": "pack externo · Extra\\Input delay\\Delay de mouse.reg y Delay de teclado.reg",
+    "ops": [
+      { "reg": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\mouclass\\Parameters", "name": "MouseDataQueueSize", "type": "dword", "value": 20 },
+      { "reg": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\kbdclass\\Parameters", "name": "KeyboardDataQueueSize", "type": "dword", "value": 20 }
+    ]
+  },
+  {
+    "id": "shutdown-fast", "group": "Windows", "risk": "medio", "reboot": false,
+    "title": "Cerrar programas colgados sin esperar",
+    "detail": "Menús sin retardo y apagado más rápido. Al apagar, los programas que no respondan se cierran solos: guarda antes.",
+    "source": "pack externo · 4 - Windows Important Tweaks\\Improve system responsiveness.reg",
+    "ops": [
+      { "reg": "HKCU\\Control Panel\\Desktop", "name": "MenuShowDelay", "type": "string", "value": "0" },
+      { "reg": "HKCU\\Control Panel\\Desktop", "name": "WaitToKillAppTimeout", "type": "string", "value": "5000" },
+      { "reg": "HKCU\\Control Panel\\Desktop", "name": "HungAppTimeout", "type": "string", "value": "4000" },
+      { "reg": "HKCU\\Control Panel\\Desktop", "name": "AutoEndTasks", "type": "string", "value": "1" },
+      { "reg": "HKLM\\SYSTEM\\CurrentControlSet\\Control", "name": "WaitToKillServiceTimeout", "type": "string", "value": "2000" }
+    ]
+  },
+  {
+    "id": "end-task", "group": "Windows", "risk": "bajo", "reboot": false,
+    "title": "«Finalizar tarea» en la barra de tareas",
+    "detail": "Clic derecho sobre un programa en la barra de tareas para cerrarlo aunque esté colgado.",
+    "source": "externo · recomendados",
+    "ops": [ { "reg": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced\\TaskbarDeveloperSettings", "name": "TaskbarEndTask", "type": "dword", "value": 1 } ]
+  },
+  {
+    "id": "suggestions-off", "group": "Windows", "risk": "bajo", "reboot": false,
+    "title": "Sin anuncios ni apps sugeridas",
+    "detail": "Windows deja de instalar apps promocionadas y de mostrar sugerencias en Inicio y en Configuración.",
+    "source": "externo · 2; Deshabilitar Notificaciones y Sugerencias · externo",
+    "ops": [
+      { "reg": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager", "name": "ContentDeliveryAllowed", "type": "dword", "value": 0 },
+      { "reg": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager", "name": "OemPreInstalledAppsEnabled", "type": "dword", "value": 0 },
+      { "reg": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager", "name": "PreInstalledAppsEnabled", "type": "dword", "value": 0 },
+      { "reg": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager", "name": "SilentInstalledAppsEnabled", "type": "dword", "value": 0 },
+      { "reg": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager", "name": "SubscribedContent-310093Enabled", "type": "dword", "value": 0 },
+      { "reg": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager", "name": "SubscribedContent-314559Enabled", "type": "dword", "value": 0 },
+      { "reg": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager", "name": "SubscribedContent-338387Enabled", "type": "dword", "value": 0 },
+      { "reg": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\CloudContent", "name": "DisableWindowsConsumerFeatures", "type": "dword", "value": 1 }
+    ]
+  },
+  {
+    "id": "telemetry-off", "group": "Privacidad", "risk": "bajo", "reboot": true,
+    "title": "Telemetría de Windows al mínimo",
+    "detail": "Para el servicio de seguimiento (DiagTrack) y el envío de datos de uso y diagnóstico a Microsoft.",
+    "source": "externo · 3; Servicios Innecesarios · externo",
+    "ops": [
+      { "reg": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection", "name": "AllowTelemetry", "type": "dword", "value": 0 },
+      { "svc": "DiagTrack", "start": 4 },
+      { "svc": "dmwappushservice", "start": 4 }
+    ]
+  },
+  {
+    "id": "telemetry-tasks", "group": "Privacidad", "risk": "bajo", "reboot": false,
+    "title": "Tareas programadas de recogida de datos",
+    "detail": "Desactiva seis tareas que analizan compatibilidad, uso de USB y discos para enviarlo a Microsoft.",
+    "source": "externo · 6; Deshabilitar Tareas Programadas",
+    "ops": [
+      { "task": "\\Microsoft\\Windows\\Application Experience\\Microsoft Compatibility Appraiser", "enabled": false },
+      { "task": "\\Microsoft\\Windows\\Application Experience\\ProgramDataUpdater", "enabled": false },
+      { "task": "\\Microsoft\\Windows\\Customer Experience Improvement Program\\Consolidator", "enabled": false },
+      { "task": "\\Microsoft\\Windows\\Customer Experience Improvement Program\\UsbCeip", "enabled": false },
+      { "task": "\\Microsoft\\Windows\\DiskDiagnostic\\Microsoft-Windows-DiskDiagnosticDataCollector", "enabled": false },
+      { "task": "\\Microsoft\\Windows\\Windows Error Reporting\\QueueReporting", "enabled": false }
+    ]
+  },
+  {
+    "id": "activity-off", "group": "Privacidad", "risk": "bajo", "reboot": false,
+    "title": "Sin historial de actividad ni ubicación",
+    "detail": "Windows deja de guardar qué abres y deja de dar tu ubicación a las apps.",
+    "source": "externo · recomendados",
+    "ops": [
+      { "reg": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\System", "name": "EnableActivityFeed", "type": "dword", "value": 0 },
+      { "reg": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\System", "name": "PublishUserActivities", "type": "dword", "value": 0 },
+      { "reg": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\System", "name": "UploadUserActivities", "type": "dword", "value": 0 },
+      { "reg": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager\\ConsentStore\\location", "name": "Value", "type": "string", "value": "Deny" },
+      { "svc": "lfsvc", "start": 4 }
+    ]
+  },
+  {
+    "id": "services-unused", "group": "Servicios", "risk": "bajo", "reboot": true,
+    "title": "Servicios que casi nadie usa",
+    "detail": "Fax, registro remoto, mapas sin conexión, monitor de rendimiento gráfico, informe de errores y otros cinco.",
+    "source": "pack externo · Disable Unnecessary Services.reg y Disable Download Maps.reg · externo · 3",
+    "ops": [
+      { "svc": "Fax", "start": 4 },
+      { "svc": "RemoteRegistry", "start": 4 },
+      { "svc": "MapsBroker", "start": 4 },
+      { "svc": "GraphicsPerfSvc", "start": 4 },
+      { "svc": "WerSvc", "start": 4 },
+      { "svc": "PcaSvc", "start": 4 },
+      { "svc": "Wecsvc", "start": 4 },
+      { "svc": "WMPNetworkSvc", "start": 4 },
+      { "svc": "NetTcpPortSharing", "start": 4 },
+      { "svc": "TrkWks", "start": 4 }
+    ]
+  },
+  {
+    "id": "services-xbox", "group": "Servicios", "risk": "medio", "reboot": true,
+    "title": "Servicios de Xbox",
+    "detail": "Fortnite y Steam no los usan. Rompe Xbox Game Pass, los logros de Xbox y Minecraft de la Tienda.",
+    "source": "externo · 3; Servicios Innecesarios",
+    "ops": [
+      { "svc": "XblAuthManager", "start": 4 },
+      { "svc": "XblGameSave", "start": 4 },
+      { "svc": "XboxNetApiSvc", "start": 4 }
+    ]
+  },
+  {
+    "id": "search-off", "group": "Servicios", "risk": "medio", "reboot": true,
+    "title": "Indexador de búsqueda",
+    "detail": "Menos lecturas de disco en segundo plano. A cambio, buscar en Inicio y en el Explorador es mucho más lento.",
+    "source": "externo · 3; Servicios Innecesarios",
+    "ops": [ { "svc": "WSearch", "start": 4 } ]
+  },
+  {
+    "id": "update-control", "group": "Actualizaciones", "risk": "bajo", "reboot": false,
+    "title": "Windows Update sin sorpresas",
+    "detail": "No reinicia solo con la sesión abierta y no reemplaza tu driver de NVIDIA. Las actualizaciones de seguridad siguen llegando.",
+    "source": "Vigía · alternativa a 9- Disable Windows Update (Wub)",
+    "ops": [
+      { "reg": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsUpdate\\AU", "name": "NoAutoRebootWithLoggedOnUsers", "type": "dword", "value": 1 },
+      { "reg": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsUpdate", "name": "ExcludeWUDriversInQualityUpdate", "type": "dword", "value": 1 }
+    ]
+  }
+]

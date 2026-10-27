@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.WinForms;
 
@@ -21,15 +22,17 @@ static class Program
             File.WriteAllText(args[1], JsonSerializer.Serialize(new
             {
                 snapshot = snap, clean = Cleanup.Scan(), health = Health.Scan(t), diag = Diagnostics.Run(),
-                optimize = Optimize.Status(analyzeHdd: true), sensors = t.Dump().ToList(),
+                optimize = Optimize.Status(analyzeHdd: true), memory = Memory.Status(), tweaks = Tweaks.List(),
+                debloat = Debloat.List(), tools = Toolbox.List(Settings.Load().ToolsRoot), restorePoints = RestorePoint.Count(),
+                sensors = t.Dump().ToList(),
             }, new JsonSerializerOptions(Json) { WriteIndented = true }));
             return 0;
         }
         if (args.Length >= 2 && args[0] == "--selftest")
         {
-            var report = Cleanup.SelfTest();
+            var report = Cleanup.SelfTest() + Environment.NewLine + "--- ajustes" + Environment.NewLine + Tweaks.SelfTest();
             File.WriteAllText(args[1], report);
-            return report.EndsWith("PASS") ? 0 : 1;
+            return report.Contains("FAIL") ? 1 : 0;
         }
         // Una sola ventana: si ya está abierta, no abrir otra
         using var mutex = new Mutex(true, @"Local\Vigia.SingleInstance", out var first);
@@ -47,6 +50,8 @@ sealed class MainForm : Form
     readonly Telemetry _tel = new();
     readonly System.Windows.Forms.Timer _timer = new() { Interval = 1000 };
     bool _busy;
+    int _tick;
+    Settings _cfg = Settings.Load();
     readonly string? _snapPath, _snapView;
 
     public MainForm(string? snapPath = null, string? snapView = null) : this()
@@ -98,7 +103,9 @@ sealed class MainForm : Form
         }
         else await Task.Delay(3000);
         var metrics = await _web.CoreWebView2.ExecuteScriptAsync(
-            "JSON.stringify({vw:innerWidth,vh:innerHeight,dpr:devicePixelRatio,main:document.querySelector('main').clientHeight,scroll:document.querySelector('main').scrollHeight,text:(document.querySelector('.view:not([hidden])')||document.body).innerText.slice(0,3000)})");
+            "JSON.stringify({vw:innerWidth,vh:innerHeight,dpr:devicePixelRatio,main:document.querySelector('main').clientHeight,scroll:document.querySelector('main').scrollHeight,text:(document.querySelector('.view:not([hidden])')||document.body).innerText.slice(0,3000)," +
+            // elementos que se salen de su caja o del área principal: así se revisa el diseño sin mirar la imagen
+            "bad:[...document.querySelectorAll('.view:not([hidden]) *')].filter(e=>{const r=e.getBoundingClientRect(),m=document.querySelector('main').getBoundingClientRect(),cs=getComputedStyle(e);if(!r.width)return false;return r.right>m.right+1||r.left<m.left-1||(e.scrollWidth>e.clientWidth+2&&cs.textOverflow!=='ellipsis'&&cs.overflowX!=='auto')}).slice(0,15).map(e=>e.tagName+'.'+e.className+' '+(e.innerText||'').slice(0,40)+' w='+Math.round(e.getBoundingClientRect().width))})");
         File.WriteAllText(_snapPath + ".json", $"{{\"form\":\"{ClientSize.Width}x{ClientSize.Height}\",\"web\":\"{_web.Width}x{_web.Height}\",\"page\":{System.Text.Json.JsonSerializer.Deserialize<string>(metrics)}}}");
         using (var fs = File.Create(_snapPath!))
             await _web.CoreWebView2.CapturePreviewAsync(CoreWebView2CapturePreviewImageFormat.Png, fs);
@@ -109,7 +116,18 @@ sealed class MainForm : Form
     {
         if (_busy) return;
         _busy = true;
-        try { Send("telemetry", await Task.Run(_tel.Read)); }
+        try
+        {
+            Send("telemetry", await Task.Run(_tel.Read));
+            // cada 2 s: estado de la memoria y, si toca, liberación automática
+            if (_tick++ % 2 == 0)
+            {
+                var cfg = _cfg;
+                var auto = await Task.Run(() => Memory.AutoTick(cfg));
+                if (auto is not null) Send("memFreed", auto);
+                Send("memStatus", await Task.Run(Memory.Status));
+            }
+        }
         catch (Exception e) { Send("error", e.Message); }
         finally { _busy = false; }
     }
@@ -150,6 +168,53 @@ sealed class MainForm : Form
                     break;
                 case "optCancel":
                     Optimize.Cancel();
+                    break;
+                case "memFree":
+                    var o = msg["opts"].Deserialize<MemOptions>(Program.Json) ?? new MemOptions();
+                    Send("memFreed", await Task.Run(() => Memory.Free(o)));
+                    break;
+                case "settingsGet":
+                    Send("settings", new { cfg = _cfg, lab = Tweaks.Lab });
+                    break;
+                case "settingsSet":
+                    var next = msg["cfg"].Deserialize<Settings>(Program.Json);
+                    if (next is not null)
+                    {
+                        next.MemAutoThreshold = Math.Clamp(next.MemAutoThreshold, 50, 98);
+                        next.MemAutoIntervalMin = Math.Clamp(next.MemAutoIntervalMin, 1, 120);
+                        _cfg = next; _cfg.Save();
+                    }
+                    Send("settings", new { cfg = _cfg, lab = Tweaks.Lab });
+                    break;
+                case "tweaksList":
+                    Send("tweaks", new { items = await Task.Run(Tweaks.List), restorePoints = await Task.Run(RestorePoint.Count) });
+                    break;
+                case "tweaksApply":
+                case "tweaksRevert":
+                    var tids = msg["ids"]!.AsArray().Select(x => (string)x!).ToList();
+                    var batch = (string?)msg["cmd"] == "tweaksApply" ? await Task.Run(() => Tweaks.Apply(tids)) : await Task.Run(() => Tweaks.Revert(tids));
+                    Send("tweaksDone", batch);
+                    Send("tweaks", new { items = await Task.Run(Tweaks.List), restorePoints = await Task.Run(RestorePoint.Count) });
+                    break;
+                case "bloatList":
+                    Send("bloat", await Task.Run(Debloat.List));
+                    break;
+                case "bloatRemove":
+                    var bids = msg["ids"]!.AsArray().Select(x => (string)x!).ToList();
+                    await Task.Run(() => RestorePoint.Create("Vigía: antes de quitar apps"));
+                    Send("bloatDone", await Task.Run(() => Debloat.Remove(bids)));
+                    Send("bloat", await Task.Run(Debloat.List));
+                    break;
+                case "toolsList":
+                    Send("tools", new { root = _cfg.ToolsRoot, items = Toolbox.List(_cfg.ToolsRoot) });
+                    break;
+                case "toolOpen":
+                    if (Toolbox.Open(_cfg.ToolsRoot, (string)msg["id"]!) is string err) Send("error", err);
+                    break;
+                case "utilidad-externa":
+                    var rp = await Task.Run(() => RestorePoint.Create("Vigía: antes de utilidad externa"));
+                    Send("utilidad-externaRp", rp);
+                    Toolbox.Openutilidad externa();
                     break;
             }
         }
