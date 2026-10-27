@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; script-src 'self'; font-src 'self'; img-src 'self' data:">
+<title>Vigía</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<div class="shell">
+  <nav class="rail" aria-label="Secciones">
+    <div class="brand">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>
+      <span>Vigía</span>
+    </div>
+    <button class="nav is-active" data-view="monitor" aria-current="page">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>Monitor
+    </button>
+    <button class="nav" data-view="storage">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 14h18M7 17h.01"/></svg>Almacenamiento
+    </button>
+    <div class="rail-foot" id="privilege"></div>
+  </nav>
+
+  <main>
+    <section class="view" id="view-monitor">
+      <header class="head">
+        <h1>Monitor</h1>
+        <p class="live"><span class="dot" aria-hidden="true"></span><span id="clock">conectando…</span></p>
+      </header>
+
+      <div class="band" role="group" aria-label="Lecturas actuales">
+        <article class="gauge" id="g-cpu">
+          <h2>CPU</h2>
+          <p class="model" id="cpu-name">—</p>
+          <p class="big"><span id="cpu-temp">—</span><small>°C</small></p>
+          <dl>
+            <div><dt>Carga</dt><dd id="cpu-load">—</dd></div>
+            <div><dt>Reloj</dt><dd id="cpu-clock">—</dd></div>
+            <div><dt>Núcleos</dt><dd id="cpu-cores">—</dd></div>
+          </dl>
+        </article>
+        <article class="gauge" id="g-gpu">
+          <h2>GPU</h2>
+          <p class="model" id="gpu-name">—</p>
+          <p class="big"><span id="gpu-temp">—</span><small>°C</small></p>
+          <dl>
+            <div><dt>Carga</dt><dd id="gpu-load">—</dd></div>
+            <div><dt>Reloj</dt><dd id="gpu-clock">—</dd></div>
+            <div><dt>VRAM</dt><dd id="gpu-vram">—</dd></div>
+          </dl>
+        </article>
+        <article class="gauge" id="g-ram">
+          <h2>Memoria</h2>
+          <p class="model" id="ram-kind">—</p>
+          <p class="big"><span id="ram-used">—</span><small id="ram-total">/ — GB</small></p>
+          <div class="meter" aria-hidden="true"><i id="ram-bar"></i></div>
+          <dl>
+            <div><dt>Velocidad</dt><dd id="ram-speed">—</dd></div>
+            <div><dt>Latencia</dt><dd id="ram-lat">—</dd></div>
+          </dl>
+        </article>
+      </div>
+
+      <section class="chart-wrap" aria-labelledby="chart-title">
+        <header class="chart-head">
+          <h2 id="chart-title">Temperatura y carga</h2>
+          <div class="seg" role="radiogroup" aria-label="Ventana">
+            <button role="radio" aria-checked="true" data-win="60">1 min</button>
+            <button role="radio" aria-checked="false" data-win="300">5 min</button>
+          </div>
+          <ul class="legend">
+            <li><i class="k-ctemp"></i>CPU °C</li>
+            <li><i class="k-gtemp"></i>GPU °C</li>
+            <li><i class="k-load"></i>Carga CPU %</li>
+          </ul>
+        </header>
+        <canvas id="chart" aria-label="Gráfica de temperatura y carga" role="img"></canvas>
+      </section>
+
+      <p class="notes" id="notes" hidden></p>
+    </section>
+
+    <section class="view" id="view-storage" hidden>
+      <header class="head"><h1>Almacenamiento</h1></header>
+      <ul class="drives" id="drives"></ul>
+
+      <section class="clean" aria-labelledby="clean-title">
+        <header class="clean-head">
+          <div>
+            <h2 id="clean-title">Limpieza</h2>
+            <p class="sub">Solo borra archivos de más de 24 horas en carpetas temporales. Lo que esté en uso se salta.</p>
+          </div>
+          <button class="btn" id="scan">Analizar</button>
+        </header>
+        <ul class="targets" id="targets"><li class="empty">Pulsa Analizar para ver cuánto espacio se puede liberar.</li></ul>
+        <footer class="clean-foot">
+          <p id="clean-total" aria-live="polite"></p>
+          <button class="btn primary" id="run" disabled>Limpiar seleccionado</button>
+        </footer>
+      </section>
+    </section>
+  </main>
+</div>
+<script src="app.js"></script>
+</body>
+</html>
