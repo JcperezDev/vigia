@@ -168,7 +168,7 @@
         </fieldset>
         <fieldset class="box">
           <legend>Automático</legend>
-          <label class="chk"><input type="checkbox" id="m-auto"><span><b>Liberar sola cuando la memoria pase de <input type="number" id="m-thr" min="50" max="98" step="1" value="85"> %</b>Como máximo una vez cada <input type="number" id="m-int" min="1" max="120" step="1" value="5"> min. Solo vacía la caché de baja prioridad, para no dar tirones en mitad de una partida.</span></label>
+          <label class="chk"><input type="checkbox" id="m-auto" checked><span><b>Liberar sola cuando la memoria pase de <input type="number" id="m-thr" min="50" max="98" step="1" value="60"> %</b>Como máximo una vez cada <input type="number" id="m-int" min="1" max="120" step="1" value="5"> min. Hace lo mismo que «Liberar ahora»; si salta en mitad de una partida puede dar un tirón corto.</span></label>
           <p class="note">Funciona mientras Vigía esté abierta.</p>
           <p class="note">Windows usa la RAM libre como caché porque así abre las cosas más rápido, y la vuelve a llenar. Liberarla ayuda cuando un juego se queda corto de memoria o da tirones después de horas; no acelera el PC por sí sola.</p>
         </fieldset>

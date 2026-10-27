@@ -5,8 +5,8 @@ namespace Vigia;
 /// <summary>Preferencias de Vigía en %LOCALAPPDATA%\Vigia\settings.json.</summary>
 public sealed class Settings
 {
-    public bool MemAuto { get; set; }
-    public int MemAutoThreshold { get; set; } = 85;
+    public bool MemAuto { get; set; } = true;
+    public int MemAutoThreshold { get; set; } = 60;
     public int MemAutoIntervalMin { get; set; } = 5;
     public string ToolsRoot { get; set; } = @"D:\pack externo";
 
