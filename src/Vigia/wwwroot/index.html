@@ -36,6 +36,9 @@
     <button class="nav" data-view="apps">
       <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1"/><rect x="13" y="4" width="7" height="7" rx="1"/><rect x="4" y="13" width="7" height="7" rx="1"/><path d="m14 14 5 5M19 14l-5 5"/></svg>Apps de Windows
     </button>
+    <button class="nav" data-view="startup">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v8"/><path d="M6.3 7.2a8 8 0 1 0 11.4 0"/></svg>Inicio de Windows
+    </button>
     <button class="nav" data-view="tools">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.2L4 16.8V20h3.2l5.3-5.3a4 4 0 0 0 5.2-5.4l-2.4 2.4-2.6-.6-.6-2.6 2.6-2.2Z"/></svg>Herramientas
     </button>
@@ -222,11 +225,36 @@
       <ul class="rows" id="ap-list"><li class="empty">Buscando apps instaladas…</li></ul>
     </section>
 
+    <section class="view" id="view-startup" hidden>
+      <header class="head">
+        <div><h1>Inicio de Windows</h1><p class="sub" id="su-sub">Lo que arranca solo al encender el PC. Apagar no borra nada: la entrada se queda y la puedes volver a encender.</p></div>
+        <button class="btn" id="su-reload">Volver a leer</button>
+      </header>
+      <p class="result" id="su-result" aria-live="polite"></p>
+      <div id="su-groups"><p class="empty">Leyendo lo que arranca con Windows…</p></div>
+    </section>
+
     <section class="view" id="view-tools" hidden>
       <header class="head">
         <div><h1>Herramientas</h1><p class="sub" id="tl-sub">Programas de tu carpeta. Vigía solo los abre.</p></div>
       </header>
       <p class="result" id="tl-result" aria-live="polite"></p>
+      <section class="box stretch" id="ds-box">
+        <div>
+          <h2>Resolución estirada</h2>
+          <p class="sub" id="ds-sub">Leyendo la pantalla…</p>
+        </div>
+        <div class="ds-act">
+          <select id="ds-mode" aria-label="Resolución"></select>
+          <button class="btn primary" id="ds-apply" disabled>Estirar</button>
+          <button class="btn" id="ds-restore" hidden>Volver a la normal</button>
+        </div>
+        <div class="ds-confirm" id="ds-confirm" hidden>
+          <p>¿Se ve bien? Si no confirmas, vuelve sola en <b id="ds-count">15</b> s.</p>
+          <button class="btn primary" id="ds-keep">Dejarla</button>
+          <button class="btn" id="ds-undo">Volver ya</button>
+        </div>
+      </section>
       <div id="tl-groups"></div>
     </section>
 

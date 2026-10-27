@@ -464,6 +464,81 @@
     }));
   }
 
+  // ---------- inicio de Windows ----------
+  const suOrder = ['Programas', 'Tareas programadas', 'Servicios'];
+  const suNote = {
+    'Programas': 'Apagarlos es lo mismo que en el Administrador de tareas.',
+    'Tareas programadas': 'Tareas que se lanzan al encender o al iniciar sesión. Se deshabilitan, no se borran.',
+    'Servicios': 'Servicios de otros programas. Apagar = pasan a manual: arrancan cuando el programa los pida.',
+  };
+  function renderStartup(list) {
+    busyBtn($('su-reload'), false, 'Volver a leer');
+    const on = list.filter((s) => s.enabled).length;
+    $('su-sub').textContent = `${plural(list.length, 'cosa arranca', 'cosas arrancan')} con Windows; ${on} ${on === 1 ? 'encendida' : 'encendidas'}. Apagar no borra nada: la entrada se queda y la puedes volver a encender.`;
+    $('su-groups').replaceChildren(...suOrder.filter((g) => list.some((s) => s.group === g)).map((g) => {
+      const sec = el('section', 'tw-group');
+      sec.append(el('h2', null, g), el('p', 'sub su-note', suNote[g]));
+      const ul = el('ul', 'rows');
+      list.filter((s) => s.group === g).forEach((s) => {
+        const li = el('li', `row su${s.enabled ? '' : ' is-off'}`);
+        const body = el('div');
+        const title = el('strong', null, s.name);
+        body.append(title, el('p', null, [s.publisher, s.where].filter(Boolean).join(' · ')), Object.assign(el('p', 'src cmd', s.command), { title: s.command }));
+        if (s.missing) body.append(el('p', 'src why', 'El programa ya no está en el disco: es seguro apagarlo.'));
+        if (s.warning) body.append(el('p', 'src why', s.warning));
+        const b = el('button', `btn${s.enabled ? '' : ' primary'}`, s.enabled ? 'Apagar' : 'Encender');
+        b.addEventListener('click', () => { busyBtn(b, true, s.enabled ? 'Apagando…' : 'Encendiendo…'); send({ cmd: 'startupSet', id: s.id, on: !s.enabled }); });
+        li.append(el('span', `state ${s.enabled ? 'applied' : ''}`, s.enabled ? 'Arranca' : 'Apagado'), body, b);
+        ul.append(li);
+      });
+      sec.append(ul);
+      return sec;
+    }));
+  }
+  $('su-reload').addEventListener('click', () => { busyBtn($('su-reload'), true, 'Leyendo…'); send({ cmd: 'startupList' }); });
+
+  // ---------- resolución estirada ----------
+  let dsTimer = null;
+  function renderDisplay(d) {
+    const n = d.native, c = d.current;
+    const res = (m) => `${m.width} × ${m.height}`;
+    $('ds-restore').hidden = !d.saved;
+    if (!n || !c) { $('ds-sub').textContent = 'No pude leer la pantalla principal.'; return; }
+    $('ds-sub').textContent = d.stretched
+      ? `Ahora: ${res(c)} estirada a ${c.hz} Hz. Tu resolución normal es ${res(d.saved)}.`
+      : c.width * c.height < n.width * n.height
+        ? `Ahora: ${res(c)} a ${c.hz} Hz; ya la tienes por debajo de la nativa de tu pantalla (${res(n)}). Menos píxeles dan más FPS solo si la tarjeta gráfica va al límite.`
+        : `Ahora: ${res(c)} a ${c.hz} Hz. Menos píxeles dan más FPS solo si la tarjeta gráfica va al límite; si el que limita es el procesador, casi no cambia. La imagen se ve más ancha.`;
+    $('ds-mode').replaceChildren(...d.options.map((m) => {
+      const o = el('option', null, `${res(m)}${m.width === 1440 && m.height === 1080 ? ' · la más usada' : ''}`); o.value = `${m.width}x${m.height}`;
+      if (m.width === c.width && m.height === c.height) o.selected = true;
+      return o;
+    }));
+    if (!d.options.length) $('ds-sub').textContent += ' La pantalla no ofrece resoluciones más estrechas.';
+    const pick = d.options.find((m) => m.width === 1440 && m.height === 1080);
+    if (pick && !d.stretched) $('ds-mode').value = '1440x1080';
+    $('ds-apply').disabled = !d.options.length;
+    $('ds-apply').textContent = d.stretched ? 'Cambiar' : 'Estirar';
+  }
+  function dsConfirm(show) {
+    clearInterval(dsTimer);
+    $('ds-confirm').hidden = !show;
+    if (!show) return;
+    let s = 15; $('ds-count').textContent = s;
+    dsTimer = setInterval(() => {
+      s -= 1; $('ds-count').textContent = s;
+      if (s <= 0) { dsConfirm(false); send({ cmd: 'displayRestore' }); }
+    }, 1000);
+  }
+  $('ds-apply').addEventListener('click', () => {
+    const [w, h] = $('ds-mode').value.split('x').map(Number);
+    busyBtn($('ds-apply'), true, 'Cambiando…');
+    send({ cmd: 'displayStretch', w, h });
+  });
+  $('ds-restore').addEventListener('click', () => { dsConfirm(false); send({ cmd: 'displayRestore' }); });
+  $('ds-undo').addEventListener('click', () => { dsConfirm(false); send({ cmd: 'displayRestore' }); });
+  $('ds-keep').addEventListener('click', () => { dsConfirm(false); $('tl-result').textContent = 'Resolución estirada guardada. «Volver a la normal» la deja como estaba.'; });
+
   // primera visita a cada sección: cargar sus datos
   const loaded = new Set();
   document.querySelectorAll('.nav').forEach((b) => b.addEventListener('click', () => {
@@ -477,7 +552,8 @@
     else if (v === 'mem') send({ cmd: 'settingsGet' });
     else if (v === 'tweaks') send({ cmd: 'tweaksList' });
     else if (v === 'apps') send({ cmd: 'bloatList' });
-    else if (v === 'tools') send({ cmd: 'toolsList' });
+    else if (v === 'tools') { send({ cmd: 'toolsList' }); send({ cmd: 'displayStatus' }); }
+    else if (v === 'startup') send({ cmd: 'startupList' });
   }));
   // para --snap: abrir una sección
   // 'opt-run' = abrir Optimizar y lanzar la primera unidad (prueba de extremo a extremo)
@@ -535,6 +611,17 @@
       $('ap-result').textContent = bad.length ? `No se pudieron quitar: ${bad.map((r) => `${r.id} (${r.error})`).join('; ')}.` : `${plural(payload.length, 'app quitada', 'apps quitadas')}.`;
     }
     else if (type === 'tools') renderTools(payload);
+    else if (type === 'startup') renderStartup(payload);
+    else if (type === 'startupDone') {
+      $('su-result').textContent = payload.ok ? '' : `No se pudo cambiar: ${payload.message}`;
+      $('su-result').classList.toggle('bad', !payload.ok);
+    }
+    else if (type === 'display') { busyBtn($('ds-apply'), false); renderDisplay(payload); }
+    else if (type === 'displayDone') {
+      $('tl-result').textContent = payload.message;
+      $('tl-result').classList.toggle('bad', !payload.ok);
+      dsConfirm(payload.ok && payload.pending);
+    }
     else if (type === 'update') renderUpdate(payload);
     else if (type === 'toolDone') {
       const b = document.querySelector(`[data-tool="${CSS.escape(payload.id)}"]`);

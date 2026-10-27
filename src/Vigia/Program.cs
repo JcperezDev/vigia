@@ -28,6 +28,23 @@ static class Program
             }, new JsonSerializerOptions(Json) { WriteIndented = true }));
             return 0;
         }
+        if (args.Length >= 2 && args[0] == "--startup")   // solo lectura: lo que arranca con Windows
+        {
+            File.WriteAllText(args[1], JsonSerializer.Serialize(new { startup = Startup.List(), display = Display.Status() }, new JsonSerializerOptions(Json) { WriteIndented = true }));
+            return 0;
+        }
+        if (args.Length >= 3 && args[0] == "--startup-set")   // prueba: Vigia --startup-set <id> on|off
+        {
+            var r = Startup.Set(args[1], args[2] == "on");
+            Console.WriteLine($"{r.Ok} {r.Message}");
+            return r.Ok ? 0 : 1;
+        }
+        if (args.Length >= 3 && args[0] == "--display-test")   // prueba sin cambiar nada: ¿acepta Windows ese modo estirado?
+        {
+            var ok = Display.Test(int.Parse(args[1]), int.Parse(args[2]));
+            File.WriteAllText(args[3], ok);
+            return ok.StartsWith("OK") ? 0 : 1;
+        }
         if (args.Length >= 2 && args[0] == "--selftest")
         {
             var report = Cleanup.SelfTest() + Environment.NewLine + "--- ajustes" + Environment.NewLine + Tweaks.SelfTest();
@@ -223,6 +240,26 @@ sealed class MainForm : Form
                 case "toolOpen":
                     var tid = (string)msg["id"]!;
                     Send("toolDone", tid == "restorepoint" ? await Task.Run(() => Toolbox.Open(_cfg.ToolsRoot, tid)) : Toolbox.Open(_cfg.ToolsRoot, tid));
+                    break;
+                case "startupList":
+                    Send("startup", await Task.Run(Startup.List));
+                    break;
+                case "startupSet":
+                    var sid = (string)msg["id"]!; var son = (bool)msg["on"]!;
+                    Send("startupDone", await Task.Run(() => Startup.Set(sid, son)));
+                    Send("startup", await Task.Run(Startup.List));
+                    break;
+                case "displayStatus":
+                    Send("display", Display.Status());
+                    break;
+                case "displayStretch":
+                    var dw = (int)msg["w"]!; var dh = (int)msg["h"]!;
+                    Send("displayDone", Display.Stretch(dw, dh));
+                    Send("display", Display.Status());
+                    break;
+                case "displayRestore":
+                    Send("displayDone", Display.Restore());
+                    Send("display", Display.Status());
                     break;
                 case "version":
                     Send("update", new UpdateInfo(Updates.Current.ToString(), null, false, null, File.Exists(Updates.PuentePath), null));
