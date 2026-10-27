@@ -49,6 +49,14 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .nav.is-active svg { stroke: var(--violet); }
 .rail-foot { margin-top: auto; padding: 10px; font-size: 12px; color: var(--fg-3); line-height: 1.4; }
 .rail-foot strong { display: block; color: var(--fg-2); font-weight: 500; }
+.rail-update { margin: auto 6px 4px; padding: 10px; border: 1px solid var(--line); border-radius: 6px; font-size: 12px; line-height: 1.4; color: var(--fg-2); }
+.rail-update p { margin: 0 0 8px; }
+.rail-update .btn { width: 100%; }
+.rail-update:not([hidden]) + .rail-foot { margin-top: 0; }
+.rail-ver { margin: 0; padding: 0 10px 10px; }
+.linkish { all: unset; cursor: pointer; font-size: 11px; color: var(--fg-3); }
+.linkish:hover { color: var(--fg-2); text-decoration: underline; }
+.linkish:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 /* Main */
 main { overflow: auto; padding: 28px 36px 28px; }

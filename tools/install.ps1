@@ -9,6 +9,11 @@ Get-Process Vigia -EA SilentlyContinue | Stop-Process -Force
 & $dotnet publish (Join-Path $repo 'src\Vigia\Vigia.csproj') -c Release -r win-x64 --self-contained true -o $dest -v quiet -nologo
 if ($LASTEXITCODE -ne 0) { throw "publish falló ($LASTEXITCODE)" }
 
+# Puente (instalador y actualizaciones) en su propia carpeta: así puede reemplazar la de Vigía
+$puente = Join-Path $env:LOCALAPPDATA 'Programs\Vigia-Puente'
+& $dotnet publish (Join-Path $repo 'src\Puente\Puente.csproj') -c Release -o $puente -v quiet -nologo
+if ($LASTEXITCODE -ne 0) { throw "publish de Puente falló ($LASTEXITCODE)" }
+
 $exe = Join-Path $dest 'Vigia.exe'
 $shell = New-Object -ComObject WScript.Shell
 $links = @(

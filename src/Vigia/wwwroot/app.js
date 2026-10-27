@@ -487,6 +487,29 @@
     if (act === 'excl') setTimeout(() => { document.querySelector('.excluded').open = true; }, 500);
   };
 
+  // ---------- actualizaciones (las instala Puente) ----------
+  let upAsked = false;
+  function renderUpdate(u) {
+    $('up-check').textContent = `Versión ${u.current}`;
+    $('up-check').disabled = false;
+    const box = $('update');
+    if (u.available) {
+      box.hidden = false;
+      $('up-text').textContent = u.puenteFound
+        ? `Hay una versión nueva: ${u.latest}. Vigía se cierra, se actualiza y vuelve a abrir sola.`
+        : `Hay una versión nueva: ${u.latest}. Para instalarla falta Puente: bájalo de github.com/JcperezDev/vigia-releases.`;
+      $('up-run').hidden = !u.puenteFound;
+    } else if (upAsked) {
+      box.hidden = false; $('up-run').hidden = true;
+      $('up-text').textContent = u.error ? `No pude mirar si hay versión nueva: ${u.error}` : `Estás en la última versión (${u.current}).`;
+      setTimeout(() => { if ($('up-run').hidden) box.hidden = true; }, 6000);
+    }
+    upAsked = false;
+  }
+  $('up-check').addEventListener('click', () => { upAsked = true; $('up-check').disabled = true; send({ cmd: 'updateCheck' }); });
+  $('up-run').addEventListener('click', () => { busyBtn($('up-run'), true, 'Abriendo Puente…'); send({ cmd: 'updateRun' }); });
+  send({ cmd: 'version' });
+
   // ---------- mensajes del backend ----------
   if (host) host.addEventListener('message', (e) => {
     const { type, payload } = e.data;
@@ -510,6 +533,7 @@
       $('ap-result').textContent = bad.length ? `No se pudieron quitar: ${bad.map((r) => `${r.id} (${r.error})`).join('; ')}.` : `${plural(payload.length, 'app quitada', 'apps quitadas')}.`;
     }
     else if (type === 'tools') renderTools(payload);
+    else if (type === 'update') renderUpdate(payload);
     else if (type === 'toolDone') {
       const b = document.querySelector(`[data-tool="${CSS.escape(payload.id)}"]`);
       if (payload.id === 'restorepoint' && b) busyBtn(b, false, 'Ejecutar');

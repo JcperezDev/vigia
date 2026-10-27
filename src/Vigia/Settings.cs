@@ -9,6 +9,8 @@ public sealed class Settings
     public int MemAutoThreshold { get; set; } = 60;
     public int MemAutoIntervalMin { get; set; } = 5;
     public string ToolsRoot { get; set; } = @"D:\pack externo";
+    /// <summary>Mirar al abrir y cada 6 h si hay versión nueva (solo pregunta a GitHub; no descarga nada).</summary>
+    public bool UpdateCheck { get; set; } = true;
 
     public static string Dir { get; } = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Vigia");
     static string FilePath => Path.Combine(Dir, "settings.json");

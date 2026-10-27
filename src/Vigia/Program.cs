@@ -91,6 +91,7 @@ sealed class MainForm : Form
         _timer.Tick += async (_, _) => await PushAsync();
         _timer.Start();
         if (_snapPath is not null) _ = SnapAsync();
+        else if (_cfg.UpdateCheck) _ = UpdateLoopAsync();
     }
 
     async Task SnapAsync()
@@ -110,6 +111,17 @@ sealed class MainForm : Form
         using (var fs = File.Create(_snapPath!))
             await _web.CoreWebView2.CapturePreviewAsync(CoreWebView2CapturePreviewImageFormat.Png, fs);
         Close();
+    }
+
+    async Task UpdateLoopAsync()
+    {
+        await Task.Delay(TimeSpan.FromSeconds(20));
+        while (!IsDisposed)
+        {
+            var u = await Updates.CheckAsync();
+            if (u.Available && !IsDisposed) Send("update", u);
+            await Task.Delay(TimeSpan.FromHours(6));
+        }
     }
 
     async Task PushAsync()
@@ -211,6 +223,16 @@ sealed class MainForm : Form
                 case "toolOpen":
                     var tid = (string)msg["id"]!;
                     Send("toolDone", tid == "restorepoint" ? await Task.Run(() => Toolbox.Open(_cfg.ToolsRoot, tid)) : Toolbox.Open(_cfg.ToolsRoot, tid));
+                    break;
+                case "version":
+                    Send("update", new UpdateInfo(Updates.Current.ToString(), null, false, null, File.Exists(Updates.PuentePath), null));
+                    break;
+                case "updateCheck":
+                    Send("update", await Updates.CheckAsync());
+                    break;
+                case "updateRun":
+                    if (Updates.StartPuente()) Close();
+                    else Send("update", (await Updates.CheckAsync()) with { Error = "No encuentro Puente. Bájalo de github.com/JcperezDev/vigia-releases." });
                     break;
                 case "utilidad-externa":
                     var rp = await Task.Run(() => RestorePoint.Create("Vigía: antes de utilidad externa"));
