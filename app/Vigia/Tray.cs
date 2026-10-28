@@ -28,6 +28,8 @@ sealed partial class MainForm
         _tray = new NotifyIcon { Text = "Vigía", Icon = Icon ?? SystemIcons.Application, ContextMenuStrip = _menu, Visible = true };
         _menu.Opening += (_, _) => BuildMenu(_menu, Tr.Lang(_cfg));
         _tray.MouseClick += (_, e) => { if (e.Button == MouseButtons.Left) ShowFromTray(); };
+        _tray.BalloonTipClicked += (_, _) => { var v = _balloonView; _balloonView = null; ShowFromTray(v); };
+        _tray.BalloonTipClosed += (_, _) => _balloonView = null;
         FormClosing += (_, e) =>
         {
             if (_quitting || e.CloseReason != CloseReason.UserClosing || !_cfg.TrayOnClose) return;
@@ -56,6 +58,32 @@ sealed partial class MainForm
 
     void Notify(string text, bool ok = true) =>
         _tray?.ShowBalloonTip(5000, "Vigía", text, ok ? ToolTipIcon.Info : ToolTipIcon.Warning);
+
+    /// <summary>
+    /// Repaso único tras iniciar sesión (solo cuando Vigía arrancó con Windows). Espera 2 min a que el PC se calme;
+    /// si hay algo a pantalla completa vuelve a mirar cada 5 min (como mucho 3 h) y, si sigue, lo deja para la próxima.
+    /// </summary>
+    async Task ReviewAfterLogonAsync()
+    {
+        await Task.Delay(TimeSpan.FromMinutes(2));
+        for (var i = 0; AutoStart.Busy(); i++)
+        {
+            if (i >= 36) return;
+            await Task.Delay(TimeSpan.FromMinutes(5));
+        }
+        AutoStart.Check r;
+        try { r = await Task.Run(AutoStart.Review); } catch { return; }
+        if (_tray is null || IsDisposed) return;
+        var parts = new List<string>();
+        if (r.NewItems.Count > 0)
+            parts.Add(r.NewItems.Count == 1 ? $"«{r.NewItems[0].Name}» arranca ahora con Windows." : $"{r.NewItems.Count} programas nuevos arrancan con Windows.");
+        if (r.Undone.Count > 0)
+            parts.Add(r.Undone.Count == 1 ? $"Se deshizo un ajuste de Vigía: {r.Undone[0].Title}." : $"Se deshicieron {r.Undone.Count} ajustes de Vigía (quizá una actualización de Windows).");
+        if (parts.Count == 0) return;
+        _balloonView = r.NewItems.Count > 0 ? "startup" : "opt";
+        _tray.ShowBalloonTip(8000, "Vigía", string.Join(" ", parts) + " Toca para verlo.", ToolTipIcon.Info);
+    }
+    string? _balloonView;
 
     /// <summary>Arma el menú en el momento de abrirlo: así la resolución y la RAM salen como están ahora.</summary>
     internal void BuildMenu(ContextMenuStrip m, string l)

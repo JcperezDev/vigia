@@ -93,14 +93,15 @@ out.append(f'<ellipse cx="{cx}" cy="{cy + 20}" rx="1000" ry="420" fill="url(#hol
 out.append(f'<rect width="{W}" height="{H}" filter="url(#grain)"/>')
 ty = cy + 20
 out.append(f'<text x="{cx}" y="{ty}" text-anchor="middle" font-family="Segoe UI Variable Display, Segoe UI, sans-serif" font-size="132" font-weight="650" letter-spacing="-2" fill="#f1f4f9">Vigía<tspan fill="#a9c9ff" font-weight="400">OS</tspan></text>')
-# línea + punto de vigía a la izquierda del lema, escalonado como en el ejemplo
+# línea sin punto y lema corridos a la derecha: la línea nace antes del logo y acaba bajo sus
+# primeras letras; el lema arranca ahí y pasa del borde derecho (proporciones del ejemplo)
+TW = 471                              # ancho medido del título a 132 px
+L = cx - TW / 2
 gy = ty + 74
-TL = 580; LINE = 170; GAP = 26
-row = 8 + LINE + GAP + TL           # punto + línea + hueco + lema, centrado bajo el logo
-x0 = cx - row // 2
-out.append(f'<circle cx="{x0 + 4}" cy="{gy - 10}" r="4.5" fill="#f1f4f9"/>')
-out.append(f'<line x1="{x0 + 14}" y1="{gy - 10}" x2="{x0 + 8 + LINE}" y2="{gy - 10}" stroke="#f1f4f9" stroke-opacity=".9" stroke-width="2.5" stroke-linecap="round"/>')
-out.append(f'<text x="{x0 + 8 + LINE + GAP}" y="{gy}" textLength="{TL}" lengthAdjust="spacing" font-family="Segoe UI Variable Text, Segoe UI, sans-serif" font-size="35" font-weight="500" fill="#eef2f8">MAXIMUM PERFORMANCE</text>')
+x1, x2 = L - 0.25 * TW, L + 0.21 * TW
+tx, TL = L + 0.26 * TW, 1.1 * TW
+out.append(f'<line x1="{x1:.0f}" y1="{gy - 12}" x2="{x2:.0f}" y2="{gy - 12}" stroke="#f1f4f9" stroke-opacity=".9" stroke-width="2.5"/>')
+out.append(f'<text x="{tx:.0f}" y="{gy}" textLength="{TL:.0f}" lengthAdjust="spacing" font-family="Segoe UI Variable Text, Segoe UI, sans-serif" font-size="35" font-weight="400" fill="#eef2f8">MAXIMUM PERFORMANCE</text>')
 out.append('</svg>')
 open(sys.argv[1], 'w', encoding='utf-8').write('\n'.join(out))
 print('ok')

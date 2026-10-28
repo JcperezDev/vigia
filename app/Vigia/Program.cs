@@ -40,6 +40,23 @@ static class Program
             File.WriteAllText(args[1], JsonSerializer.Serialize(new { startup = Startup.List(), display = Display.Status() }, new JsonSerializerOptions(Json) { WriteIndented = true }));
             return 0;
         }
+        // «Apagar todos los programas» por consola, solo en laboratorio (VIGIA_LAB=1): Vigia.exe --startup-offall <salida.json>
+        if (args.Length >= 2 && args[0] == "--startup-offall" && Tweaks.Lab)
+        {
+            File.WriteAllText(args[1], JsonSerializer.Serialize(new { done = Startup.OffAll(), after = Startup.List() }, new JsonSerializerOptions(Json) { WriteIndented = true }));
+            return 0;
+        }
+        // «Abrir Vigía al iniciar Windows» por consola, solo en laboratorio: Vigia.exe --autostart <on|off|review> <salida.json>
+        if (args.Length >= 3 && args[0] == "--autostart" && Tweaks.Lab)
+        {
+            object res = args[1] switch
+            {
+                "on" or "off" => AutoStart.Set(args[1] == "on") is var (ok, m) ? new { ok, message = m, enabled = AutoStart.Enabled() } : null!,
+                _ => AutoStart.Review(),
+            };
+            File.WriteAllText(args[2], JsonSerializer.Serialize(res, new JsonSerializerOptions(Json) { WriteIndented = true }));
+            return 0;
+        }
         // Fortnite por consola (laboratorio y soporte): Vigia.exe --fortnite <read|unlock|profile|perf|dx12> <salida.json>
         if (args.Length >= 3 && args[0] == "--fortnite")
         {
@@ -157,6 +174,24 @@ static class Program
         }
         // Laboratorio del antivirus: Vigia.exe --sec <status|enable|scan> <salida.json>
         // ISO limpia desde la línea de órdenes (laboratorio): --iso inspect <iso> <salida.json> | --iso build <opciones.json> <salida.json>
+        // USB (laboratorio): --usb list <salida.json> | --usb write <iso> <disco> <serie> <salida.json>  (write BORRA la memoria)
+        if (args.Length >= 3 && args[0] == "--usb")
+        {
+            var jo = new JsonSerializerOptions(Json) { WriteIndented = true };
+            if (args[1] == "list") { File.WriteAllText(args[2], JsonSerializer.Serialize(IsoBuild.UsbList(), jo)); return 0; }
+            if (args[1] == "write" && args.Length >= 6)
+            {
+                var plog = args[5] + ".log"; string last = "";
+                var res = IsoBuild.ToUsb(args[2], int.Parse(args[3]), args[4], pr =>
+                {
+                    var line = $"{pr.Num}/{pr.Of} {pr.Step} {(pr.Pct is { } v ? $"{v:0}%" : "")}";
+                    if (line != last) { last = line; File.AppendAllText(plog, $"{DateTime.Now:HH:mm:ss} {line}{Environment.NewLine}"); }
+                });
+                File.WriteAllText(args[5], JsonSerializer.Serialize(res, jo));
+                return res.Ok ? 0 : 1;
+            }
+            return 2;
+        }
         if (args.Length >= 4 && args[0] == "--iso")
         {
             var jo = new JsonSerializerOptions(Json) { WriteIndented = true };
@@ -243,7 +278,8 @@ static class Program
         // Verificación visual: Vigia.exe --snap salida.png [storage] -> captura la UI real tras ~8 s y sale
         // Consumo real: Vigia.exe --bench salida.json -> 30 s abierta, 60 s minimizada, y sale
         Application.Run(args.Length >= 2 && args[0] == "--snap" ? new MainForm(args[1], args.ElementAtOrDefault(2))
-            : args.Length >= 2 && args[0] == "--bench" ? new MainForm(null, null, args[1]) : new MainForm());
+            : args.Length >= 2 && args[0] == "--bench" ? new MainForm(null, null, args[1])
+            : args.Length >= 1 && args[0] == AutoStart.Arg ? new MainForm(startHidden: true) : new MainForm());
         return 0;
     }
 }
@@ -264,6 +300,14 @@ sealed partial class MainForm : Form
         _snapPath = snapPath; _snapView = snapView; _benchPath = benchPath;
     }
 
+    // Al iniciar Windows (tarea oculta): directa a la bandeja, sin que la ventana llegue a verse ni salga en la barra de tareas.
+    readonly bool _startHidden;
+    public MainForm(bool startHidden) : this()
+    {
+        _startHidden = startHidden;
+        if (startHidden) { WindowState = FormWindowState.Minimized; ShowInTaskbar = false; Opacity = 0; }
+    }
+
     public MainForm()
     {
         Text = "Vigía";
@@ -272,7 +316,17 @@ sealed partial class MainForm : Form
         StartPosition = FormStartPosition.CenterScreen;
         try { Icon = new Icon(Path.Combine(AppContext.BaseDirectory, "vigia.ico")); } catch { }
         Controls.Add(_web);
-        Load += async (_, _) => { if (_snapPath is null) InitTray(); /* --bench mide con el icono puesto */ await InitAsync(); };
+        Load += async (_, _) =>
+        {
+            if (_snapPath is null) InitTray();   /* --bench mide con el icono puesto */
+            await InitAsync();
+            if (_startHidden)
+            {
+                Hide(); ShowInTaskbar = true; Opacity = 1;
+                await SetRestingAsync(true);
+                _ = ReviewAfterLogonAsync();
+            }
+        };
         FormClosed += (_, _) => { _timer.Stop(); Optimize.Cancel(); _tel.Dispose(); };
         Resize += async (_, _) => await SetRestingAsync(WindowState == FormWindowState.Minimized);
         Activated += (_, _) => { if (!_resting) _timer.Interval = 1000; };
@@ -506,8 +560,16 @@ sealed partial class MainForm : Form
                     var o = msg["opts"].Deserialize<MemOptions>(Program.Json) ?? new MemOptions();
                     Send("memFreed", await Task.Run(() => Memory.Free(o)));
                     break;
+                case "autoStartSet":
+                    var (aok, amsg) = await Task.Run(() => AutoStart.Set((bool?)msg["on"] ?? false));
+                    Send("autoStart", new { ok = aok, message = amsg, on = AutoStart.Enabled() });
+                    break;
+                case "startupOffAll":
+                    Send("startupAll", await Task.Run(Startup.OffAll));
+                    Send("startup", await Task.Run(Startup.List));
+                    break;
                 case "settingsGet":
-                    Send("settings", new { cfg = _cfg, lab = Tweaks.Lab });
+                    Send("settings", new { cfg = _cfg, lab = Tweaks.Lab, autoStart = AutoStart.Enabled() });
                     break;
                 case "settingsSet":
                     var next = msg["cfg"].Deserialize<Settings>(Program.Json);
@@ -517,7 +579,7 @@ sealed partial class MainForm : Form
                         next.MemAutoIntervalMin = Math.Clamp(next.MemAutoIntervalMin, 1, 120);
                         _cfg = next; _cfg.Save();
                     }
-                    Send("settings", new { cfg = _cfg, lab = Tweaks.Lab });
+                    Send("settings", new { cfg = _cfg, lab = Tweaks.Lab, autoStart = AutoStart.Enabled() });
                     break;
                 case "tweaksList":
                     Send("tweaks", new { items = await Task.Run(Tweaks.List), restorePoints = await Task.Run(RestorePoint.Count) });
@@ -707,7 +769,25 @@ sealed partial class MainForm : Form
                     })));
                     break;
                 case "isoCancel":
+                case "usbCancel":
                     IsoBuild.Cancel();
+                    break;
+                case "usbList":
+                    Send("usbList", await Task.Run(IsoBuild.UsbList));
+                    break;
+                case "usbWrite":
+                    var uiso = (string?)msg["iso"] ?? ""; var unum = (int?)msg["number"] ?? -1; var userial = (string?)msg["serial"] ?? "";
+                    string ulast = "";
+                    Send("usbDone", await Task.Run(() => IsoBuild.ToUsb(uiso, unum, userial, pr =>
+                    {
+                        var key = $"{pr.Num}{pr.Step}{(int)(pr.Pct ?? -1)}";
+                        if (key == ulast) return; ulast = key;
+                        BeginInvoke(() => Send("usbProgress", pr));
+                    })));
+                    break;
+                case "usbPickIso":
+                    using (var ofd = new OpenFileDialog { Filter = "Imagen de Windows (*.iso)|*.iso", Title = "Elige la ISO que vas a pasar al USB" })
+                        if (ofd.ShowDialog(this) == DialogResult.OK) Send("usbIso", new { path = ofd.FileName, bytes = new FileInfo(ofd.FileName).Length });
                     break;
                 case "isoShow":
                     var ishow = (string?)msg["path"];

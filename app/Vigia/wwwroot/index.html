@@ -11,7 +11,7 @@
 <div class="shell">
   <nav class="rail" aria-label="Secciones">
     <div class="brand">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 20 7.5v9L12 21l-8-4.5v-9Z"/><path d="M4 7.5 12 12l8-4.5M12 12v9"/><path class="lid" d="M12 3 20 7.5 12 12 4 7.5Z"/></svg>
       <span>Vigía</span>
     </div>
     <button class="nav is-active" data-view="monitor" aria-current="page">
@@ -77,8 +77,7 @@
       </button>
     </div>
     <div class="rail-update" id="update" hidden>
-      <p id="up-text"></p>
-      <button class="btn" id="up-run">Actualizar</button>
+      <button class="up-link" id="up-run" title="Se cierra un momento y vuelve a abrir ya actualizada.">Actualizar</button>
     </div>
     <div class="rail-foot" id="privilege"></div>
     <p class="rail-ver" id="ver"><button class="linkish" id="up-check" title="Buscar versión nueva">Versión —</button></p>
@@ -323,7 +322,9 @@
           <label class="chk"><input type="checkbox" id="iso-ads" checked><span><b>Sin anuncios ni apps sugeridas</b><span>Windows no instala Candy Crush y compañía al entrar por primera vez, ni pone recomendaciones en Inicio.</span></span></label>
           <label class="chk"><input type="checkbox" id="iso-local"><span><b>Cuenta local, sin cuenta de Microsoft</b><span>No pide correo ni internet al instalar. Entras sin contraseña; ponle una después en Configuración → Cuentas.</span>
             <input type="text" id="iso-user" class="iso-user" maxlength="20" placeholder="Nombre de usuario" spellcheck="false" hidden></span></label>
-          <label class="chk"><input type="checkbox" id="iso-skip"><span><b>Instalar en PCs sin TPM 2.0 ni Secure Boot</b><span>Para PCs viejos. Microsoft no da soporte en esos equipos y pueden quedarse sin las actualizaciones grandes.</span></span></label>
+          <label class="chk"><input type="checkbox" id="iso-skip"><span><b>Instalar en PCs sin TPM 2.0, Secure Boot ni 4 GB de RAM</b><span>Para PCs viejos. Microsoft no da soporte en esos equipos y pueden quedarse sin las actualizaciones grandes.</span></span></label>
+          <label class="chk"><input type="checkbox" id="iso-tele" checked><span><b>Sin recopilación de datos</b><span>Se salta las preguntas de privacidad al instalar y deja lo que se envía a Microsoft en lo mínimo que permite Windows. También apaga el ID de publicidad y el historial de actividad.</span></span></label>
+          <label class="chk"><input type="checkbox" id="iso-bitlocker" checked><span><b>Sin cifrado automático del disco (BitLocker)</b><span>Windows no cifra el disco solo al instalarse. Si quieres BitLocker, lo activas tú después.</span></span></label>
           <details class="iso-apps"><summary id="iso-apps-sum">Apps que se quitan</summary><div id="iso-apps"></div></details>
         </div>
       </section>
@@ -340,6 +341,24 @@
           <p class="op-line" id="iso-line"></p>
         </section>
         <p class="op-result" id="iso-result" aria-live="polite"></p>
+      </section>
+      <section class="tw-group" id="iso-usb">
+        <h2>Pasar a un USB</h2>
+        <div class="box usb-box">
+          <p class="sub" id="usb-iso">Elige la ISO que vas a pasar. Si acabas de crear una, ya está puesta.</p>
+          <button class="btn" id="usb-pick">Elegir ISO…</button>
+          <p class="sub" id="usb-none" hidden>Conecta una memoria USB de 8 GB o más y pulsa «Buscar de nuevo».</p>
+          <div class="usb-drive"><select class="st-select" id="usb-drive" aria-label="Memoria USB"></select><button class="btn" id="usb-refresh">Buscar de nuevo</button></div>
+          <p class="usb-warn">Se borra todo lo que tenga la memoria. Solo salen memorias USB, nunca tus discos internos ni los externos.</p>
+          <button class="btn primary" id="usb-go" disabled>Pasar a un USB</button>
+        </div>
+        <p class="src iso-note">Arranca en cualquier PC con UEFI (todos los que pueden con Windows 11). Tarda de 5 a 20 minutos según la memoria.</p>
+        <section class="oprun" id="usb-run" hidden aria-live="polite">
+          <div class="oprun-head"><strong id="usb-step"></strong><button class="btn" id="usb-cancel">Cancelar</button></div>
+          <div class="bar big-bar"><i id="usb-bar"></i></div>
+          <p class="op-line" id="usb-line"></p>
+        </section>
+        <p class="op-result" id="usb-result" aria-live="polite"></p>
       </section>
     </section>
 
@@ -365,8 +384,9 @@
     <section class="view" id="view-startup" hidden>
       <header class="head">
         <div><h1>Inicio de Windows</h1><p class="sub" id="su-sub">Lo que arranca solo al encender el PC. Apagar no borra nada: la entrada se queda y la puedes volver a encender.</p></div>
-        <button class="btn" id="su-reload">Volver a leer</button>
+        <div class="head-act"><button class="btn" id="su-all" hidden>Apagar todos los programas</button><button class="btn" id="su-reload">Volver a leer</button></div>
       </header>
+      <p class="src su-all-note" id="su-all-note" hidden>Apaga todos los programas que arrancan solos, menos Vigía y lo que el PC necesita: antivirus, drivers, ventiladores, antitrampas, Bluetooth y teclado. Antes guarda una copia de cada uno; los vuelves a encender cuando quieras.</p>
       <p class="result" id="su-result" aria-live="polite"></p>
       <div id="su-groups"><p class="empty">Leyendo lo que arranca con Windows…</p></div>
     </section>
@@ -418,7 +438,7 @@
 
     <section class="view" id="view-settings" hidden>
       <header class="head">
-        <div><h1>Configuración</h1><p class="sub">Actualizaciones e idioma.</p></div>
+        <div><h1>Configuración</h1><p class="sub">Actualizaciones, inicio con Windows e idioma.</p></div>
       </header>
       <section class="tw-group">
         <h2>Actualizaciones</h2>
@@ -433,6 +453,13 @@
             <button class="btn primary" id="st-run">Actualizar ahora</button>
           </div>
           <label class="chk"><input type="checkbox" id="st-auto"><span>Buscar sola al abrir Vigía y cada 6 horas<small>Solo pregunta a GitHub si hay versión nueva; no baja nada sin que lo pidas.</small></span></label>
+        </div>
+      </section>
+      <section class="tw-group">
+        <h2>Al iniciar Windows</h2>
+        <div class="panel st-panel">
+          <label class="chk"><input type="checkbox" id="st-boot"><span>Abrir Vigía al iniciar Windows<small>Se queda escondida en la bandeja sin gastar casi nada, para que la liberación de memoria funcione sola. A los 2 minutos revisa una vez si hay programas nuevos que arrancan con Windows o si se deshizo algún ajuste, y te avisa sin abrir nada. Si estás jugando, espera.</small></span></label>
+          <p class="result" id="st-boot-msg" aria-live="polite"></p>
         </div>
       </section>
       <section class="tw-group">
@@ -494,42 +521,38 @@
 
     <section class="view" id="view-support" hidden>
       <header class="head">
-        <div><h1>Apoya Vigía</h1><p class="sub">Vigía es gratis, sin cuenta y sin anuncios. Si te sirvió, así puedes ayudar a que siga.</p></div>
+        <div><h1>Apoya Vigía</h1><p class="sub">Vigía es gratis y sin anuncios. Si te sirve, puedes ayudar así.</p></div>
       </header>
 
-      <section class="sp-main">
-        <div class="sp-why">
-          <h2>Por qué ayuda</h2>
-          <p>Cada ajuste se prueba en una máquina virtual con Windows limpio antes de llegar a tu PC: se aplica, se reinicia y se deshace. Eso lleva horas. Una donación paga ese tiempo.</p>
-          <p class="sp-note">Donar es opcional y no desbloquea nada. Todo lo que tiene Vigía sigue siendo gratis.</p>
-        </div>
-        <div class="sp-give">
-          <h2>Donar</h2>
-          <div class="sp-links" id="sp-links"><p class="empty">Cargando…</p></div>
-        </div>
+      <section class="sp-give sp-solo">
+        <h2>Donar</h2>
+        <p class="sp-note">Es opcional y no desbloquea nada.</p>
+        <div class="sp-links" id="sp-links"><p class="empty">Cargando…</p></div>
       </section>
 
-      <section class="tw-group">
-        <h2>Sin gastar nada</h2>
-        <ul class="sp-free">
-          <li>
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9L12 3Z"/></svg>
-            <div><strong>Dale una estrella en GitHub</strong><span>Hace que más gente la encuentre.</span></div>
-            <button class="btn" id="sp-star">Abrir GitHub</button>
-          </li>
-          <li>
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 12h8M12 8l4 4-4 4"/><rect x="3" y="3" width="18" height="18" rx="3"/></svg>
-            <div><strong>Pásasela a alguien que juegue</strong><span>Copia el enlace de descarga.</span></div>
-            <button class="btn" id="sp-share">Copiar enlace</button>
-          </li>
-          <li>
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H8l-4 4V5Z"/><path d="M12 8v3M12 13.5h.01"/></svg>
-            <div><strong>Cuéntanos qué falla</strong><span>Un error bien contado vale tanto como una donación.</span></div>
-            <button class="btn" id="sp-issue">Reportar</button>
-          </li>
-        </ul>
-        <p class="result" id="sp-result" aria-live="polite"></p>
-      </section>
+      <ul class="sp-free">
+        <li>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9L12 3Z"/></svg>
+          <strong>Dale una estrella en GitHub</strong>
+          <button class="btn" id="sp-star">Abrir GitHub</button>
+        </li>
+        <li>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="17.5" cy="5.5" r="2.5"/><circle cx="6.5" cy="12" r="2.5"/><circle cx="17.5" cy="18.5" r="2.5"/><path d="m8.7 10.8 6.6-4M8.7 13.2l6.6 4"/></svg>
+          <strong>Compártela</strong>
+          <button class="btn" id="sp-share">Copiar enlace</button>
+        </li>
+        <li>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.5 10.9V16h7v-2.1A6 6 0 0 0 12 3Z"/></svg>
+          <strong>Cuéntanos qué podría mejorar</strong>
+          <button class="btn" id="sp-idea">Dar una idea</button>
+        </li>
+        <li>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H8l-4 4V5Z"/><path d="M12 8v3M12 13.5h.01"/></svg>
+          <strong>Cuéntanos qué falla</strong>
+          <button class="btn" id="sp-issue">Reportar</button>
+        </li>
+      </ul>
+      <p class="result" id="sp-result" aria-live="polite"></p>
     </section>
 
     <section class="view" id="view-tools" hidden>

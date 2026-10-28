@@ -3,159 +3,177 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Vigía · Más rendimiento para tu PC de juego, sin romper nada</title>
-<meta name="description" content="Vigía libera RAM, apaga lo que arranca con Windows, pone la resolución estirada y ajusta Windows para jugar. Antes de cada cambio guarda una copia. Gratis para Windows 10 y 11.">
-<meta name="theme-color" content="#16181c">
+<title>Vigía · Optimiza tu PC para jugar, con copia de todo</title>
+<meta name="description" content="Vigía optimiza Windows para jugar: libera RAM, apaga lo que arranca con Windows, ajusta el sistema y crea una ISO limpia. Guarda una copia antes de cada cambio. Gratis y de código abierto.">
+<meta name="theme-color" content="#0c1016">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://vigiapc.vercel.app/">
+<meta property="og:title" content="Vigía · Optimiza tu PC para jugar, con copia de todo">
+<meta property="og:description" content="Gratis, de código abierto y sin cuenta. Cada cambio se puede deshacer.">
+<meta property="og:image" content="https://vigiapc.vercel.app/img/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="canonical" href="https://vigiapc.vercel.app/">
 <link rel="icon" href="favicon.ico">
-<link rel="preload" href="fonts/ibm-plex-sans-latin-600-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/archivo-var-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
-  <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></symbol>
-  <symbol id="i-ram" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="10" rx="1.5"/><path d="M7 7v10M11 7v10M15 7v10M6 17v3M18 17v3"/></symbol>
-  <symbol id="i-power" viewBox="0 0 24 24"><path d="M12 3v8"/><path d="M6.3 6.8a8 8 0 1 0 11.4 0"/></symbol>
-  <symbol id="i-screen" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="1.5"/><path d="M8 20h8M12 16v4"/><path d="M7 10h10M7 10l2-2M7 10l2 2M17 10l-2-2M17 10l-2 2"/></symbol>
-  <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></symbol>
-  <symbol id="i-copy" viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.3-5.6"/><path d="M4 4v4h4"/><path d="M12 8v4l3 2"/></symbol>
+  <symbol id="i-logo" viewBox="0 0 24 24"><path class="lid" d="M12 3 20 7.5 12 12 4 7.5Z"/><path d="M12 3 20 7.5v9L12 21l-8-4.5v-9Z"/><path d="M4 7.5 12 12l8-4.5M12 12v9"/></symbol>
   <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></symbol>
-  <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+  <symbol id="i-gh" viewBox="0 0 24 24"><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6 0 0 0-1.3-3.2 4.2 4.2 0 0 0-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3 0 0 0-6.2 0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2 0 0 0-.1 3.2A4.6 4.6 0 0 0 4 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></symbol>
+  <symbol id="i-cup" viewBox="0 0 24 24"><path d="M4 8h13v5a6 6 0 0 1-6 6h-1a6 6 0 0 1-6-6Z"/><path d="M17 10h1.5a2.5 2.5 0 0 1 0 5H17M8 3v2M12 3v2"/></symbol>
+  <symbol id="i-share" viewBox="0 0 24 24"><path d="M12 15V4M8 8l4-4 4 4"/><path d="M5 12v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></symbol>
+  <symbol id="i-bug" viewBox="0 0 24 24"><path d="M8 9a4 4 0 0 1 8 0v5a4 4 0 0 1-8 0Z"/><path d="M12 9v9M4 13h4M16 13h4M5 7l3 2M19 7l-3 2M5 19l3-2M19 19l-3-2"/></symbol>
+  <symbol id="i-idea" viewBox="0 0 24 24"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3Z"/></symbol>
 </svg>
 
+<a class="skip" href="#main" data-i="skip">Saltar al contenido</a>
+
 <header class="top">
-  <a class="brand" href="#" aria-label="Vigía, inicio"><svg><use href="#i-eye"/></svg>Vigía</a>
-  <nav aria-label="Secciones">
-    <a href="#hace">Qué hace</a>
-    <a href="#copias">Copias</a>
-    <a href="#consumo">Consumo</a>
-    <a href="#apoya">Apoya</a>
+  <a class="brand" href="#" aria-label="Vigía"><svg><use href="#i-logo"/></svg>Vigía</a>
+  <nav data-i-aria="navAria" aria-label="Secciones">
+    <a href="#hace" data-i="navWhat">Qué hace</a>
+    <a href="#copias" data-i="navCopies">Copias</a>
+    <a href="#codigo" data-i="navCode">Código</a>
+    <a href="#apoya" data-i="navSupport">Apoya</a>
   </nav>
-  <a class="top-dl" href="https://github.com/JcperezDev/vigia-releases/releases/latest/download/Vigia-Setup.exe">Descargar</a>
+  <label class="lang">
+    <span class="sr" data-i="langLabel">Idioma</span>
+    <select id="lang">
+      <option value="es">ES · Español</option>
+      <option value="en">EN · English</option>
+      <option value="pt">PT · Português</option>
+      <option value="fr">FR · Français</option>
+      <option value="de">DE · Deutsch</option>
+    </select>
+  </label>
+  <a class="top-dl" href="https://github.com/JcperezDev/vigia-releases/releases/latest/download/Vigia-Setup.exe" data-i="download">Descargar</a>
 </header>
 
-<main>
-  <section class="hero" id="hace">
+<main id="main">
+  <section class="hero" aria-labelledby="hero-h">
+    <svg class="board" id="board" aria-hidden="true" viewBox="-20 0 840 500" preserveAspectRatio="xMidYMid meet"></svg>
     <div class="pitch">
-      <h1>Más rendimiento para tu PC de juego. Nada que no puedas deshacer.</h1>
-      <p class="lead">Vigía libera RAM, apaga lo que arranca con Windows y ajusta el sistema para jugar. Antes de cada cambio guarda una copia.</p>
-      <a class="dl" href="https://github.com/JcperezDev/vigia-releases/releases/latest/download/Vigia-Setup.exe">
-        <svg><use href="#i-down"/></svg>Descargar gratis
-        <span class="ver" data-ver>v0.15.1</span>
-      </a>
-      <p class="meta">Windows 10 y 11 · 64 bits · unos 65 MB en total</p>
-    </div>
-
-    <div class="ledger">
-      <div class="col yes">
-        <h2>Lo que hace</h2>
-        <ul>
-          <li><svg><use href="#i-ram"/></svg><p><b>Libera la RAM sola al llegar al 60 %</b>En una prueba devolvió 11,2 GB: del 52 % al 16 % de uso.</p></li>
-          <li><svg><use href="#i-power"/></svg><p><b>Apaga lo que arranca con Windows</b>No borra nada: se vuelve a encender con un clic.</p></li>
-          <li><svg><use href="#i-screen"/></svg><p><b>Resolución estirada</b>Si no confirmas en 15 segundos, la pantalla vuelve sola.</p></li>
-          <li><svg><use href="#i-sliders"/></svg><p><b>35 ajustes de Windows, explicados uno a uno</b>Los de riesgo vienen apagados y marcados.</p></li>
-          <li><svg><use href="#i-copy"/></svg><p><b>Copia antes de cada cambio</b>Si no puede guardarla, no cambia nada.</p></li>
-        </ul>
+      <h1 id="hero-h" data-i="heroH">Tu PC listo para jugar. Con copia de todo.</h1>
+      <p class="lead" data-i="heroLead">Vigía libera la RAM, apaga lo que arranca con Windows y ajusta el sistema para jugar. Antes de tocar algo guarda cómo estaba, y lo deshaces con un clic.</p>
+      <div class="cta">
+        <a class="dl" href="https://github.com/JcperezDev/vigia-releases/releases/latest/download/Vigia-Setup.exe">
+          <svg><use href="#i-down"/></svg>
+          <span><b data-i="dlFree">Descargar gratis</b><small><span data-ver>v0.20.0</span> · <span data-i="dlMeta">Windows 10 y 11 · 64 bits</span></small></span>
+        </a>
+        <a class="gh" href="https://github.com/JcperezDev/vigia"><svg><use href="#i-gh"/></svg><span data-i="ghLink">Ver el código en GitHub</span></a>
       </div>
-      <div class="col no">
-        <h2>Lo que nunca hace</h2>
-        <ul>
-          <li><s>Instalar drivers vulnerables</s></li>
-          <li><s>Escribir en la BIOS</s></li>
-          <li><s>Apagar Defender, UAC o Windows Update</s></li>
-          <li><s>Traer activadores o programas pirata</s></li>
-          <li><s>Gastar CPU mientras está minimizada</s></li>
-        </ul>
-      </div>
-    </div>
-  </section>
-
-  <section class="shot" aria-labelledby="shot-h">
-    <figure>
-      <img src="img/monitor.webp" width="1028" height="749" loading="lazy"
-           alt="Pantalla Monitor de Vigía: temperatura, carga y reloj de la CPU y la GPU, uso de memoria y una gráfica del último minuto.">
-      <div class="tray" aria-label="Menú del icono de Vigía">
-        <span class="tray-h">RAM 9,2 / 31 GB (30 %)</span>
-        <span class="tray-b">Abrir Vigía</span>
-        <hr>
-        <span>Optimizar ahora</span>
-        <span>Liberar memoria</span>
-        <span class="has">Resolución estirada</span>
-        <span>Deshacer último cambio…</span>
-        <hr>
-        <span class="on">Liberar sola al 60 %</span>
-      </div>
-    </figure>
-    <div class="shot-text">
-      <h2 id="shot-h">Lo que pasa dentro de tu PC, sin adornos</h2>
-      <p>Temperatura y carga de la CPU y la GPU, memoria, discos y su salud. Con permisos de administrador lee todos los sensores.</p>
-      <p>Desde el icono junto al reloj tienes lo rápido: clic derecho para optimizar, liberar memoria o poner la resolución estirada sin abrir la ventana.</p>
-    </div>
-  </section>
-
-  <section class="band" id="copias" aria-labelledby="copias-h">
-    <h2 id="copias-h">Cada cambio tiene vuelta atrás</h2>
-    <ol class="flow">
-      <li><b>Guarda una copia</b>De lo que va a tocar: registro, servicios, inicio de Windows o resolución. Si la copia falla, se detiene.</li>
-      <li><b>Hace el cambio</b>Solo lo que marcaste. Los ajustes de riesgo medio o alto no se aplican sin probarlos antes.</li>
-      <li><b>Deshaces con un clic</b>Desde Copias de seguridad o desde el icono: «Deshacer último cambio». Guarda hasta 300 copias.</li>
-    </ol>
-  </section>
-
-  <section class="band" id="consumo" aria-labelledby="consumo-h">
-    <div class="split">
-      <div>
-        <h2 id="consumo-h">Minimizada, casi no existe</h2>
-        <p>Una app de optimización no debería ser lo que te quita rendimiento. Al minimizarla o cerrarla al icono, Vigía deja de leer sensores y de dibujar, y devuelve su memoria a Windows.</p>
-        <p class="fine">Medido en un Ryzen&nbsp;9 9900X con la herramienta <code>--bench</code> que trae la app: 30&nbsp;s abierta, 60&nbsp;s minimizada.</p>
-      </div>
-      <table class="bench">
-        <caption class="sr">Consumo de Vigía</caption>
-        <thead><tr><th scope="col"></th><th scope="col">CPU (de un núcleo)</th><th scope="col">RAM</th></tr></thead>
-        <tbody>
-          <tr><th scope="row">Abierta</th><td>6,7 %</td><td>440 MB</td></tr>
-          <tr class="rest"><th scope="row">Minimizada</th><td>0,1 %</td><td>49 MB</td></tr>
-        </tbody>
-      </table>
-    </div>
-  </section>
-
-  <section class="band" id="apoya" aria-labelledby="apoya-h">
-    <div class="split">
-      <div>
-        <h2 id="apoya-h">Gratis, sin cuenta y sin anuncios</h2>
-        <p>No pide correo ni registro, y no hay versión de pago que se guarde lo mejor. Cada ajuste se prueba en una máquina virtual con Windows limpio antes de publicarse: se aplica, se reinicia y se deshace. Si Vigía te sirvió, puedes apoyar ese trabajo desde la sección «Apoya Vigía» de la app. Donar es opcional y no desbloquea nada.</p>
-      </div>
-      <ul class="facts">
-        <li><svg><use href="#i-check"/></svg>Un recorrido de un minuto la primera vez que la abres</li>
-        <li><svg><use href="#i-check"/></svg>Se actualiza desde la propia app, con descargas firmadas</li>
-        <li><svg><use href="#i-check"/></svg>Si una versión nueva no te convence, vuelves a la anterior</li>
-        <li><svg><use href="#i-check"/></svg>Español, English, Português, Français y Deutsch</li>
+      <ul class="trust">
+        <li data-i="t1">Código abierto (MIT)</li>
+        <li data-i="t2">Sin cuenta ni anuncios</li>
+        <li data-i="t3">No envía tus datos</li>
       </ul>
     </div>
   </section>
 
-  <section class="end">
-    <h2>Pruébala en tu PC</h2>
+  <section class="what" id="hace" aria-labelledby="hace-h">
+    <div class="what-head">
+      <h2 id="hace-h" data-i="whatH">Lo que toca en tu PC</h2>
+      <p data-i="whatP">Cada parte explica qué cambia en palabras simples. Lo arriesgado viene apagado y marcado.</p>
+    </div>
+    <ul class="mods">
+      <li><h3 data-i="m1h">Modo simple</h3><p data-i="m1p">Contestas unas preguntas (¿juegas?, ¿usas impresora?, ¿Xbox?) y Vigía hace el resto.</p></li>
+      <li><h3 data-i="m2h">Memoria</h3><p data-i="m2p">Libera la RAM sola al llegar al 60 %. En una prueba devolvió 11,2 GB.</p><span class="read" data-i="m2r">52 % → 16 %</span></li>
+      <li><h3 data-i="m3h">Inicio de Windows</h3><p data-i="m3p">Apaga de un clic todo lo que arranca con Windows. Vigía se queda: en reposo casi no gasta.</p><span class="read" data-i="m3r">0,1 % CPU</span></li>
+      <li><h3 data-i="m4h">Juegos</h3><p data-i="m4p">Ajustes de Windows para jugar y perfil para Fortnite. Solo edita archivos de configuración; nunca toca el antitrampas.</p></li>
+      <li><h3 data-i="m5h">Monitor</h3><p data-i="m5p">Temperatura, carga y reloj con los mismos contadores del Administrador de tareas, y qué programa gasta de más.</p></li>
+      <li><h3 data-i="m6h">ISO de Windows</h3><p data-i="m6p">Crea una ISO limpia a partir de la oficial: cuenta local, sin anuncios, sin TPM ni BitLocker automático. Y la pasa a un USB.</p></li>
+      <li><h3 data-i="m7h">BIOS</h3><p data-i="m7p">Lee tu placa y te dice qué activar, como EXPO o Resizable BAR. Nunca escribe en la BIOS.</p></li>
+      <li><h3 data-i="m8h">Apps y almacenamiento</h3><p data-i="m8p">Quita las apps de Windows que sobran y limpia temporales viejos. Lo que está en uso no se toca.</p></li>
+    </ul>
+  </section>
+
+  <section class="shots" aria-labelledby="shots-h">
+    <h2 id="shots-h" class="sr" data-i="shotsH">Capturas de Vigía</h2>
+    <figure class="win w1">
+      <img src="img/simple.webp" width="1028" height="749" loading="lazy" decoding="async" data-i-alt="shot1Alt" alt="Pantalla Modo simple de Vigía: preguntas de sí o no sobre juegos, impresora, Xbox y búsqueda.">
+      <figcaption data-i="shot1">Modo simple: tú contestas, Vigía hace el resto.</figcaption>
+    </figure>
+    <figure class="win w2">
+      <img src="img/monitor.webp" width="1028" height="552" loading="lazy" decoding="async" data-i-alt="shot2Alt" alt="Pantalla Monitor de Vigía: CPU, GPU y memoria con temperatura, carga y reloj, y la gráfica del último minuto.">
+      <figcaption data-i="shot2">Monitor: lo mismo que mide el Administrador de tareas, más las temperaturas.</figcaption>
+    </figure>
+  </section>
+
+  <section class="copies" id="copias" aria-labelledby="copias-h">
+    <h2 id="copias-h" data-i="copiesH">Cada cambio deja su copia</h2>
+    <ol class="track">
+      <li><b data-i="c1h">Guarda cómo estaba</b><span data-i="c1p">Registro, servicios, inicio de Windows o resolución. Si no puede guardar la copia, no cambia nada.</span></li>
+      <li><b data-i="c2h">Cambia solo lo que marcaste</b><span data-i="c2p">Los ajustes de riesgo medio o alto se prueban antes en una máquina virtual con Windows limpio.</span></li>
+      <li><b data-i="c3h">Lo deshaces con un clic</b><span data-i="c3p">Desde Copias o desde el icono junto al reloj. «Volver a como estaba» lo devuelve todo.</span></li>
+    </ol>
+  </section>
+
+  <section class="cost" aria-labelledby="cost-h">
+    <div>
+      <h2 id="cost-h" data-i="costH">Minimizada, casi no existe</h2>
+      <p data-i="costP">Una app para optimizar no debería ser lo que te quita rendimiento. Minimizada deja de leer sensores y de dibujar, y devuelve su memoria a Windows.</p>
+      <p class="fine" data-i="costFine">Medido en un Ryzen 9 9900X con la herramienta <code>--bench</code> que trae la app.</p>
+    </div>
+    <table class="bench">
+      <caption class="sr" data-i="benchCap">Consumo de Vigía</caption>
+      <thead><tr><td></td><th scope="col" data-i="benchCpu">CPU (un núcleo)</th><th scope="col">RAM</th></tr></thead>
+      <tbody>
+        <tr><th scope="row" data-i="benchOpen">Abierta</th><td data-i="bOpenCpu">6,7 %</td><td>440 MB</td></tr>
+        <tr class="rest"><th scope="row" data-i="benchMin">Minimizada</th><td data-i="bMinCpu">0,1 %</td><td>49 MB</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="code" id="codigo" aria-labelledby="code-h">
+    <div class="code-text">
+      <h2 id="code-h" data-i="codeH">El código está a la vista</h2>
+      <p data-i="codeP">Vigía cambia cosas de tu sistema, así que tienes derecho a ver cómo lo hace. Todo el código está en GitHub con licencia MIT: puedes leerlo, compilarlo tú mismo o proponer cambios.</p>
+      <ul class="facts">
+        <li data-i="f1">No envía nada: sin telemetría. Solo pregunta a GitHub si hay versión nueva, y eso se puede apagar.</li>
+        <li data-i="f2">Las actualizaciones vienen firmadas y la app comprueba la firma antes de instalarlas.</li>
+        <li data-i="f3">No usa drivers de terceros, no apaga Defender ni UAC, y no trae activadores.</li>
+      </ul>
+      <a class="gh big" href="https://github.com/JcperezDev/vigia"><svg><use href="#i-gh"/></svg><span>github.com/JcperezDev/vigia</span></a>
+    </div>
+    <pre class="term" data-i-aria="termAria" aria-label="Compilar Vigía"><code><span class="c" data-i="termC">:: compilar Vigía tú mismo (SDK de .NET 10)</span>
+git clone https://github.com/JcperezDev/vigia
+cd vigia/app/Vigia
+dotnet build -c Release</code></pre>
+  </section>
+
+  <section class="support" id="apoya" aria-labelledby="apoya-h">
+    <h2 id="apoya-h" data-i="supH">Gratis de verdad</h2>
+    <p data-i="supP">No pide correo ni registro, y no hay versión de pago que se guarde lo mejor. Si Vigía te sirvió, así puedes ayudar:</p>
+    <ul class="acts">
+      <li><a href="https://ko-fi.com/vigiapc"><svg><use href="#i-cup"/></svg><b data-i="a1h">Invitar un café</b><span data-i="a1p">En Ko-fi. Es opcional y no desbloquea nada.</span></a></li>
+      <li><button type="button" id="share"><svg><use href="#i-share"/></svg><b data-i="a2h">Compartir</b><span data-i="a2p" id="share-msg">Pásale el enlace a un amigo.</span></button></li>
+      <li><a href="https://github.com/JcperezDev/vigia/issues/new?labels=bug"><svg><use href="#i-bug"/></svg><b data-i="a3h">Cuéntanos qué falla</b><span data-i="a3p">Abre un reporte en GitHub.</span></a></li>
+      <li><a href="https://github.com/JcperezDev/vigia/issues/new?labels=idea"><svg><use href="#i-idea"/></svg><b data-i="a4h">Cuéntanos qué podría mejorar</b><span data-i="a4p">Las ideas también van en GitHub.</span></a></li>
+    </ul>
+  </section>
+
+  <section class="end" aria-labelledby="end-h">
+    <div>
+    <h2 id="end-h" data-i="endH">Pruébala en tu PC</h2>
     <a class="dl" href="https://github.com/JcperezDev/vigia-releases/releases/latest/download/Vigia-Setup.exe">
-      <svg><use href="#i-down"/></svg>Descargar gratis
-      <span class="ver" data-ver>v0.15.1</span>
+      <svg><use href="#i-down"/></svg>
+      <span><b data-i="dlFree">Descargar gratis</b><small><span data-ver>v0.20.0</span> · <span data-i="dlMeta">Windows 10 y 11 · 64 bits</span></small></span>
     </a>
-    <p class="note">El instalador todavía no tiene firma de editor, así que Windows puede mostrar «Windows protegió su PC». Pulsa «Más información» y luego «Ejecutar de todos modos». El instalador comprueba la firma de Vigía antes de instalarla.</p>
+    </div>
+    <aside class="smart"><b data-i="smartH">Si Windows te avisa</b><p data-i="smart">El instalador todavía no tiene firma de editor, así que Windows puede mostrar «Windows protegió su PC». Pulsa «Más información» y luego «Ejecutar de todos modos». El instalador comprueba la firma de Vigía antes de instalarla.</p></aside>
   </section>
 </main>
 
 <footer>
-  <span><svg><use href="#i-eye"/></svg>Vigía</span>
-  <a href="https://github.com/JcperezDev/vigia-releases/releases">Todas las versiones</a>
+  <span class="brand"><svg><use href="#i-logo"/></svg>Vigía</span>
+  <a href="https://github.com/JcperezDev/vigia" data-i="fCode">Código fuente</a>
+  <a href="https://github.com/JcperezDev/vigia-releases/releases" data-i="fRel">Todas las versiones</a>
+  <a href="https://github.com/JcperezDev/vigia/blob/main/LICENSE" data-i="fLic">Licencia MIT</a>
 </footer>
 
-<script>
-// muestra la versión publicada más reciente; si GitHub no responde, queda la escrita arriba
-fetch('https://api.github.com/repos/JcperezDev/vigia-releases/releases/latest')
-  .then(r => r.ok ? r.json() : null)
-  .then(j => { if (j && /^v\d+\.\d+\.\d+$/.test(j.tag_name)) document.querySelectorAll('[data-ver]').forEach(e => e.textContent = j.tag_name); })
-  .catch(() => {});
-</script>
+<script src="main.js" defer></script>
 </body>
 </html>

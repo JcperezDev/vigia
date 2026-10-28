@@ -17,7 +17,8 @@ public static partial class IsoBuild
 {
     public record Edition(int Index, string Name, long Bytes);
     public record Source(string Path, long Bytes, List<Edition> Editions, string? Error);
-    public record Options(string Source, string Output, int Index, string[] Apps, bool NoAds, bool LocalAccount, string? User, bool SkipChecks);
+    public record Options(string Source, string Output, int Index, string[] Apps, bool NoAds, bool LocalAccount, string? User, bool SkipChecks,
+                         bool NoTelemetry = false, bool NoBitLocker = false);
     public record Progress(string Step, int Num, int Of, double? Pct);
     public record Done(bool Ok, string Message, string? Output, long Bytes, double Minutes);
 
@@ -124,6 +125,8 @@ public static partial class IsoBuild
                 if (Dism($"/Image:\"{mount}\" /Remove-ProvisionedAppxPackage /PackageName:{pkgs[i]}", null, 600).exit == 0) removed.Add(name);
             }
             if (o.NoAds) NoAds(mount);
+            if (o.NoTelemetry) NoTelemetry(mount);
+            if (o.NoBitLocker) NoBitLocker(mount);
 
             // 5. guardar y comprimir
             report(new("Guardando los cambios", 5, N, null));
@@ -143,7 +146,7 @@ public static partial class IsoBuild
             File.Move(part, o.Output, true);
             var size = new FileInfo(o.Output).Length;
             var what = removed.Count == 0 ? "sin quitar apps" : $"sin {removed.Count} {(removed.Count == 1 ? "app" : "apps")}";
-            return new(true, $"ISO lista ({what}{(o.NoAds ? ", sin anuncios" : "")}{(o.LocalAccount ? $", cuenta local «{o.User}»" : "")}). Pásala a un USB con Rufus o Ventoy.", o.Output, size, sw.Elapsed.TotalMinutes);
+            return new(true, $"ISO lista ({what}{(o.NoAds ? ", sin anuncios" : "")}{(o.LocalAccount ? $", cuenta local «{o.User}»" : "")}{(o.NoTelemetry ? ", sin recopilación de datos" : "")}{(o.NoBitLocker ? ", sin cifrado automático" : "")}). Pásala a un USB con «Pasar a un USB».", o.Output, size, sw.Elapsed.TotalMinutes);
         }
         catch (OperationCanceledException) { return Fail("Cancelado. La ISO original sigue igual."); }
         catch (Exception e) { return Fail(e.Message); }
@@ -176,6 +179,36 @@ public static partial class IsoBuild
 
     // ---------- registro de la imagen ----------
     /// <summary>Los mismos valores que «Sin anuncios ni apps sugeridas», pero escritos en la imagen antes de instalar.</summary>
+    // Telemetría en lo mínimo que acepta Windows Pro/Home («Obligatorios»: 0 solo existe en Enterprise/Education),
+    // sin pantalla de privacidad al instalar, sin ID de publicidad, historial de actividad ni experiencias «personalizadas».
+    static void NoTelemetry(string mount)
+    {
+        Hive(Path.Combine(mount, "Windows", "System32", "config", "SOFTWARE"), "VIGIA_SW", k =>
+        {
+            var pol = $@"{k}\Policies\Microsoft\Windows";
+            Reg($@"{pol}\DataCollection", "AllowTelemetry", 1);
+            Reg($@"{pol}\DataCollection", "DoNotShowFeedbackNotifications", 1);
+            Reg($@"{pol}\OOBE", "DisablePrivacyExperience", 1);
+            Reg($@"{pol}\AdvertisingInfo", "DisabledByGroupPolicy", 1);
+            Reg($@"{pol}\System", "EnableActivityFeed", 0);
+            Reg($@"{pol}\System", "PublishUserActivities", 0);
+            Reg($@"{pol}\System", "UploadUserActivities", 0);
+        });
+        Hive(Path.Combine(mount, "Users", "Default", "NTUSER.DAT"), "VIGIA_DU", k =>
+        {
+            Reg($@"{k}\Software\Policies\Microsoft\Windows\CloudContent", "DisableTailoredExperiencesWithDiagnosticData", 1);
+            Reg($@"{k}\Software\Microsoft\Windows\CurrentVersion\AdvertisingInfo", "Enabled", 0);
+            Reg($@"{k}\Software\Microsoft\Windows\CurrentVersion\Privacy", "TailoredExperiencesWithDiagnosticDataEnabled", 0);
+            Reg($@"{k}\Software\Microsoft\Siuf\Rules", "NumberOfSIUFInPeriod", 0);
+        });
+    }
+
+    // Windows 11 cifra solo el disco al instalarse si entras con cuenta de Microsoft; esto lo evita.
+    // BitLocker sigue disponible para activarlo a mano.
+    static void NoBitLocker(string mount) =>
+        Hive(Path.Combine(mount, "Windows", "System32", "config", "SYSTEM"), "VIGIA_SY", k =>
+            Reg($@"{k}\ControlSet001\Control\BitLocker", "PreventDeviceEncryption", 1));
+
     static void NoAds(string mount)
     {
         Hive(Path.Combine(mount, "Windows", "System32", "config", "SOFTWARE"), "VIGIA_SW", k =>
@@ -217,7 +250,7 @@ public static partial class IsoBuild
     internal static string? Unattend(Options o)
     {
         if (LabUnattend is not null) return LabUnattend;
-        if (!o.LocalAccount && !o.SkipChecks) return null;
+        if (!o.LocalAccount && !o.SkipChecks && !o.NoTelemetry) return null;
         var sb = new StringBuilder();
         sb.AppendLine("""<?xml version="1.0" encoding="utf-8"?>""");
         sb.AppendLine("""<unattend xmlns="urn:schemas-microsoft-com:unattend" xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State">""");
@@ -236,6 +269,13 @@ public static partial class IsoBuild
             sb.AppendLine($"""  <settings pass="oobeSystem"><component name="Microsoft-Windows-Shell-Setup" {comp}>""");
             sb.AppendLine("""    <OOBE><HideOnlineAccountScreens>true</HideOnlineAccountScreens><HideLocalAccountScreen>true</HideLocalAccountScreen><ProtectYourPC>3</ProtectYourPC></OOBE>""");
             sb.AppendLine($"""    <UserAccounts><LocalAccounts><LocalAccount wcm:action="add"><Name>{user}</Name><DisplayName>{user}</DisplayName><Group>Administrators</Group><Password><Value></Value><PlainText>true</PlainText></Password></LocalAccount></LocalAccounts></UserAccounts>""");
+            sb.AppendLine("  </component></settings>");
+        }
+        else if (o.NoTelemetry)
+        {
+            // Sin cuenta local: solo se salta la pantalla de privacidad (con todo apagado); la cuenta la elige quien instala.
+            sb.AppendLine($"""  <settings pass="oobeSystem"><component name="Microsoft-Windows-Shell-Setup" {comp}>""");
+            sb.AppendLine("""    <OOBE><ProtectYourPC>3</ProtectYourPC></OOBE>""");
             sb.AppendLine("  </component></settings>");
         }
         sb.AppendLine("</unattend>");

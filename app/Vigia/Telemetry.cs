@@ -29,8 +29,9 @@ public sealed class Telemetry : IDisposable
         try { _pc.Open(); } catch (Exception e) { _notes.Add("LibreHardwareMonitor no abrió: " + e.Message); }
 
         (_cpuName, _cores, _threads) = ("CPU", Environment.ProcessorCount, Environment.ProcessorCount);
-        foreach (var o in Wmi("SELECT Name, NumberOfCores, NumberOfLogicalProcessors FROM Win32_Processor"))
+        foreach (var o in Wmi("SELECT Name, NumberOfCores, NumberOfLogicalProcessors, MaxClockSpeed FROM Win32_Processor"))
         {
+            _baseMhz = o["MaxClockSpeed"] is null ? null : Convert.ToDouble(o["MaxClockSpeed"]);
             _cpuName = ((string)o["Name"]).Trim();
             _cores = Convert.ToInt32(o["NumberOfCores"]);
             _threads = Convert.ToInt32(o["NumberOfLogicalProcessors"]);
@@ -50,6 +51,10 @@ public sealed class Telemetry : IDisposable
                 _diskModel[$"{c}:"] = model;
         if (!Elevated) _notes.Add("Sin privilegios de administrador: temperaturas y timings pueden no estar disponibles.");
     }
+
+    // Los mismos contadores que el Administrador de tareas: «Uso» y «Velocidad» de la CPU.
+    readonly Pdh? _pdh = Pdh.TryOpen(@"\Processor Information(_Total)\% Processor Utility", @"\Processor Information(_Total)\% Processor Performance");
+    double? _baseMhz;
 
     public static bool Elevated
     {
@@ -77,6 +82,14 @@ public sealed class Telemetry : IDisposable
         return null;
     }
 
+    // El Administrador de tareas muestra el motor D3D más ocupado; NVAPI («GPU Core») cuenta distinto y sale más alto en reposo.
+    static double? GpuLoad(IHardware h)
+    {
+        var d3d = h.Sensors.Where(s => s.SensorType == SensorType.Load && s.Name.StartsWith("D3D ") && s.Value is float v && !float.IsNaN(v))
+                           .Select(s => (double)s.Value!.Value).ToList();
+        return d3d.Count > 0 ? Math.Round(Math.Min(100, d3d.Max()), 1) : S(h, SensorType.Load, "GPU Core");
+    }
+
     static IEnumerable<IHardware> All(IHardware h) => new[] { h }.Concat(h.SubHardware.SelectMany(All));
 
     public Snapshot Read()
@@ -90,13 +103,18 @@ public sealed class Telemetry : IDisposable
 
             // CPU
             var cpuH = hw.FirstOrDefault(h => h.HardwareType == HardwareType.Cpu);
-            double? load = cpuH is null ? null : S(cpuH, SensorType.Load, "CPU Total");
+            double? load = null, clock = null;
+            if (_pdh?.Read() is [double util, double perf])
+            {
+                load = Math.Round(Math.Clamp(util, 0, 100), 1);
+                if (_baseMhz > 0) clock = Math.Round(_baseMhz.Value * perf / 100 / 1000, 2);
+            }
+            load ??= cpuH is null ? null : S(cpuH, SensorType.Load, "CPU Total");
             double? temp = cpuH is null ? null : S(cpuH, SensorType.Temperature, "CPU Package", "Core (Tctl/Tdie)", "Core Average", "Core Max");
-            double? clock = null;
-            if (cpuH is not null)
+            if (clock is null && cpuH is not null)
             {
                 var clocks = cpuH.Sensors.Where(s => s.SensorType == SensorType.Clock && s.Name.StartsWith("Core #") && s.Value > 0).Select(s => (double)s.Value!.Value).ToList();
-                if (clocks.Count > 0) clock = Math.Round(clocks.Max() / 1000, 2);
+                if (clocks.Count > 0) clock = Math.Round(clocks.Average() / 1000, 2);
             }
             if (clock is null)
                 foreach (var o in Wmi("SELECT CurrentClockSpeed FROM Win32_Processor")) { clock = Math.Round(Convert.ToDouble(o["CurrentClockSpeed"]) / 1000, 2); break; }
@@ -108,7 +126,7 @@ public sealed class Telemetry : IDisposable
                          .FirstOrDefault();
             GpuInfo? gpu = gpuH is null ? null : new GpuInfo(
                 gpuH.Name,
-                S(gpuH, SensorType.Load, "GPU Core", "D3D 3D"),
+                GpuLoad(gpuH),
                 S(gpuH, SensorType.Temperature, "GPU Core", "GPU Hot Spot"),
                 S(gpuH, SensorType.Clock, "GPU Core"),
                 Gb(S(gpuH, SensorType.SmallData, "GPU Memory Used", "D3D Dedicated Memory Used")),
@@ -194,5 +212,44 @@ public sealed class Telemetry : IDisposable
     }
 
     // Espera a que termine la lectura en curso antes de liberar las librerías nativas.
-    public void Dispose() { lock (_lock) { if (_closed) return; _closed = true; try { _pc.Close(); } catch { } } }
+    public void Dispose() { lock (_lock) { if (_closed) return; _closed = true; try { _pc.Close(); } catch { } _pdh?.Dispose(); } }
+}
+
+/// <summary>Contadores de rendimiento de Windows (PDH), sin paquetes extra. Cada Read() mide desde la lectura anterior.</summary>
+sealed class Pdh : IDisposable
+{
+    [System.Runtime.InteropServices.DllImport("pdh.dll", CharSet = System.Runtime.InteropServices.CharSet.Unicode)] static extern uint PdhOpenQueryW(string? src, IntPtr user, out IntPtr q);
+    [System.Runtime.InteropServices.DllImport("pdh.dll", CharSet = System.Runtime.InteropServices.CharSet.Unicode)] static extern uint PdhAddEnglishCounterW(IntPtr q, string path, IntPtr user, out IntPtr c);
+    [System.Runtime.InteropServices.DllImport("pdh.dll")] static extern uint PdhCollectQueryData(IntPtr q);
+    [System.Runtime.InteropServices.DllImport("pdh.dll")] static extern uint PdhGetFormattedCounterValue(IntPtr c, uint fmt, IntPtr type, out Value v);
+    [System.Runtime.InteropServices.DllImport("pdh.dll")] static extern uint PdhCloseQuery(IntPtr q);
+    [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Explicit)]
+    struct Value { [System.Runtime.InteropServices.FieldOffset(0)] public uint Status; [System.Runtime.InteropServices.FieldOffset(8)] public double D; }
+    const uint Double = 0x200, NoCap100 = 0x8000;
+
+    IntPtr _q; readonly IntPtr[] _c; bool _primed;
+    Pdh(IntPtr q, IntPtr[] c) { _q = q; _c = c; }
+
+    public static Pdh? TryOpen(params string[] paths)
+    {
+        if (PdhOpenQueryW(null, IntPtr.Zero, out var q) != 0) return null;
+        var cs = new IntPtr[paths.Length];
+        for (int i = 0; i < paths.Length; i++)
+            if (PdhAddEnglishCounterW(q, paths[i], IntPtr.Zero, out cs[i]) != 0) { PdhCloseQuery(q); return null; }
+        var p = new Pdh(q, cs);
+        PdhCollectQueryData(q); p._primed = true;
+        return p;
+    }
+
+    public double[]? Read()
+    {
+        if (_q == IntPtr.Zero || !_primed || PdhCollectQueryData(_q) != 0) return null;
+        var r = new double[_c.Length];
+        for (int i = 0; i < _c.Length; i++)
+            if (PdhGetFormattedCounterValue(_c[i], Double | NoCap100, IntPtr.Zero, out var v) != 0 || v.Status > 1) return null;
+            else r[i] = v.D;
+        return r;
+    }
+
+    public void Dispose() { if (_q != IntPtr.Zero) { PdhCloseQuery(_q); _q = IntPtr.Zero; } }
 }

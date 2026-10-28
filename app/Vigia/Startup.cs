@@ -5,7 +5,14 @@ using Microsoft.Win32;
 
 namespace Vigia;
 
-public record StartItem(string Id, string Group, string Name, string Publisher, string Command, string Where, bool Enabled, bool Missing, string? Warning);
+public record StartItem(string Id, string Group, string Name, string Publisher, string Command, string Where, bool Enabled, bool Missing, string? Warning)
+{
+    // «Apagar todos» no toca estos: antivirus, drivers, ventiladores, antitrampas, teclado, Bluetooth y acceso remoto.
+    // El resto de avisos (OneDrive, RGB, etc.) solo informan y sí se apagan.
+    public bool Keep => Warning is not null && !Missing && Startup.Critical.Contains(Warning);
+    // de Vigía: «Apagar todos» nunca la toca
+    public bool Ours => AutoStart.IsOurs(this);
+}
 public record StartDone(string Id, bool Ok, string? Message);
 
 /// <summary>
@@ -47,6 +54,9 @@ public static class Startup
         ("openrgb", "Controla las luces RGB: sin él vuelven al color por defecto."),
         ("timerresolution", "Fija el temporizador a 0,5 ms al iniciar sesión."),
     ];
+
+    static readonly string[] CriticalKeys = ["securityhealth", "fancontrol", "pawnio", "nvdisplay", "realtek", "rtkaud", "amdryzen", "easyanticheat", "battleye", "vgc", "bluetooth", "ctfmon", "remoting_host"];
+    internal static readonly HashSet<string> Critical = Careful.Where(c => CriticalKeys.Contains(c.Match)).Select(c => c.Why).ToHashSet();
 
     static string? Warn(params string?[] texts)
     {
@@ -180,6 +190,26 @@ public static class Startup
     }
 
     // ------------------------------------------------------------------ cambiar
+    public record AllDone(int Off, int Kept, List<string> KeptNames, List<string> Failed);
+
+    /// <summary>
+    /// Apaga de una vez todos los programas que arrancan con Windows, menos Vigía y los que conviene dejar
+    /// (antivirus, ventiladores, drivers, antitrampas…: los que tienen aviso). Cada uno con su copia, como al hacerlo a mano.
+    /// Tareas y servicios no entran: ahí hay piezas de drivers y se revisan una a una.
+    /// </summary>
+    public static AllDone OffAll()
+    {
+        var progs = List().Where(s => s.Group == "Programas" && s.Enabled && !s.Ours).ToList();
+        var kept = progs.Where(s => s.Keep).ToList();
+        var failed = new List<string>(); var off = 0;
+        foreach (var s in progs.Except(kept))
+        {
+            var r = Set(s.Id, false);
+            if (r.Ok) off++; else failed.Add($"{s.Name}: {r.Message}");
+        }
+        return new(off, kept.Count, kept.Select(k => k.Name).ToList(), failed);
+    }
+
     public static StartDone Set(string id, bool on)
     {
         try

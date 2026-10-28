@@ -1629,5 +1629,14 @@
  "Ya estaba": "Already set",
  "Ya estaba todo puesto.": "Everything was already set.",
  "Ya no estaba abierto.": "It was no longer open.",
- "Ya no quedan apps de Windows de más: no hay nada que quitar.": "No extra Windows apps left: there's nothing to remove."
+ "Ya no quedan apps de Windows de más: no hay nada que quitar.": "No extra Windows apps left: there's nothing to remove.",
+ "Vigía es gratis y sin anuncios. Si te sirve, puedes ayudar así.": "Vigía is free and has no ads. If it helps you, here is how you can help.",
+ "Es opcional y no desbloquea nada.": "It’s optional and doesn’t unlock anything.",
+ "Compártela": "Share it",
+ "Cuéntanos qué podría mejorar": "Tell us what could be better",
+ "Dar una idea": "Suggest an idea",
+ "Enlace copiado.": "Link copied.",
+ "Se abre en el navegador. Vigía no ve el pago.": "Opens in your browser. Vigía never sees the payment.",
+ "Actualizar a {0}": "Update to {0}",
+ "Se cierra un momento y vuelve a abrir ya actualizada.": "It closes for a moment and reopens updated."
 }
