@@ -69,8 +69,15 @@ public static class Cleanup
         }).ToList();
         var (rb, ri) = Recycle();
         list.Insert(0, new CleanTarget(RecycleId, "Papelera de reciclaje", "Todas las unidades", rb, (int)Math.Min(ri, int.MaxValue)));
+        var left = 0;
+        try { left = StartupLeft().Count; } catch { }
+        list.Add(new CleanTarget(StartupId, "Restos de programas desinstalados", "Inicio de Windows", 0, left));
         return list;
     }
+
+    // ---------- Inicio: entradas de programas que ya no están en el disco ----------
+    const string StartupId = "startup_left";
+    static List<StartItem> StartupLeft() => Startup.List().Where(x => x.Missing && x.Group == "Programas").ToList();
 
     /// <summary>Temporales, sin la Papelera: lo que borra el modo simple («¿Borrar archivos temporales?»).</summary>
     public static IEnumerable<string> TempIds => Roots().Select(r => r.id);
@@ -79,6 +86,12 @@ public static class Cleanup
     {
         var set = ids.ToHashSet();
         var r = RunPaths(Roots().Where(x => set.Contains(x.id)).Select(x => x.path));
+        if (set.Contains(StartupId))
+        {
+            int gone = 0, bad = 0;
+            foreach (var it in StartupLeft()) { if (Startup.Remove(it.Id).Ok) gone++; else bad++; }   // cada una con copia en Copias
+            r = new CleanResult(r.FreedBytes, r.Deleted + gone, r.Skipped + bad);
+        }
         if (!set.Contains(RecycleId)) return r;
         var (rb, ri) = Recycle();
         if (ri == 0) return r;

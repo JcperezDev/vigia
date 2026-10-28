@@ -9,8 +9,8 @@
   const gb = (b) => b >= 1073741824 ? `${(b / 1073741824).toFixed(2)} GB` : b >= 1048576 ? `${(b / 1048576).toFixed(1)} MB` : `${Math.round(b / 1024)} KB`;
 
   // ---------- navegación ----------
-  document.querySelectorAll('.nav').forEach((b) => b.addEventListener('click', () => {
-    document.querySelectorAll('.nav').forEach((n) => { n.classList.toggle('is-active', n === b); n.toggleAttribute('aria-current', n === b); });
+  document.querySelectorAll('.nav[data-view]').forEach((b) => b.addEventListener('click', () => {
+    document.querySelectorAll('.nav[data-view]').forEach((n) => { n.classList.toggle('is-active', n === b); n.toggleAttribute('aria-current', n === b); });
     document.querySelectorAll('.view').forEach((v) => { v.hidden = v.id !== `view-${b.dataset.view}`; });
     if (b.dataset.view === 'monitor') resize();
   }));
@@ -171,11 +171,12 @@
       const li = document.createElement('li');
       li.innerHTML = `<label><input type="checkbox"><span><span class="tname"></span><span class="path"></span></span><span class="size"></span></label>`;
       const cb = li.querySelector('input');
-      cb.checked = t.bytes > 0; cb.disabled = t.bytes === 0; cb.dataset.id = t.id;
+      const has = t.id === 'startup_left' ? t.files > 0 : t.bytes > 0;
+      cb.checked = has; cb.disabled = !has; cb.dataset.id = t.id;
       cb.addEventListener('change', updateTotal);
       li.querySelector('.tname').textContent = t.name;
-      li.querySelector('.path').textContent = `${t.path} · ${t.files} archivos`;
-      li.querySelector('.size').textContent = gb(t.bytes);
+      li.querySelector('.path').textContent = t.id === 'startup_left' ? `${t.path} · ${t.files} entradas` : `${t.path} · ${t.files} archivos`;
+      li.querySelector('.size').textContent = t.id === 'startup_left' ? '' : gb(t.bytes);
       return li;
     }));
     updateTotal();
@@ -185,7 +186,7 @@
     const ids = selected();
     const sum = targets.filter((t) => ids.includes(t.id)).reduce((a, t) => a + t.bytes, 0);
     $('clean-total').textContent = ids.length ? `${gb(sum)} se pueden liberar` : 'Nada seleccionado';
-    $('run').disabled = sum === 0;
+    $('run').disabled = !ids.length;
   }
   $('scan').addEventListener('click', () => {
     $('scan').classList.add('busy'); $('scan').textContent = 'Analizando…';
@@ -757,11 +758,11 @@
     busyBtn($('su-reload'), false, 'Volver a leer');
     const on = list.filter((s) => s.enabled).length;
     $('su-sub').textContent = `${plural(list.length, 'cosa arranca', 'cosas arrancan')} con Windows; ${on} ${on === 1 ? 'encendida' : 'encendidas'}.`;
-    $('su-groups').replaceChildren(...suOrder.filter((g) => list.some((s) => s.group === g)).map((g) => {
+    $('su-groups').replaceChildren(...suOrder.filter((g) => list.some((s) => s.group === g && !(s.missing && g === 'Programas'))).map((g) => {
       const sec = el('section', 'tw-group');
       sec.append(el('h2', null, g), el('p', 'sub su-note', suNote[g]));
       const ul = el('ul', 'rows');
-      list.filter((s) => s.group === g).forEach((s) => {
+      list.filter((s) => s.group === g && !(s.missing && g === 'Programas')).forEach((s) => {
         const li = el('li', `row su${s.enabled ? '' : ' is-off'}`);
         const body = el('div');
         const title = el('strong', null, s.name);
@@ -910,6 +911,32 @@
       li.append(el('span', 'dot'), el('strong', null, c.title), body);
       return li;
     }));
+  }
+  // ---------- Drift: el ratón o el stick se mueven solos (solo al pulsar Probar) ----------
+  let drT = 0;
+  $('dr-run').addEventListener('click', () => {
+    const b = $('dr-run'); let n = 10;
+    busyBtn(b, true, 'Midiendo…'); $('dr-list').hidden = true;
+    $('dr-sub').textContent = `No toques nada… ${n}`;
+    clearInterval(drT);
+    drT = setInterval(() => { n = Math.max(0, n - 1); $('dr-sub').textContent = `No toques nada… ${n}`; if (!n) clearInterval(drT); }, 1000);
+    send({ cmd: 'drift' });
+  });
+  function renderDrift(r) {
+    clearInterval(drT); busyBtn($('dr-run'), false, 'Probar otra vez');
+    const LV = { bad: 'bad', warn: 'warn', touched: 'info', ok: 'ok' };
+    const bad = r.items.filter((i) => i.level === 'bad' || i.level === 'warn').length;
+    $('dr-sub').textContent = !r.items.length ? 'No encontré ratón ni mando para medir.' : bad ? 'Algo se movió solo.' : r.items.some((i) => i.level === 'touched') ? 'Se tocó algo: vuelve a probar sin tocar nada.' : 'Nada se movió solo.';
+    const order = { bad: 0, warn: 1, touched: 2, ok: 3 };
+    $('dr-list').replaceChildren(...[...r.items].sort((a, b) => order[a.level] - order[b.level]).map((i) => {
+      const li = el('li', `finding lv-${LV[i.level] || 'info'}`);
+      const body = el('div'); body.append(el('p', null, i.title));
+      if (i.detail) body.append(el('p', 'src', i.detail));
+      if (i.fix) body.append(el('p', 'src', i.fix));
+      li.append(el('span', 'dot'), el('strong', null, i.name), body);
+      return li;
+    }));
+    $('dr-list').hidden = !r.items.length;
   }
   function rigDone(r) {
     const box = $('gm-rig-msg'); box.replaceChildren(el('span', null, r.message)); box.className = `result ${r.ok ? 'ok' : 'bad'}`;
@@ -1115,7 +1142,7 @@
   const changed = () => { changes += 1; };
   const REREAD = new Set(['opt', 'diag', 'sug', 'mem', 'tweaks', 'apps', 'simple', 'tools', 'startup', 'games', 'backups']);
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') changed(); });
-  document.querySelectorAll('.nav').forEach((b) => b.addEventListener('click', () => {
+  document.querySelectorAll('.nav[data-view]').forEach((b) => b.addEventListener('click', () => {
     const v = b.dataset.view;
     if (loaded.has(v) && (loaded.get(v) === changes || !REREAD.has(v))) return;
     const again = loaded.has(v);
@@ -1272,7 +1299,7 @@
     }
   }
   const prWatch = () => send({ cmd: 'procWatch', on: !$('view-monitor').hidden });
-  document.querySelectorAll('.nav').forEach((b) => b.addEventListener('click', prWatch));
+  document.querySelectorAll('.nav[data-view]').forEach((b) => b.addEventListener('click', prWatch));
   prWatch();
 
   // cualquier «Leyendo…», «Escaneando…» lleva el anillo de carga
@@ -1651,6 +1678,7 @@
     else if (type === 'rigDone') rigDone(payload);
     else if (type === 'gameDone') $('gm-result').textContent = payload.message;
     else if (type === 'fpsState') renderFpsState(payload);
+    else if (type === 'drift') renderDrift(payload);
     else if (type === 'backups') renderBackups(payload);
     else if (type === 'backupDone') {
       $('bk-result').textContent = payload.message + (payload.errors.length ? ` ${payload.errors.join('; ')}` : '');

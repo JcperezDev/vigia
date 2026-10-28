@@ -136,6 +136,11 @@ static class Program
             File.WriteAllText(args[1], JsonSerializer.Serialize(new { rep, steps }, new JsonSerializerOptions(Json) { WriteIndented = true }));
             return rep.Ok ? 0 : 1;
         }
+        if (args.Length >= 2 && args[0] == "--drift")   // solo lectura: Vigia --drift <salida.json> [segundos]
+        {
+            File.WriteAllText(args[1], JsonSerializer.Serialize(Drift.Run(args.Length >= 3 ? int.Parse(args[2]) : 10), new JsonSerializerOptions(Json) { WriteIndented = true }));
+            return 0;
+        }
         if (args.Length >= 2 && args[0] == "--crashes")   // solo lectura: Vigia --crashes <salida.json> [días]
         {
             var days = args.Length >= 3 ? int.Parse(args[2]) : 7;
@@ -753,6 +758,10 @@ sealed partial class MainForm : Form
                         Fps.Finished += _ => { try { BeginInvoke(async () => Send("games", await Task.Run(GamesPayload))); } catch { } };
                     }
                     Fps.Start(fsec, (string?)msg["label"] ?? "");
+                    break;
+                case "drift":
+                    try { Send("drift", await Task.Run(() => Drift.Run(10))); }
+                    catch { Send("drift", new DriftReport(10, 0, 0, [])); }
                     break;
                 case "fpsCancel":
                     Fps.Cancel();
