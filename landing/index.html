@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vigía · Más rendimiento para tu PC de juego, sin romper nada</title>
+<meta name="description" content="Vigía libera RAM, apaga lo que arranca con Windows, pone la resolución estirada y ajusta Windows para jugar. Antes de cada cambio guarda una copia. Gratis para Windows 10 y 11.">
+<meta name="theme-color" content="#16181c">
+<link rel="icon" href="favicon.ico">
+<link rel="preload" href="fonts/ibm-plex-sans-latin-600-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-ram" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="10" rx="1.5"/><path d="M7 7v10M11 7v10M15 7v10M6 17v3M18 17v3"/></symbol>
+  <symbol id="i-power" viewBox="0 0 24 24"><path d="M12 3v8"/><path d="M6.3 6.8a8 8 0 1 0 11.4 0"/></symbol>
+  <symbol id="i-screen" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="1.5"/><path d="M8 20h8M12 16v4"/><path d="M7 10h10M7 10l2-2M7 10l2 2M17 10l-2-2M17 10l-2 2"/></symbol>
+  <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.3-5.6"/><path d="M4 4v4h4"/><path d="M12 8v4l3 2"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+</svg>
+
+<header class="top">
+  <a class="brand" href="#" aria-label="Vigía, inicio"><svg><use href="#i-eye"/></svg>Vigía</a>
+  <nav aria-label="Secciones">
+    <a href="#hace">Qué hace</a>
+    <a href="#copias">Copias</a>
+    <a href="#consumo">Consumo</a>
+    <a href="#planes">Precio</a>
+  </nav>
+  <a class="top-dl" href="https://github.com/JcperezDev/vigia-releases/releases/latest/download/Puente.exe">Descargar</a>
+</header>
+
+<main>
+  <section class="hero" id="hace">
+    <div class="pitch">
+      <h1>Más rendimiento para tu PC de juego. Nada que no puedas deshacer.</h1>
+      <p class="lead">Vigía libera RAM, apaga lo que arranca con Windows y ajusta el sistema para jugar. Antes de cada cambio guarda una copia.</p>
+      <a class="dl" href="https://github.com/JcperezDev/vigia-releases/releases/latest/download/Puente.exe">
+        <svg><use href="#i-down"/></svg>Descargar gratis
+        <span class="ver" data-ver>v0.11.0</span>
+      </a>
+      <p class="meta">Windows 10 y 11 · 64 bits · unos 65 MB en total</p>
+    </div>
+
+    <div class="ledger">
+      <div class="col yes">
+        <h2>Lo que hace</h2>
+        <ul>
+          <li><svg><use href="#i-ram"/></svg><p><b>Libera la RAM sola al llegar al 60 %</b>En una prueba devolvió 11,2 GB: del 52 % al 16 % de uso.</p></li>
+          <li><svg><use href="#i-power"/></svg><p><b>Apaga lo que arranca con Windows</b>No borra nada: se vuelve a encender con un clic.</p></li>
+          <li><svg><use href="#i-screen"/></svg><p><b>Resolución estirada</b>Si no confirmas en 15 segundos, la pantalla vuelve sola.</p></li>
+          <li><svg><use href="#i-sliders"/></svg><p><b>35 ajustes de Windows, explicados uno a uno</b>Los de riesgo vienen apagados y marcados.</p></li>
+          <li><svg><use href="#i-copy"/></svg><p><b>Copia antes de cada cambio</b>Si no puede guardarla, no cambia nada.</p></li>
+        </ul>
+      </div>
+      <div class="col no">
+        <h2>Lo que nunca hace</h2>
+        <ul>
+          <li><s>Instalar drivers vulnerables</s></li>
+          <li><s>Escribir en la BIOS</s></li>
+          <li><s>Apagar Defender, UAC o Windows Update</s></li>
+          <li><s>Traer activadores o programas pirata</s></li>
+          <li><s>Gastar CPU mientras está minimizada</s></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="shot" aria-labelledby="shot-h">
+    <figure>
+      <img src="img/monitor.webp" width="1028" height="749" loading="lazy"
+           alt="Pantalla Monitor de Vigía: temperatura, carga y reloj de la CPU y la GPU, uso de memoria y una gráfica del último minuto.">
+      <div class="tray" aria-label="Menú del icono de Vigía">
+        <span class="tray-h">RAM 9,2 / 31 GB (30 %)</span>
+        <span class="tray-b">Abrir Vigía</span>
+        <hr>
+        <span>Optimizar ahora</span>
+        <span>Liberar memoria</span>
+        <span class="has">Resolución estirada</span>
+        <span>Deshacer último cambio…</span>
+        <hr>
+        <span class="on">Liberar sola al 60 %</span>
+      </div>
+    </figure>
+    <div class="shot-text">
+      <h2 id="shot-h">Lo que pasa dentro de tu PC, sin adornos</h2>
+      <p>Temperatura y carga de la CPU y la GPU, memoria, discos y su salud. Con permisos de administrador lee todos los sensores.</p>
+      <p>Desde el icono junto al reloj tienes lo rápido: clic derecho para optimizar, liberar memoria o poner la resolución estirada sin abrir la ventana.</p>
+    </div>
+  </section>
+
+  <section class="band" id="copias" aria-labelledby="copias-h">
+    <h2 id="copias-h">Cada cambio tiene vuelta atrás</h2>
+    <ol class="flow">
+      <li><b>Guarda una copia</b>De lo que va a tocar: registro, servicios, inicio de Windows o resolución. Si la copia falla, se detiene.</li>
+      <li><b>Hace el cambio</b>Solo lo que marcaste. Los ajustes de riesgo medio o alto no se aplican sin probarlos antes.</li>
+      <li><b>Deshaces con un clic</b>Desde Copias de seguridad o desde el icono: «Deshacer último cambio». Guarda hasta 300 copias.</li>
+    </ol>
+  </section>
+
+  <section class="band" id="consumo" aria-labelledby="consumo-h">
+    <div class="split">
+      <div>
+        <h2 id="consumo-h">Minimizada, casi no existe</h2>
+        <p>Una app de optimización no debería ser lo que te quita rendimiento. Al minimizarla o cerrarla al icono, Vigía deja de leer sensores y de dibujar, y devuelve su memoria a Windows.</p>
+        <p class="fine">Medido en un Ryzen&nbsp;9 9900X con la herramienta <code>--bench</code> que trae la app: 30&nbsp;s abierta, 60&nbsp;s minimizada.</p>
+      </div>
+      <table class="bench">
+        <caption class="sr">Consumo de Vigía</caption>
+        <thead><tr><th scope="col"></th><th scope="col">CPU (de un núcleo)</th><th scope="col">RAM</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">Abierta</th><td>6,7 %</td><td>440 MB</td></tr>
+          <tr class="rest"><th scope="row">Minimizada</th><td>0,1 %</td><td>49 MB</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="band" id="planes" aria-labelledby="planes-h">
+    <div class="split">
+      <div>
+        <h2 id="planes-h">Hoy es gratis</h2>
+        <p>Todo lo que ves en esta página viene en la descarga gratuita. Más adelante habrá planes de pago con funciones extra; los anunciaremos aquí.</p>
+      </div>
+      <ul class="facts">
+        <li><svg><use href="#i-check"/></svg>Se actualiza desde la propia app, con descargas firmadas</li>
+        <li><svg><use href="#i-check"/></svg>Si una versión nueva no te convence, vuelves a la anterior</li>
+        <li><svg><use href="#i-check"/></svg>Español, English, Português, Français y Deutsch</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="end">
+    <h2>Pruébala en tu PC</h2>
+    <a class="dl" href="https://github.com/JcperezDev/vigia-releases/releases/latest/download/Puente.exe">
+      <svg><use href="#i-down"/></svg>Descargar gratis
+      <span class="ver" data-ver>v0.11.0</span>
+    </a>
+    <p class="note">El instalador todavía no tiene firma de editor, así que Windows puede mostrar «Windows protegió su PC». Pulsa «Más información» y luego «Ejecutar de todos modos». El instalador comprueba la firma de Vigía antes de instalarla.</p>
+  </section>
+</main>
+
+<footer>
+  <span><svg><use href="#i-eye"/></svg>Vigía</span>
+  <a href="https://github.com/JcperezDev/vigia-releases/releases">Todas las versiones</a>
+</footer>
+
+<script>
+// muestra la versión publicada más reciente; si GitHub no responde, queda la escrita arriba
+fetch('https://api.github.com/repos/JcperezDev/vigia-releases/releases/latest')
+  .then(r => r.ok ? r.json() : null)
+  .then(j => { if (j && /^v\d+\.\d+\.\d+$/.test(j.tag_name)) document.querySelectorAll('[data-ver]').forEach(e => e.textContent = j.tag_name); })
+  .catch(() => {});
+</script>
+</body>
+</html>
