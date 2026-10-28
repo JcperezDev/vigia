@@ -2011,5 +2011,12 @@
  "El mando pasa primero por ese programa y luego llega al juego: es un paso más y suma retraso.": "Der Controller läuft erst durch dieses Programm und dann ins Spiel: ein Schritt mehr, der Verzögerung bringt.",
  "Si el juego reconoce tu mando sin él, ciérralo antes de jugar.": "Wenn das Spiel deinen Controller ohne es erkennt, schließ es vor dem Spielen.",
  "Juegos mide los Hz reales del ratón y del mando, y Sugerencias avisa si un programa traduce tu mando.": "Spiele misst die echten Hz von Maus und Controller, und Vorschläge warnt, wenn ein Programm deinen Controller übersetzt.",
- "Menos input lag": "Weniger Input-Lag"
+ "Menos input lag": "Weniger Input-Lag",
+ "Detuviste {0}. No pasa nada: el disco queda bien.": "Du hast {0} gestoppt. Kein Problem: das Laufwerk bleibt in Ordnung.",
+ "No se pudo optimizar {0}. {1}": "{0} konnte nicht optimiert werden. {1}",
+ "Detenida.": "Gestoppt.",
+ "Windows no pudo optimizarla (código 0x{0}).": "Windows konnte es nicht optimieren (Code 0x{0}).",
+ "Optimizar: «Detener» ya no sale como error, «Analizar» espera a que termine y, al acabar, el disco mecánico muestra su fragmentación al momento.": "Optimieren: „Stoppen“ erscheint nicht mehr als Fehler, „Analysieren“ wartet bis zum Ende und die Festplatte zeigt danach sofort ihre Fragmentierung.",
+ "Windows ya la está optimizando. Prueba en unos minutos.": "Windows optimiert es bereits. Versuch es in ein paar Minuten.",
+ "Si Windows ya estaba optimizando la unidad, Vigía espera y lo vuelve a intentar en vez de decir «Listo» sin hacer nada.": "Wenn Windows das Laufwerk bereits optimiert hat, wartet Vigía und versucht es erneut, statt ohne etwas zu tun „Fertig“ zu melden."
 }

@@ -2011,5 +2011,12 @@
  "El mando pasa primero por ese programa y luego llega al juego: es un paso más y suma retraso.": "La manette passe d'abord par ce programme puis arrive au jeu : c'est une étape de plus et ça ajoute du retard.",
  "Si el juego reconoce tu mando sin él, ciérralo antes de jugar.": "Si le jeu reconnaît ta manette sans lui, ferme-le avant de jouer.",
  "Juegos mide los Hz reales del ratón y del mando, y Sugerencias avisa si un programa traduce tu mando.": "Jeux mesure les vrais Hz de la souris et de la manette, et Suggestions prévient si un programme traduit ta manette.",
- "Menos input lag": "Moins d'input lag"
+ "Menos input lag": "Moins d'input lag",
+ "Detuviste {0}. No pasa nada: el disco queda bien.": "Tu as arrêté {0}. Pas de souci : le disque reste en bon état.",
+ "No se pudo optimizar {0}. {1}": "Impossible d'optimiser {0}. {1}",
+ "Detenida.": "Arrêtée.",
+ "Windows no pudo optimizarla (código 0x{0}).": "Windows n'a pas pu l'optimiser (code 0x{0}).",
+ "Optimizar: «Detener» ya no sale como error, «Analizar» espera a que termine y, al acabar, el disco mecánico muestra su fragmentación al momento.": "Optimiser : « Arrêter » ne s'affiche plus comme une erreur, « Analyser » attend la fin et, une fois terminé, le disque dur affiche sa fragmentation tout de suite.",
+ "Windows ya la está optimizando. Prueba en unos minutos.": "Windows est déjà en train de l'optimiser. Réessaie dans quelques minutes.",
+ "Si Windows ya estaba optimizando la unidad, Vigía espera y lo vuelve a intentar en vez de decir «Listo» sin hacer nada.": "Si Windows optimisait déjà le lecteur, Vigía attend et réessaie au lieu de dire « Terminé » sans rien faire."
 }

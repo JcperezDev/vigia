@@ -2011,5 +2011,12 @@
  "El mando pasa primero por ese programa y luego llega al juego: es un paso más y suma retraso.": "The controller goes through that program first and then reaches the game: it's one more step and adds delay.",
  "Si el juego reconoce tu mando sin él, ciérralo antes de jugar.": "If the game recognizes your controller without it, close it before playing.",
  "Juegos mide los Hz reales del ratón y del mando, y Sugerencias avisa si un programa traduce tu mando.": "Games measures the real Hz of your mouse and controller, and Suggestions warns if a program is translating your controller.",
- "Menos input lag": "Less input lag"
+ "Menos input lag": "Less input lag",
+ "Detuviste {0}. No pasa nada: el disco queda bien.": "You stopped {0}. That's fine: the drive is left in good shape.",
+ "No se pudo optimizar {0}. {1}": "Couldn't optimize {0}. {1}",
+ "Detenida.": "Stopped.",
+ "Windows no pudo optimizarla (código 0x{0}).": "Windows couldn't optimize it (code 0x{0}).",
+ "Optimizar: «Detener» ya no sale como error, «Analizar» espera a que termine y, al acabar, el disco mecánico muestra su fragmentación al momento.": "Optimize: “Stop” no longer shows up as an error, “Analyze” waits until it finishes, and the hard drive shows its fragmentation right after.",
+ "Windows ya la está optimizando. Prueba en unos minutos.": "Windows is already optimizing it. Try again in a few minutes.",
+ "Si Windows ya estaba optimizando la unidad, Vigía espera y lo vuelve a intentar en vez de decir «Listo» sin hacer nada.": "If Windows was already optimizing the drive, Vigía waits and tries again instead of saying “Done” without doing anything."
 }

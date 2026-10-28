@@ -141,6 +141,20 @@ static class Program
             File.WriteAllText(args[1], JsonSerializer.Serialize(Drift.Run(args.Length >= 3 ? int.Parse(args[2]) : 10), new JsonSerializerOptions(Json) { WriteIndented = true }));
             return 0;
         }
+        if (args.Length >= 3 && args[0] == "--optimize")   // prueba: Vigia --optimize <D:> <salida.json> [analyze|cancel]
+        {
+            var mode = args.Length >= 4 ? args[3] : "";
+            var lines = new List<string>();
+            if (mode == "recancel") { var t0 = Optimize.RunAsync(args[1], _ => { }); Thread.Sleep(1500); Optimize.Cancel(); t0.GetAwaiter().GetResult(); }
+            var task = Optimize.RunAsync(args[1], p => { lock (lines) lines.Add(p.Line); });
+            int? frag = null;
+            if (mode == "analyze") { Thread.Sleep(1500); frag = Optimize.Status(true).Volumes.First(v => v.Letter == args[1]).Fragmented; }
+            if (mode == "cancel") { Thread.Sleep(1500); Optimize.Cancel(); }
+            var r = task.GetAwaiter().GetResult();
+            var after = Optimize.Status(r.Ok, args[1]).Volumes.First(v => v.Letter == args[1]);
+            File.WriteAllText(args[2], JsonSerializer.Serialize(new { r, frag, busyAfter = Optimize.Busy, after, lines = lines.Where(l => !l.Contains('%')).TakeLast(15).ToList() }, new JsonSerializerOptions(Json) { WriteIndented = true }));
+            return 0;
+        }
         if (args.Length >= 2 && args[0] == "--rates")   // solo lectura: Vigia --rates <salida.json> [segundos]
         {
             File.WriteAllText(args[1], JsonSerializer.Serialize(Drift.Rates(args.Length >= 3 ? int.Parse(args[2]) : 5), new JsonSerializerOptions(Json) { WriteIndented = true }));
@@ -592,7 +606,8 @@ sealed partial class MainForm : Form
                     // el progreso llega desde otro hilo: volver al hilo de la UI para hablar con WebView2
                     var res = await Task.Run(() => Optimize.RunAsync(letter, p => BeginInvoke(() => Send("optProgress", p))));
                     Send("optDone", res);
-                    Send("optStatus", await Task.Run(() => Optimize.Status(false)));
+                    // si terminó bien, se vuelve a medir solo esa unidad (en SSD no hace nada)
+                    Send("optStatus", await Task.Run(() => Optimize.Status(res.Ok, letter)));
                     break;
                 case "optCancel":
                     Optimize.Cancel();
