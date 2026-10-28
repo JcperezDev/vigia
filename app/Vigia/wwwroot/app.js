@@ -1257,13 +1257,14 @@
     busyBtn($('st-run'), false, 'Actualizar ahora');
     busyBtn($('up-run'), false, 'Actualizar');
     const box = $('update');
+    box.hidden = !u.available;
     if (u.available) {
       box.hidden = false; $('up-run').hidden = false;
-      $('up-text').textContent = `Hay una versión nueva: ${u.latest}. Vigía se cierra, se actualiza y vuelve a abrir sola.`;
+      busyBtn($('up-run'), false, `Actualizar a ${u.latest}`);
       $('st-new').hidden = false;
       $('st-new-title').textContent = `Versión nueva: ${u.latest}`;
       $('st-notes').textContent = (u.notes || '').trim();
-      $('st-state').textContent = u.error || 'Vigía baja la versión nueva, comprueba la firma, se cierra, se actualiza y vuelve a abrir sola.';
+      $('st-state').textContent = u.error || 'Se cierra un momento y vuelve a abrir ya actualizada.';
       $('st-state').classList.toggle('bad', !!u.error);
     } else {
       $('st-new').hidden = true;

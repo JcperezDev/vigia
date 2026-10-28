@@ -1636,5 +1636,7 @@
  "Cuéntanos qué podría mejorar": "Dites-nous ce qui pourrait être mieux",
  "Dar una idea": "Proposer une idée",
  "Enlace copiado.": "Lien copié.",
- "Se abre en el navegador. Vigía no ve el pago.": "S’ouvre dans le navigateur. Vigía ne voit pas le paiement."
+ "Se abre en el navegador. Vigía no ve el pago.": "S’ouvre dans le navigateur. Vigía ne voit pas le paiement.",
+ "Actualizar a {0}": "Mettre à jour vers {0}",
+ "Se cierra un momento y vuelve a abrir ya actualizada.": "Il se ferme un instant et se rouvre à jour."
 }

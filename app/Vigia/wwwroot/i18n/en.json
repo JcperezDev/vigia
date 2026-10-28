@@ -1636,5 +1636,7 @@
  "Cuéntanos qué podría mejorar": "Tell us what could be better",
  "Dar una idea": "Suggest an idea",
  "Enlace copiado.": "Link copied.",
- "Se abre en el navegador. Vigía no ve el pago.": "Opens in your browser. Vigía never sees the payment."
+ "Se abre en el navegador. Vigía no ve el pago.": "Opens in your browser. Vigía never sees the payment.",
+ "Actualizar a {0}": "Update to {0}",
+ "Se cierra un momento y vuelve a abrir ya actualizada.": "It closes for a moment and reopens updated."
 }

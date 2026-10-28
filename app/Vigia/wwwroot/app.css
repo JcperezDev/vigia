@@ -50,9 +50,12 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .nav.is-active svg { stroke: var(--violet); }
 .rail-foot { padding: 10px; font-size: 12px; color: var(--fg-3); line-height: 1.4; }
 .rail-foot strong { display: block; color: var(--fg-2); font-weight: 500; }
-.rail-update { margin: 10px 6px 4px; padding: 10px; border: 1px solid var(--line); border-radius: 6px; font-size: 12px; line-height: 1.4; color: var(--fg-2); }
-.rail-update p { margin: 0 0 8px; }
-.rail-update .btn { width: 100%; }
+.rail-update { margin: 6px 0 0; padding: 0 10px; }
+.up-link { all: unset; cursor: pointer; display: inline-flex; align-items: center; gap: 7px; font-size: 12px; color: var(--fg); }
+.up-link::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+.up-link:hover { text-decoration: underline; }
+.up-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.up-link:disabled { cursor: default; color: var(--fg-3); text-decoration: none; }
 .rail-update:not([hidden]) + .rail-foot { margin-top: 0; }
 .rail-ver { margin: 0; padding: 0 10px 10px; }
 .linkish { all: unset; cursor: pointer; font-size: 11px; color: var(--fg-3); }
