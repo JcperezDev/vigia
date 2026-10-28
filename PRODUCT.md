@@ -12,7 +12,7 @@ web
 
 - App: .NET 10 WinForms + WebView2 (`app/Vigia`), instalador/actualizador Puente (`app/Puente`).
 - Landing: HTML/CSS estático en `landing/`, publicado con GitHub Pages en el repo público `JcperezDev/vigia-releases`.
-- Cuentas (por hacer): `server/`, en el VPS de Contabo existente.
+- Sin cuentas ni servidor propio: los enlaces de donación se leen de `support.json` en vigia-releases.
 
 ## Users
 
@@ -35,8 +35,8 @@ Optimizar el PC de juego desde una sola app: monitor de hardware, limpieza, libe
 - Idiomas: español, inglés, portugués, francés y alemán.
 - Actualizaciones firmadas (ECDSA) desde la propia app, con vuelta a la versión anterior.
 - Instalador: `Vigia-X.Y.Z-win-x64.zip` + `Puente.exe` en GitHub Releases (`JcperezDev/vigia-releases`).
-- Planes de pago: tres planes, aún sin precios; en la landing van como «próximamente». Pago previsto: Gumroad. Licencia de por vida verificable sin internet (pendiente).
-- Cuentas con correo y contraseña: pendiente.
+- Gratis por completo. Sin planes de pago ni licencias. Sección «Apoya Vigía» con donaciones opcionales que no desbloquean nada (decisión del 2026-10-27).
+- Recorrido guiado la primera vez (9 pasos, se repite desde Ayuda) y sección Ayuda con guía de secciones y preguntas.
 
 ## Brand Commitments
 

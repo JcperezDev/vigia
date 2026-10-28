@@ -17,16 +17,10 @@
     <button class="nav is-active" data-view="monitor" aria-current="page">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>Monitor
     </button>
-    <button class="nav" data-view="storage">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 14h18M7 17h.01"/></svg>Almacenamiento
+    <button class="nav" data-view="sug">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.5 10.9V16h7v-2.1A6 6 0 0 0 12 3Z"/></svg>Sugerencias<span class="nav-count" id="sug-count" hidden></span>
     </button>
-    <button class="nav" data-view="health">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-4.4-7-10.2A4.3 4.3 0 0 1 12 8a4.3 4.3 0 0 1 7 2.8C19 16.6 12 21 12 21Z"/><path d="M8 12.5h2.2l1.3-2.5 2 4 1.2-1.5H16"/></svg>Salud de discos
-    </button>
-    <button class="nav" data-view="opt">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 3 5 13.5h6L10 21l8-10.5h-6L13 3Z"/></svg>Optimizar discos
-    </button>
-    <p class="rail-sep">Rendimiento</p>
+    <p class="rail-sep">Mejorar</p>
     <button class="nav" data-view="mem">
       <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="7" width="18" height="10" rx="1.5"/><path d="M7 7v10M11 7v10M15 7v10M6 17v3M18 17v3"/></svg>Memoria
     </button>
@@ -39,22 +33,37 @@
     <button class="nav" data-view="startup">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v8"/><path d="M6.3 7.2a8 8 0 1 0 11.4 0"/></svg>Inicio de Windows
     </button>
-    <button class="nav" data-view="backups">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.4-5.7"/><path d="M4 4v4h4"/><path d="M12 8v4l3 2"/></svg>Copias de seguridad
+    <button class="nav" data-view="storage">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 14h18M7 17h.01"/></svg>Almacenamiento
     </button>
-    <button class="nav" data-view="tools">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.2L4 16.8V20h3.2l5.3-5.3a4 4 0 0 0 5.2-5.4l-2.4 2.4-2.6-.6-.6-2.6 2.6-2.2Z"/></svg>Herramientas
+    <button class="nav" data-view="opt">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 3 5 13.5h6L10 21l8-10.5h-6L13 3Z"/></svg>Optimizar discos
     </button>
-    <p class="rail-sep">Sistema</p>
-    <button class="nav" data-view="sug">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.5 10.9V16h7v-2.1A6 6 0 0 0 12 3Z"/></svg>Sugerencias<span class="nav-count" id="sug-count" hidden></span>
+    <p class="rail-sep">Revisar</p>
+    <button class="nav" data-view="health">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-4.4-7-10.2A4.3 4.3 0 0 1 12 8a4.3 4.3 0 0 1 7 2.8C19 16.6 12 21 12 21Z"/><path d="M8 12.5h2.2l1.3-2.5 2 4 1.2-1.5H16"/></svg>Salud de discos
     </button>
     <button class="nav" data-view="diag">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4h6M10 4v2M14 4v2"/><rect x="5" y="6" width="14" height="15" rx="2"/><path d="M9 11h6M9 15h4"/></svg>Diagnóstico
     </button>
-    <button class="nav" data-view="settings">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1 7 17M17 7l2.1-2.1"/></svg>Configuración
+    <p class="rail-sep">Más</p>
+    <button class="nav" data-view="tools">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.2L4 16.8V20h3.2l5.3-5.3a4 4 0 0 0 5.2-5.4l-2.4 2.4-2.6-.6-.6-2.6 2.6-2.2Z"/></svg>Herramientas
     </button>
+    <button class="nav" data-view="backups">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.4-5.7"/><path d="M4 4v4h4"/><path d="M12 8v4l3 2"/></svg>Copias de seguridad
+    </button>
+    <div class="rail-end">
+      <button class="nav" data-view="help">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.2-2.4 3.6M12 17h.01"/></svg>Ayuda
+      </button>
+      <button class="nav nav-support" data-view="support">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7.5-4.6-7.5-10.1A4.2 4.2 0 0 1 12 7.4a4.2 4.2 0 0 1 7.5 2.5C19.5 15.4 12 20 12 20Z"/></svg>Apoya Vigía
+      </button>
+      <button class="nav" data-view="settings">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1 7 17M17 7l2.1-2.1"/></svg>Configuración
+      </button>
+    </div>
     <div class="rail-update" id="update" hidden>
       <p id="up-text"></p>
       <button class="btn" id="up-run">Actualizar</button>
@@ -284,6 +293,91 @@
       </section>
     </section>
 
+    <section class="view" id="view-help" hidden>
+      <header class="head">
+        <div><h1>Ayuda</h1><p class="sub">Qué hace cada sección y cuándo usarla.</p></div>
+        <button class="btn primary" id="hp-tour">Ver el recorrido</button>
+      </header>
+
+      <section class="hp-start" aria-labelledby="hp-start-h">
+        <h2 id="hp-start-h">Si es tu primera vez</h2>
+        <ol class="hp-steps">
+          <li><button class="hp-go" data-go="sug">Abre Sugerencias</button><span>Revisa tu PC y te dice qué mejorar y por qué. No cambia nada.</span></li>
+          <li><button class="hp-go" data-go="tweaks">Elige tus ajustes</button><span>Marca los que quieras y pulsa Aplicar. Vigía guarda una copia antes.</span></li>
+          <li><button class="hp-go" data-go="backups">¿No te gustó? Vuelve atrás</button><span>En Copias de seguridad, «Volver a como estaba» deshace lo que hizo Vigía.</span></li>
+        </ol>
+      </section>
+
+      <section class="tw-group">
+        <h2>Las secciones</h2>
+        <dl class="hp-guide" id="hp-guide">
+          <div><dt><button class="hp-go" data-go="monitor">Monitor</button></dt><dd>Uso y temperatura de CPU, tarjeta gráfica, RAM y discos. Úsalo con un juego abierto para ver qué se llena primero.</dd></div>
+          <div><dt><button class="hp-go" data-go="sug">Sugerencias</button></dt><dd>Lo que se puede mejorar fuera de Vigía: cable en vez de Wi‑Fi, la frecuencia de la pantalla, la RAM a su velocidad, discos con errores.</dd></div>
+          <div><dt><button class="hp-go" data-go="mem">Memoria</button></dt><dd>Libera RAM sin cerrar programas. Se libera sola al pasar del 60 %; el número lo eliges tú.</dd></div>
+          <div><dt><button class="hp-go" data-go="tweaks">Ajustes</button></dt><dd>Ajustes de Windows para jugar, cada uno explicado. Los que tienen riesgo vienen apagados y marcados.</dd></div>
+          <div><dt><button class="hp-go" data-go="apps">Apps de Windows</button></dt><dd>Quita apps que trae Windows y no usas. Se pueden volver a instalar desde Microsoft Store.</dd></div>
+          <div><dt><button class="hp-go" data-go="startup">Inicio de Windows</button></dt><dd>Lo que arranca solo al encender el PC. Apagar no borra nada: se vuelve a encender con un clic.</dd></div>
+          <div><dt><button class="hp-go" data-go="storage">Almacenamiento</button></dt><dd>Borra temporales de más de 24 horas. Lo que esté en uso se salta.</dd></div>
+          <div><dt><button class="hp-go" data-go="opt">Optimizar discos</button></dt><dd>TRIM en los SSD y desfragmentación en los discos mecánicos, con la herramienta de Windows.</dd></div>
+          <div><dt><button class="hp-go" data-go="health">Salud de discos</button></dt><dd>Vida útil, horas de uso y errores de cada disco. Solo lee.</dd></div>
+          <div><dt><button class="hp-go" data-go="diag">Diagnóstico</button></dt><dd>Errores de Windows de los últimos 7 días, explicados. Solo lee.</dd></div>
+          <div><dt><button class="hp-go" data-go="tools">Herramientas</button></dt><dd>Resolución estirada, control de ventiladores y accesos a programas y paneles útiles.</dd></div>
+          <div><dt><button class="hp-go" data-go="backups">Copias de seguridad</button></dt><dd>Una copia por cada cambio, más la del estado de tu PC antes de instalar Vigía.</dd></div>
+        </dl>
+      </section>
+
+      <section class="tw-group">
+        <h2>Preguntas</h2>
+        <div class="hp-faq">
+          <details><summary>¿Puede romper Windows?</summary><p>Cada cambio se guarda antes de hacerlo y, si Vigía no puede guardar la copia, no cambia nada. Los ajustes con riesgo se prueban primero en una máquina virtual y vienen apagados. Vigía no toca la BIOS, ni Defender, ni Windows Update.</p></details>
+          <details><summary>¿Gasta recursos mientras juego?</summary><p>Minimizada deja de dibujar y lee el PC muy de vez en cuando: en nuestras pruebas, unos 50 MB de RAM y menos del 0,2 % de un núcleo. Si la cierras, se queda junto al reloj gastando lo mismo.</p></details>
+          <details><summary>¿Hace falta una cuenta?</summary><p>No. Vigía no pide correo ni registro y no manda datos tuyos a ningún sitio. Solo pregunta a GitHub si hay versión nueva.</p></details>
+          <details><summary>¿Por qué pide permisos de administrador?</summary><p>Para leer las temperaturas y cambiar ajustes del sistema. Sin permisos, el Monitor y las secciones de solo lectura funcionan igual.</p></details>
+          <details><summary>¿Cómo la quito?</summary><p>Desde Configuración de Windows › Apps › Vigía › Desinstalar. Antes, si quieres, usa «Volver a como estaba» en Copias de seguridad.</p></details>
+        </div>
+      </section>
+    </section>
+
+    <section class="view" id="view-support" hidden>
+      <header class="head">
+        <div><h1>Apoya Vigía</h1><p class="sub">Vigía es gratis, sin cuenta y sin anuncios. Si te sirvió, así puedes ayudar a que siga.</p></div>
+      </header>
+
+      <section class="sp-main">
+        <div class="sp-why">
+          <h2>Por qué ayuda</h2>
+          <p>Cada ajuste se prueba en una máquina virtual con Windows limpio antes de llegar a tu PC: se aplica, se reinicia y se deshace. Eso lleva horas. Una donación paga ese tiempo.</p>
+          <p class="sp-note">Donar es opcional y no desbloquea nada. Todo lo que tiene Vigía sigue siendo gratis.</p>
+        </div>
+        <div class="sp-give">
+          <h2>Donar</h2>
+          <div class="sp-links" id="sp-links"><p class="empty">Cargando…</p></div>
+        </div>
+      </section>
+
+      <section class="tw-group">
+        <h2>Sin gastar nada</h2>
+        <ul class="sp-free">
+          <li>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9L12 3Z"/></svg>
+            <div><strong>Dale una estrella en GitHub</strong><span>Hace que más gente la encuentre.</span></div>
+            <button class="btn" id="sp-star">Abrir GitHub</button>
+          </li>
+          <li>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 12h8M12 8l4 4-4 4"/><rect x="3" y="3" width="18" height="18" rx="3"/></svg>
+            <div><strong>Pásasela a alguien que juegue</strong><span>Copia el enlace de descarga.</span></div>
+            <button class="btn" id="sp-share">Copiar enlace</button>
+          </li>
+          <li>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H8l-4 4V5Z"/><path d="M12 8v3M12 13.5h.01"/></svg>
+            <div><strong>Cuéntanos qué falla</strong><span>Un error bien contado vale tanto como una donación.</span></div>
+            <button class="btn" id="sp-issue">Reportar</button>
+          </li>
+        </ul>
+        <p class="result" id="sp-result" aria-live="polite"></p>
+      </section>
+    </section>
+
     <section class="view" id="view-tools" hidden>
       <header class="head">
         <div><h1>Herramientas</h1><p class="sub" id="tl-sub">Programas de tu carpeta. Vigía solo los abre.</p></div>
@@ -325,6 +419,19 @@
       <ul class="findings" id="findings"><li class="empty">Revisando…</li></ul>
     </section>
   </main>
+</div>
+<div class="tour" id="tour" hidden>
+  <div class="tour-hole" id="tour-hole" hidden></div>
+  <div class="tour-card" id="tour-card" role="dialog" aria-modal="true" aria-labelledby="tour-title" aria-describedby="tour-text" tabindex="-1">
+    <h2 id="tour-title"></h2>
+    <p id="tour-text"></p>
+    <div class="tour-act">
+      <button class="linkish" id="tour-skip">Saltar</button>
+      <span class="tour-count" id="tour-count"></span>
+      <button class="btn" id="tour-prev">Atrás</button>
+      <button class="btn primary" id="tour-next">Siguiente</button>
+    </div>
+  </div>
 </div>
 <script src="i18n.js"></script>
 <script src="app.js"></script>

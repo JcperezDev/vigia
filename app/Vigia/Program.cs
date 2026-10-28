@@ -170,6 +170,8 @@ sealed partial class MainForm : Form
         core.NavigationStarting += (_, e) => { if (!e.Uri.StartsWith("https://app.vigia/")) e.Cancel = true; };
         core.NewWindowRequested += (_, e) => e.Handled = true;
         core.WebMessageReceived += OnMessage;
+        // en capturas no sale la bienvenida (salvo que se pida con --snap … welcome / tour-N)
+        if (_snapPath is not null) await core.AddScriptToExecuteOnDocumentCreatedAsync("window.__vigiaSnap = true;");
         core.Navigate("https://app.vigia/index.html");
         _timer.Tick += async (_, _) => await PushAsync();
         _timer.Start();
@@ -426,6 +428,13 @@ sealed partial class MainForm : Form
                     var rp = await Task.Run(() => RestorePoint.Create("Vigía: antes de utilidad externa"));
                     Send("utilidad-externaRp", rp);
                     Toolbox.Openutilidad externa();
+                    break;
+                case "supportGet":
+                    Send("support", await Support.GetAsync());
+                    break;
+                case "openUrl":
+                    var link = (string?)msg["url"] ?? "";
+                    if (!Support.Open(link == "repo" ? Support.Repo : link)) Send("error", "Ese enlace no está permitido.");
                     break;
             }
         }

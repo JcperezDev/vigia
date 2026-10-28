@@ -655,6 +655,7 @@
     else if (v === 'tools') { send({ cmd: 'toolsList' }); send({ cmd: 'displayStatus' }); }
     else if (v === 'startup') send({ cmd: 'startupList' });
     else if (v === 'backups') send({ cmd: 'backupsList' });
+    else if (v === 'support') send({ cmd: 'supportGet' });
   }));
   // para --snap: abrir una sección
   // 'opt-run' = abrir Optimizar y lanzar la primera unidad (prueba de extremo a extremo)
@@ -669,6 +670,8 @@
       pre.textContent = 'I18N ' + JSON.stringify({ lang: I.lang, errors: I.errors, left: left.slice(0, 15) });
       (document.querySelector('.view:not([hidden])') || document.body).append(pre);
     }, 9000);
+    if (v === 'welcome') { tourStart(true); return; }
+    if (v.startsWith('tour')) { tourFrom = 'monitor'; tourShow(Number(v.split('-')[1] || 1) - 1); return; }
     const [view, act] = v.split('-');
     document.querySelector(`.nav[data-view="${view}"]`)?.click();
     if (act === 'run' && view === 'opt') setTimeout(() => document.querySelector('.vol .btn')?.click(), 2500);
@@ -726,6 +729,129 @@
   $('st-auto').addEventListener('change', () => { if (cfg) { cfg.updateCheck = $('st-auto').checked; send({ cmd: 'settingsSet', cfg }); } });
   send({ cmd: 'settingsGet' });
 
+  // ---------- ayuda y apoyo ----------
+  const goView = (v) => document.querySelector(`.nav[data-view="${v}"]`)?.click();
+  document.querySelectorAll('.hp-go').forEach((b) => b.addEventListener('click', () => goView(b.dataset.go)));
+  const DOWNLOAD = 'https://github.com/JcperezDev/vigia-releases/releases/latest';
+  $('sp-star').addEventListener('click', () => send({ cmd: 'openUrl', url: 'repo' }));
+  $('sp-issue').addEventListener('click', () => send({ cmd: 'openUrl', url: 'https://github.com/JcperezDev/vigia-releases/issues' }));
+  $('sp-share').addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(DOWNLOAD); $('sp-result').textContent = 'Enlace copiado. Pégalo donde quieras.'; }
+    catch { $('sp-result').textContent = `No pude copiar. El enlace es ${DOWNLOAD}`; }
+  });
+  function renderSupport(p) {
+    const box = $('sp-links');
+    box.replaceChildren();
+    if (!p.links.length) {
+      box.append(el('p', 'empty', p.error ? 'No pude cargar los enlaces para donar. Revisa la conexión y vuelve a abrir esta sección.' : 'Los enlaces para donar estarán aquí muy pronto.'));
+      return;
+    }
+    p.links.forEach((l, i) => {
+      const b = el('button', i === 0 ? 'btn primary sp-btn' : 'btn sp-btn', l.name);
+      b.addEventListener('click', () => send({ cmd: 'openUrl', url: l.url }));
+      box.append(b);
+    });
+    box.append(el('p', 'sp-safe', 'Se abre en tu navegador. Vigía no ve ni guarda nada del pago.'));
+  }
+
+  // ---------- recorrido ----------
+  // La primera vez sale una bienvenida; el recorrido va por las secciones de verdad, una por paso.
+  const TOUR = [
+    { view: 'monitor', at: '.rail', title: 'Todo está en esta barra',
+      text: 'Arriba, lo que miras. En «Mejorar», lo que cambia tu PC. En «Revisar», lo que solo lee. Nada cambia hasta que pulsas un botón.' },
+    { view: 'monitor', at: '.chart-wrap', title: 'Monitor',
+      text: 'Uso y temperatura de CPU, tarjeta gráfica y RAM. Si minimizas Vigía, deja de dibujar y casi no gasta.' },
+    { view: 'sug', at: '#view-sug .head', title: 'Empieza por Sugerencias',
+      text: 'Revisa la conexión, la pantalla, la memoria y los discos, y te dice qué mejorar y por qué. Por ejemplo: si tu Wi‑Fi pierde paquetes, te sugiere un cable. No cambia nada por su cuenta.' },
+    { view: 'mem', at: '#view-mem .head', title: 'Memoria',
+      text: '«Liberar ahora» devuelve RAM sin cerrar tus programas. Además se libera sola cuando el uso pasa del 60 %; ese número lo cambias más abajo, en «Automático».' },
+    { view: 'tweaks', at: '#view-tweaks .head', title: 'Ajustes de Windows',
+      text: 'Cada ajuste dice qué hace en palabras simples. Marca los que quieras y pulsa Aplicar. Los que tienen riesgo vienen apagados y avisados.' },
+    { view: 'startup', at: '#view-startup .head', title: 'Apps e Inicio de Windows',
+      text: 'En Apps de Windows quitas lo que viene de fábrica y no usas. Aquí apagas lo que arranca solo al encender el PC, sin borrarlo.' },
+    { view: 'backups', at: '#bk-original', title: 'Todo tiene vuelta atrás',
+      text: 'Antes de cada cambio, Vigía guarda cómo estaba. «Volver a como estaba» deja tu PC como antes de instalar Vigía.' },
+    { view: 'tools', at: '#ds-box', title: 'Resolución estirada',
+      text: 'Estira la pantalla para jugar. Si se ve mal y no confirmas, vuelve sola en 15 segundos.' },
+    { view: 'help', at: '.rail-end', title: 'Atajos junto al reloj',
+      text: 'Si cierras la ventana, Vigía se queda junto al reloj, en «Mostrar iconos ocultos». Con clic derecho optimizas, liberas memoria o cambias la resolución sin abrirla. Este recorrido está siempre en Ayuda.' },
+  ];
+  const WELCOME = { title: 'Bienvenido a Vigía',
+    text: 'Vigía mide tu PC, te dice qué mejorar y hace los cambios contigo, siempre con copia para volver atrás. El recorrido dura un minuto.' };
+  let tourAt = -1, tourFrom = null;
+  const tourRO = new ResizeObserver(() => { if (tourAt >= 0 && !$('tour').hidden) tourPlace(); });   // las secciones cargan sus datos después
+  const tourSeen = () => { try { return localStorage.getItem('vigia-tour') === 'done'; } catch { return true; } };
+  const tourMark = () => { try { localStorage.setItem('vigia-tour', 'done'); } catch { /* sin almacenamiento */ } };
+
+  function tourPlace() {
+    const hole = $('tour-hole'), card = $('tour-card');
+    const step = TOUR[tourAt];
+    const t = step && document.querySelector(step.at);
+    if (!t) { hole.hidden = true; card.classList.add('is-center'); card.style.left = card.style.top = ''; return; }
+    const vw = innerWidth, vh = innerHeight, pad = 6;
+    const r0 = t.getBoundingClientRect();
+    const r = { left: Math.max(r0.left - pad, 8), top: Math.max(r0.top - pad, 8), right: Math.min(r0.right + pad, vw - 8), bottom: Math.min(r0.bottom + pad, vh - 8) };
+    hole.hidden = false;
+    Object.assign(hole.style, { left: `${r.left}px`, top: `${r.top}px`, width: `${r.right - r.left}px`, height: `${r.bottom - r.top}px` });
+    card.classList.remove('is-center');
+    const cw = card.offsetWidth, ch = card.offsetHeight, gap = 20;
+    let x, y;
+    if (r.right + gap + cw <= vw - 12) { x = r.right + gap; y = r.top; }
+    else if (r.bottom + gap + ch <= vh - 12) { x = r.left; y = r.bottom + gap; }
+    else if (r.left - gap - cw >= 12) { x = r.left - gap - cw; y = r.top; }
+    else { x = r.left + 24; y = r.top + 24; }   // el destino ocupa casi toda la ventana: la tarjeta va encima
+    card.style.left = `${Math.min(Math.max(x, 12), vw - cw - 12)}px`;
+    card.style.top = `${Math.min(Math.max(y, 12), vh - ch - 12)}px`;
+  }
+
+  function tourShow(i) {
+    tourAt = i;
+    const welcome = i < 0, last = i === TOUR.length - 1;
+    const step = welcome ? WELCOME : TOUR[i];
+    if (!welcome) goView(step.view);
+    $('tour').hidden = false;
+    $('tour-title').textContent = step.title;
+    $('tour-text').textContent = step.text;
+    $('tour-count').textContent = welcome ? '' : `${i + 1} de ${TOUR.length}`;
+    $('tour-prev').hidden = welcome || i === 0;
+    $('tour-skip').textContent = welcome ? 'Lo exploro solo' : 'Saltar';
+    $('tour-skip').style.visibility = last ? 'hidden' : '';
+    $('tour-next').textContent = welcome ? 'Ver el recorrido' : last ? 'Terminar' : 'Siguiente';
+    if (welcome) { $('tour-hole').hidden = true; $('tour-card').classList.add('is-center'); $('tour-card').style.left = $('tour-card').style.top = ''; }
+    tourRO.disconnect();
+    if (welcome) { /* tarjeta centrada */ }
+    else { const t = document.querySelector(step.at); t?.scrollIntoView({ block: 'nearest' }); if (t) tourRO.observe(t); requestAnimationFrame(tourPlace); }
+    $('tour-next').focus();
+  }
+  function tourEnd() {
+    tourMark();
+    $('tour').hidden = true; tourAt = -1; tourRO.disconnect();
+    if (tourFrom) { goView(tourFrom); tourFrom = null; }
+  }
+  function tourStart(welcome) {
+    tourFrom = document.querySelector('.nav.is-active')?.dataset.view || 'monitor';
+    tourShow(welcome ? -1 : 0);
+  }
+  $('tour-next').addEventListener('click', () => (tourAt === TOUR.length - 1 ? (tourFrom = null, tourEnd()) : tourShow(tourAt + 1)));
+  $('tour-prev').addEventListener('click', () => tourShow(Math.max(tourAt - 1, 0)));
+  $('tour-skip').addEventListener('click', tourEnd);
+  $('hp-tour').addEventListener('click', () => tourStart(false));
+  document.addEventListener('keydown', (e) => {
+    if ($('tour').hidden) return;
+    if (e.key === 'Escape') tourEnd();
+    else if (e.key === 'ArrowRight' && tourAt >= 0) $('tour-next').click();
+    else if (e.key === 'ArrowLeft' && tourAt > 0) $('tour-prev').click();
+    else if (e.key === 'Tab') {   // el foco no sale de la tarjeta
+      const f = [...$('tour-card').querySelectorAll('button')].filter((b) => !b.hidden);
+      const k = f.indexOf(document.activeElement);
+      if (e.shiftKey && k <= 0) { e.preventDefault(); f[f.length - 1].focus(); }
+      else if (!e.shiftKey && k === f.length - 1) { e.preventDefault(); f[0].focus(); }
+    }
+  });
+  addEventListener('resize', () => { if (!$('tour').hidden && tourAt >= 0) tourPlace(); });
+  window.addEventListener('vigia-lang', () => { if (!$('tour').hidden && tourAt >= 0) requestAnimationFrame(tourPlace); });
+  setTimeout(() => { if (!window.__vigiaSnap && !tourSeen()) tourStart(true); }, 900);
+
   // ---------- mensajes del backend ----------
   if (host) host.addEventListener('message', (e) => {
     const { type, payload } = e.data;
@@ -733,6 +859,7 @@
     else if (type === 'healthScan') renderHealth(payload);
     else if (type === 'diagRun') renderDiag(payload);
     else if (type === 'suggest') renderSug(payload);
+    else if (type === 'support') renderSupport(payload);
     else if (type === 'optStatus') renderOpt(payload);
     else if (type === 'memStatus') renderMem(payload);
     else if (type === 'memFreed') renderFreed(payload);
