@@ -55,6 +55,7 @@ public sealed class Telemetry : IDisposable
     // Los mismos contadores que el Administrador de tareas: «Uso» y «Velocidad» de la CPU.
     readonly Pdh? _pdh = Pdh.TryOpen(@"\Processor Information(_Total)\% Processor Utility", @"\Processor Information(_Total)\% Processor Performance");
     double? _baseMhz;
+    DateTime _slowAt = DateTime.MinValue;
 
     public static bool Elevated
     {
@@ -99,7 +100,15 @@ public sealed class Telemetry : IDisposable
             if (_closed) return _last ?? new Snapshot(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), Elevated,
                 new CpuInfo(_cpuName, _cores, _threads, null, null, null), null, new RamInfo(0, 0, 0, null, null, null, null), Array.Empty<DiskInfo>(), _notes);
             var hw = _pc.Hardware.SelectMany(All).ToList();
-            foreach (var h in hw) { try { h.Update(); } catch { } }
+            // Los módulos de RAM (SPD por SMBus) y los discos (SMART) son lecturas lentas que pueden congelar un instante
+            // el sistema; su temperatura cambia despacio, así que se leen cada 30 s y no cada segundo.
+            var slow = DateTime.UtcNow - _slowAt >= TimeSpan.FromSeconds(30);
+            if (slow) _slowAt = DateTime.UtcNow;
+            foreach (var h in hw)
+            {
+                if (!slow && (h.HardwareType == HardwareType.Storage || (h.HardwareType == HardwareType.Memory && h.Sensors.Any(s => s.SensorType == SensorType.Timing)))) continue;
+                try { h.Update(); } catch { }
+            }
 
             // CPU
             var cpuH = hw.FirstOrDefault(h => h.HardwareType == HardwareType.Cpu);
