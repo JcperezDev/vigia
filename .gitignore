@@ -6,3 +6,4 @@ probe*.json
 st*.txt
 selftest.txt
 .impeccable/mocks/
+.impeccable/
