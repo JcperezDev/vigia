@@ -2018,5 +2018,9 @@
  "Windows no pudo optimizarla (código 0x{0}).": "Windows couldn't optimize it (code 0x{0}).",
  "Optimizar: «Detener» ya no sale como error, «Analizar» espera a que termine y, al acabar, el disco mecánico muestra su fragmentación al momento.": "Optimize: “Stop” no longer shows up as an error, “Analyze” waits until it finishes, and the hard drive shows its fragmentation right after.",
  "Windows ya la está optimizando. Prueba en unos minutos.": "Windows is already optimizing it. Try again in a few minutes.",
- "Si Windows ya estaba optimizando la unidad, Vigía espera y lo vuelve a intentar en vez de decir «Listo» sin hacer nada.": "If Windows was already optimizing the drive, Vigía waits and tries again instead of saying “Done” without doing anything."
+ "Si Windows ya estaba optimizando la unidad, Vigía espera y lo vuelve a intentar en vez de decir «Listo» sin hacer nada.": "If Windows was already optimizing the drive, Vigía waits and tries again instead of saying “Done” without doing anything.",
+ "Que Windows no las reinstale": "Stop Windows from reinstalling them",
+ "Menos ruido": "Less clutter",
+ "Apps de Windows más limpia: si no queda nada por quitar, no sale nada.": "Windows apps is cleaner: if there's nothing left to remove, nothing shows up.",
+ "Fondo de VigíaOS: el lema queda más cerca del nombre.": "VigíaOS wallpaper: the tagline now sits closer to the name."
 }
