@@ -75,6 +75,7 @@ public static class Debloat
             if (!list.TryGetValue(id, out var app)) { res.Add(new(id, false, "No está en la lista de Vigía.")); continue; }
             if (app.Blocked is not null) { res.Add(new(id, false, app.Blocked)); continue; }
             if (!app.Installed) { res.Add(new(id, true, null)); continue; }
+            if (Backups.Save("apps", $"Quitar app: {id}", [Backups.Item.Appx(id, id)]) is null) { res.Add(new(id, false, "No pude guardar la copia de seguridad; no la quité.")); continue; }
             // El Id viene del catálogo fijo de arriba, nunca de la interfaz: no hay inyección en la orden de PowerShell
             var (exit, output) = Tweaks.Run("powershell.exe",
                 $"-NoProfile -NonInteractive -Command \"Get-AppxPackage -Name '{id}' | Remove-AppxPackage -ErrorAction Stop\"");

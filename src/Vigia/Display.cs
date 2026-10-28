@@ -66,6 +66,8 @@ public static class Display
         var cur = st.Current ?? throw new InvalidOperationException("No pude leer la resolución actual.");
         // se guarda la de antes solo la primera vez: si ya está estirada, la original sigue siendo la guardada
         if (st.Saved is null) Save(new DisplayMode(cur.Width, cur.Height, cur.Hz));
+        if (Backups.Save("pantalla", $"Resolución estirada {w} × {h}", [Backups.Item.Display(cur.Width, cur.Height, cur.Hz)]) is null)
+            return new(false, "No pude guardar la copia de seguridad; no cambié nada.", false);
         var r = Change(want.Width, want.Height, want.Hz, DMDFO_STRETCH);
         if (r != 0)
         {
@@ -79,10 +81,22 @@ public static class Display
     {
         var saved = LoadSaved();
         if (saved is null) return new(false, "No hay una resolución guardada.", false);
+        if (Status().Current is { } now) Backups.Save("pantalla", "Volver a la resolución normal", [Backups.Item.Display(now.Width, now.Height, now.Hz)]);
         var r = Change(saved.Width, saved.Height, saved.Hz, DMDFO_DEFAULT);
         if (r != 0) return new(false, $"Windows no aceptó volver a {saved.Width} × {saved.Height} ({Why(r)}).", false);
         File.Delete(BackupPath);
         return new(true, $"Pantalla de vuelta en {saved.Width} × {saved.Height} a {saved.Hz} Hz.", false);
+    }
+
+    /// <summary>Para restaurar una copia: pone ese modo (sin estirar si es la nativa). Devuelve null si salió bien.</summary>
+    internal static string? SetMode(int w, int h, int hz)
+    {
+        var native = Status().Native;
+        var stretch = native is not null && (native.Width != w || native.Height != h);
+        var r = Change(w, h, hz, stretch ? DMDFO_STRETCH : DMDFO_DEFAULT);
+        if (r != 0) return $"Windows no aceptó {w} × {h} ({Why(r)}).";
+        if (!stretch && File.Exists(BackupPath)) File.Delete(BackupPath);
+        return null;
     }
 
     /// <summary>Solo pregunta al driver (CDS_TEST); no cambia la pantalla.</summary>

@@ -39,6 +39,9 @@
     <button class="nav" data-view="startup">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v8"/><path d="M6.3 7.2a8 8 0 1 0 11.4 0"/></svg>Inicio de Windows
     </button>
+    <button class="nav" data-view="backups">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.4-5.7"/><path d="M4 4v4h4"/><path d="M12 8v4l3 2"/></svg>Copias de seguridad
+    </button>
     <button class="nav" data-view="tools">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.2L4 16.8V20h3.2l5.3-5.3a4 4 0 0 0 5.2-5.4l-2.4 2.4-2.6-.6-.6-2.6 2.6-2.2Z"/></svg>Herramientas
     </button>
@@ -232,6 +235,15 @@
       </header>
       <p class="result" id="su-result" aria-live="polite"></p>
       <div id="su-groups"><p class="empty">Leyendo lo que arranca con Windows…</p></div>
+    </section>
+
+    <section class="view" id="view-backups" hidden>
+      <header class="head">
+        <div><h1>Copias de seguridad</h1><p class="sub" id="bk-sub">Antes de cada cambio, Vigía guarda cómo estaba todo. Restaurar una copia deja esas cosas como estaban en ese momento.</p></div>
+        <button class="btn" id="bk-reload">Volver a leer</button>
+      </header>
+      <p class="result" id="bk-result" aria-live="polite"></p>
+      <ul class="rows" id="bk-list"><li class="empty">Leyendo copias…</li></ul>
     </section>
 
     <section class="view" id="view-tools" hidden>

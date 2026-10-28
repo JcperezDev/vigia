@@ -120,6 +120,11 @@ public static class Tweaks
                 rp = r.Message;
                 if (!r.Ok) { Log($"punto de restauración: {r.Message}"); }
             }
+            // copia de seguridad del estado de antes; sin copia no se cambia nada
+            if (todo.Count > 0 && CatalogOverride is null &&
+                Backups.Save("ajustes", todo.Count == 1 ? $"Aplicar: {todo[0].Title}" : $"Aplicar {todo.Count} ajustes",
+                    todo.Select(SnapshotOf), rp) is null)
+                return new(false, rp, todo.Select(d => new TweakResult(d.Id, false, StateOf(d), "No pude guardar la copia de seguridad; no cambié nada.")).ToArray(), false);
             var bk = LoadBackup();
             foreach (var d in defs)
             {
@@ -144,6 +149,10 @@ public static class Tweaks
         lock (Gate)
         {
             var bk = LoadBackup();
+            var undo = Catalog().Where(d => ids.Contains(d.Id) && bk.ContainsKey(d.Id)).ToList();
+            if (undo.Count > 0 && CatalogOverride is null &&
+                Backups.Save("ajustes", undo.Count == 1 ? $"Revertir: {undo[0].Title}" : $"Revertir {undo.Count} ajustes", undo.Select(SnapshotOf)) is null)
+                return new(false, null, undo.Select(d => new TweakResult(d.Id, false, StateOf(d), "No pude guardar la copia de seguridad; no cambié nada.")).ToArray(), false);
             var results = new List<TweakResult>();
             foreach (var d in Catalog().Where(d => ids.Contains(d.Id)))
             {
@@ -159,6 +168,56 @@ public static class Tweaks
                 catch (Exception e) { Log($"revertir {d.Id}: ERROR {e.Message}"); results.Add(new(d.Id, false, StateOf(d), e.Message)); }
             }
             return new(results.All(r => r.Ok), null, results.ToArray(), Catalog().Any(d => d.Reboot && ids.Contains(d.Id)));
+        }
+    }
+
+    // ---------- para las copias de seguridad (Backups.cs) ----------
+    internal static JsonObject SnapValue(string path, string name) => Snap(path, name);
+    internal static void RestoreValue(string path, string name, JsonObject s) => Restore(path, name, s);
+
+    internal static JsonObject? SnapshotItem(string id)
+    {
+        lock (Gate) return Catalog().FirstOrDefault(d => d.Id == id) is { } d ? SnapshotOf(d) : null;
+    }
+
+    static JsonObject SnapshotOf(Def d) => new()
+    {
+        ["t"] = "tweak", ["id"] = d.Id, ["label"] = d.Title, ["saved"] = Capture(d),
+        ["orig"] = LoadBackup()[d.Id]?.DeepClone(),   // el valor original de antes de Vigía, para que «Revertir» siga funcionando
+    };
+
+    /// <summary>Deja cada valor del ajuste como estaba en la copia (aplicado o no).</summary>
+    internal static void RestoreSnapshot(JsonObject it)
+    {
+        lock (Gate)
+        {
+            var id = (string)it["id"]!;
+            var d = Catalog().FirstOrDefault(x => x.Id == id) ?? throw new InvalidOperationException("Ese ajuste ya no está en el catálogo.");
+            var saved = it["saved"]!.AsObject();
+            var ops = d.Ops.Select(x => x!.AsObject()).ToList();
+            for (int i = ops.Count - 1; i >= 0; i--)
+            {
+                var s = saved[i.ToString()] as JsonObject;
+                switch ((string?)ops[i]["special"])
+                {
+                    // estos se restauran en los dos sentidos; RevertOp solo sabe volver al original
+                    case "hibernate-off":
+                        if (s is not null) Must(Run("powercfg.exe", (bool?)s["on"] == true ? "/hibernate on" : "/hibernate off"), "cambiar la hibernación");
+                        break;
+                    case "dynamictick":
+                        if (s is not null) Must(Run("bcdedit.exe", (bool?)s["set"] == true ? "/set {current} disabledynamictick yes" : "/deletevalue {current} disabledynamictick"), "cambiar el arranque");
+                        break;
+                    case "power-ultimate":
+                        if ((string?)s?["active"] is { Length: > 0 } prev) Must(Run("powercfg.exe", $"/setactive {prev}"), "volver al plan de energía de la copia");
+                        break;
+                    default: RevertOp(ops[i], saved, i); break;
+                }
+            }
+            var bk = LoadBackup();
+            if (StateOf(d) == "off") bk.Remove(id);
+            else if (!bk.ContainsKey(id) && it["orig"] is JsonObject orig) bk[id] = orig.DeepClone();
+            SaveBackup(bk);
+            Log($"restaurar copia {id}: {StateOf(d)}");
         }
     }
 

@@ -497,6 +497,38 @@
   }
   $('su-reload').addEventListener('click', () => { busyBtn($('su-reload'), true, 'Leyendo…'); send({ cmd: 'startupList' }); });
 
+  // ---------- copias de seguridad ----------
+  const bkKind = { ajustes: 'Ajustes', inicio: 'Inicio de Windows', pantalla: 'Pantalla', apps: 'Apps', restauracion: 'Restauración' };
+  function bkWhen(s) {
+    const d = new Date(s);
+    return d.toLocaleDateString('es', { day: 'numeric', month: 'short' }) + ', ' + d.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' });
+  }
+  function renderBackups(list) {
+    busyBtn($('bk-reload'), false, 'Volver a leer');
+    $('bk-sub').textContent = list.length
+      ? `${plural(list.length, 'copia guardada', 'copias guardadas')}. Antes de cada cambio, Vigía guarda cómo estaba todo; restaurar también guarda una copia, por si quieres deshacerlo.`
+      : 'Todavía no hay copias. Se crea una sola antes de cada ajuste, apagado de inicio, cambio de pantalla o app quitada.';
+    if (!list.length) { $('bk-list').replaceChildren(el('li', 'empty', 'Sin copias todavía.')); return; }
+    $('bk-list').replaceChildren(...list.map((c) => {
+      const li = el('li', 'row bk');
+      const body = el('div');
+      const lines = c.lines.slice(0, 4).join(' · ') + (c.lines.length > 4 ? ` y ${c.lines.length - 4} más` : '');
+      body.append(el('strong', null, c.title), el('p', null, `${bkKind[c.kind] || c.kind} · ${bkWhen(c.at)}`));
+      if (!c.title.endsWith(lines)) body.append(Object.assign(el('p', 'src cmd', lines), { title: c.lines.join('\n') }));
+      if (c.restorePoint) body.append(el('p', 'src', 'Con punto de restauración de Windows.'));
+      if (c.restoredAt) body.append(el('p', 'src', `Restaurada el ${bkWhen(c.restoredAt)}.`));
+      const b = el('button', 'btn', 'Restaurar');
+      let armed = false;
+      b.addEventListener('click', () => {
+        if (!armed) { armed = true; b.textContent = '¿Seguro? Restaurar'; b.classList.add('primary'); setTimeout(() => { if (armed) { armed = false; b.textContent = 'Restaurar'; b.classList.remove('primary'); } }, 4000); return; }
+        armed = false; busyBtn(b, true, 'Restaurando…'); send({ cmd: 'backupRestore', id: c.id });
+      });
+      li.append(el('span', `state${c.restoredAt ? '' : ' applied'}`, c.restoredAt ? 'Usada' : 'Guardada'), body, b);
+      return li;
+    }));
+  }
+  $('bk-reload').addEventListener('click', () => { busyBtn($('bk-reload'), true, 'Leyendo…'); send({ cmd: 'backupsList' }); });
+
   // ---------- resolución estirada ----------
   let dsTimer = null;
   function renderDisplay(d) {
@@ -554,6 +586,7 @@
     else if (v === 'apps') send({ cmd: 'bloatList' });
     else if (v === 'tools') { send({ cmd: 'toolsList' }); send({ cmd: 'displayStatus' }); }
     else if (v === 'startup') send({ cmd: 'startupList' });
+    else if (v === 'backups') send({ cmd: 'backupsList' });
   }));
   // para --snap: abrir una sección
   // 'opt-run' = abrir Optimizar y lanzar la primera unidad (prueba de extremo a extremo)
@@ -612,6 +645,11 @@
     }
     else if (type === 'tools') renderTools(payload);
     else if (type === 'startup') renderStartup(payload);
+    else if (type === 'backups') renderBackups(payload);
+    else if (type === 'backupDone') {
+      $('bk-result').textContent = payload.message + (payload.errors.length ? ` ${payload.errors.join('; ')}` : '');
+      $('bk-result').classList.toggle('bad', !payload.ok);
+    }
     else if (type === 'startupDone') {
       $('su-result').textContent = payload.ok ? '' : `No se pudo cambiar: ${payload.message}`;
       $('su-result').classList.toggle('bad', !payload.ok);

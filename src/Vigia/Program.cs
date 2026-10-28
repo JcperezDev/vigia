@@ -33,6 +33,17 @@ static class Program
             File.WriteAllText(args[1], JsonSerializer.Serialize(new { startup = Startup.List(), display = Display.Status() }, new JsonSerializerOptions(Json) { WriteIndented = true }));
             return 0;
         }
+        if (args.Length >= 2 && args[0] == "--backups")   // solo lectura: lista de copias
+        {
+            File.WriteAllText(args[1], JsonSerializer.Serialize(Backups.List(), new JsonSerializerOptions(Json) { WriteIndented = true }));
+            return 0;
+        }
+        if (args.Length >= 2 && args[0] == "--backup-restore")   // prueba: Vigia --backup-restore <id>
+        {
+            var r = Backups.Restore(args[1]);
+            Console.WriteLine($"{r.Ok} {r.Message} {string.Join("; ", r.Errors)}");
+            return r.Ok ? 0 : 1;
+        }
         if (args.Length >= 3 && args[0] == "--startup-set")   // prueba: Vigia --startup-set <id> on|off
         {
             var r = Startup.Set(args[1], args[2] == "on");
@@ -248,6 +259,14 @@ sealed class MainForm : Form
                     var sid = (string)msg["id"]!; var son = (bool)msg["on"]!;
                     Send("startupDone", await Task.Run(() => Startup.Set(sid, son)));
                     Send("startup", await Task.Run(Startup.List));
+                    break;
+                case "backupsList":
+                    Send("backups", await Task.Run(Backups.List));
+                    break;
+                case "backupRestore":
+                    var bid = (string)msg["id"]!;
+                    Send("backupDone", await Task.Run(() => Backups.Restore(bid)));
+                    Send("backups", await Task.Run(Backups.List));
                     break;
                 case "displayStatus":
                     Send("display", Display.Status());

@@ -185,6 +185,11 @@ public static class Startup
         try
         {
             var parts = id.Split(':', 3);
+            // copia de seguridad del estado de antes; sin copia no se cambia nada
+            var items = BackupItems(parts, id).ToList();
+            var verb = on ? "Encender al inicio" : "Apagar al inicio";
+            if (items.Count > 0 && Backups.Save("inicio", $"{verb}: {items[0]["label"]}", items) is null)
+                return new(id, false, "No pude guardar la copia de seguridad; no cambié nada.");
             switch (parts[0])
             {
                 case "run":
@@ -240,6 +245,48 @@ public static class Startup
         }
         catch (UnauthorizedAccessException) { return new(id, false, "Windows no deja cambiar esta entrada (protegida)."); }
         catch (Exception e) { return new(id, false, e.Message); }
+    }
+
+    static IEnumerable<System.Text.Json.Nodes.JsonObject> BackupItems(string[] parts, string id)
+    {
+        switch (parts[0])
+        {
+            case "run" when parts.Length == 3:
+                var (root, sub) = parts[1] switch { "HKCU" => ("HKCU", "Run"), "HKLM" => ("HKLM", "Run"), _ => ("HKLM", "Run32") };
+                yield return Backups.Item.Reg($@"{root}\{Approved}{sub}", parts[2], parts[2]);
+                break;
+            case "folder" when parts.Length == 3:
+                yield return Backups.Item.Reg($@"{(parts[1] == "user" ? "HKCU" : "HKLM")}\{Approved}StartupFolder", parts[2], parts[2]);
+                break;
+            case "task":
+                if (TaskEnabled(id[5..]) is bool en) yield return Backups.Item.Task(id[5..], en, id[5..]);
+                break;
+            case "svc":
+                var k = $@"HKLM\SYSTEM\CurrentControlSet\Services\{id[4..]}";
+                yield return Backups.Item.Reg(k, "Start", $"Servicio {id[4..]}");
+                yield return Backups.Item.Reg(k, "DelayedAutostart", $"Servicio {id[4..]} (retrasado)");
+                break;
+        }
+    }
+
+    static dynamic? FindTask(string path)
+    {
+        try
+        {
+            dynamic svc = Activator.CreateInstance(Type.GetTypeFromProgID("Schedule.Service")!)!;
+            svc.Connect();
+            var slash = path.LastIndexOf('\\');
+            return svc.GetFolder(slash <= 0 ? @"\" : path[..slash]).GetTask(path[(slash + 1)..]);
+        }
+        catch { return null; }
+    }
+
+    internal static bool? TaskEnabled(string path) => FindTask(path) is { } t ? (bool)t.Enabled : null;
+
+    internal static void SetTask(string path, bool on)
+    {
+        var t = FindTask(path) ?? throw new InvalidOperationException("Esa tarea ya no existe.");
+        t.Enabled = on;
     }
 
     /// <summary>El mismo formato que escribe el Administrador de tareas: 12 bytes, 02 = encendido, 03 + fecha = apagado.</summary>
