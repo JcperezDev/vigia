@@ -43,6 +43,19 @@ public static class Display
         return new DisplayStatus(native, cur, stretched, opts, saved);
     }
 
+    /// <summary>La frecuencia más alta que ofrece la pantalla a esa resolución.</summary>
+    public static int MaxHz(int w, int h)
+    {
+        var max = 0;
+        for (var i = 0; ; i++)
+        {
+            var dm = NewDevMode();
+            if (!EnumDisplaySettingsW(null, i, ref dm)) break;
+            if (dm.dmPelsWidth == w && dm.dmPelsHeight == h && dm.dmBitsPerPel >= 32) max = Math.Max(max, dm.dmDisplayFrequency);
+        }
+        return max;
+    }
+
     /// <summary>La resolución nativa: la más grande que ofrece la pantalla a la frecuencia actual.</summary>
     static DisplayMode? NativeGuess(DisplayMode? cur)
     {

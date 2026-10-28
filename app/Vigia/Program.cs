@@ -28,6 +28,13 @@ static class Program
             }, new JsonSerializerOptions(Json) { WriteIndented = true }));
             return 0;
         }
+        if (args.Length >= 2 && args[0] == "--suggest")   // solo lectura: sugerencias con lo medido ahora
+        {
+            using var t = new Telemetry();
+            t.Read(); Thread.Sleep(1200);
+            File.WriteAllText(args[1], JsonSerializer.Serialize(Suggestions.Run(t), new JsonSerializerOptions(Json) { WriteIndented = true }));
+            return 0;
+        }
         if (args.Length >= 2 && args[0] == "--startup")   // solo lectura: lo que arranca con Windows
         {
             File.WriteAllText(args[1], JsonSerializer.Serialize(new { startup = Startup.List(), display = Display.Status() }, new JsonSerializerOptions(Json) { WriteIndented = true }));
@@ -64,7 +71,8 @@ static class Program
         }
         if (args.Length >= 2 && args[0] == "--selftest")
         {
-            var report = Cleanup.SelfTest() + Environment.NewLine + "--- ajustes" + Environment.NewLine + Tweaks.SelfTest();
+            var report = Cleanup.SelfTest() + Environment.NewLine + "--- ajustes" + Environment.NewLine + Tweaks.SelfTest()
+                + Environment.NewLine + "--- sugerencias" + Environment.NewLine + Suggestions.SelfTest();
             File.WriteAllText(args[1], report);
             return report.Contains("FAIL") ? 1 : 0;
         }
@@ -296,6 +304,9 @@ sealed partial class MainForm : Form
                     break;
                 case "healthScan":
                     Send("healthScan", await Task.Run(() => Health.Scan(_tel)));
+                    break;
+                case "suggest":
+                    Send("suggest", await Task.Run(() => Suggestions.Run(_tel)));
                     break;
                 case "diagRun":
                     Send("diagRun", await Task.Run(() => Diagnostics.Run(7)));

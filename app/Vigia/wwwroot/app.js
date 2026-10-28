@@ -304,6 +304,44 @@
   }
 
 
+  // ---------- sugerencias ----------
+  // Se revisa una vez al abrir la ventana (unos 2 s de pings y lecturas) y cuando se pide; nunca con la ventana oculta.
+  const GO = { health: 'Abrir Salud de discos', storage: 'Abrir Almacenamiento', mem: 'Abrir Memoria' };
+  let sugDone = false;
+  $('s-run').addEventListener('click', () => { busyBtn($('s-run'), true, 'Revisando…'); send({ cmd: 'suggest' }); });
+  function renderSug(r) {
+    sugDone = true;
+    busyBtn($('s-run'), false, 'Volver a revisar');
+    const n = r.items.filter((i) => i.level === 'warn' || i.level === 'bad').length;
+    $('sug-count').hidden = !n; $('sug-count').textContent = n;
+    $('sug-sub').textContent = `Lo que se puede mejorar en tu PC y por qué. Vigía no cambia nada de esto por su cuenta. Revisado a las ${new Date(r.ts).toLocaleTimeString(window.vigiaI18n.locale())}.`;
+    if (!r.items.length) { $('sugs').replaceChildren(el('li', 'empty', 'Nada que sugerir ahora mismo.')); return; }
+    $('sugs').replaceChildren(...r.items.map((i) => {
+      const li = el('li', `finding lv-${i.level}`);
+      const body = el('div');
+      // una frase por nodo: así cada una se traduce sola
+      const sentences = (p, list) => { list.forEach((x, k) => { if (k) p.append(' '); p.append(el('span', null, x)); }); return p; };
+      body.append(sentences(el('p'), i.why));
+      const todo = el('p', 'sug-do'); todo.append(el('b', null, 'Qué hacer'), ' '); body.append(sentences(todo, i.do));
+      const foot = el('div', 'sug-foot');
+      if (i.go && GO[i.go]) {
+        const b = el('button', 'link', GO[i.go]);
+        b.addEventListener('click', () => document.querySelector(`.nav[data-view="${i.go}"]`).click());
+        foot.append(b);
+      }
+      if (i.facts.length) {
+        const det = el('details'); det.append(el('summary', null, 'Lo medido'));
+        const ul = el('ul'); i.facts.forEach((x) => ul.append(el('li', null, x))); det.append(ul); foot.append(det);
+      }
+      if (foot.childNodes.length) body.append(foot);
+      li.append(el('span', 'dot'), el('strong', null, i.title), body);
+      return li;
+    }));
+  }
+  function sugAuto() { if (!sugDone && document.visibilityState === 'visible') send({ cmd: 'suggest' }); }
+  setTimeout(sugAuto, 20000);
+  document.addEventListener('visibilitychange', () => setTimeout(sugAuto, 3000));
+
   // ---------- memoria ----------
   const GBf = (v) => `${(v ?? 0).toLocaleString(window.vigiaI18n.locale(), { minimumFractionDigits: 1, maximumFractionDigits: 1 })} GB`;
   function renderMem(m) {
@@ -609,6 +647,7 @@
     if (v === 'health') $('h-scan').click();
     else if (v === 'opt') send({ cmd: 'optStatus', analyze: false });
     else if (v === 'diag') $('d-run').click();
+    else if (v === 'sug') { if (!sugDone) $('s-run').click(); }
     else if (v === 'storage' && !targets.length) $('scan').click();
     else if (v === 'mem') send({ cmd: 'settingsGet' });
     else if (v === 'tweaks') send({ cmd: 'tweaksList' });
@@ -693,6 +732,7 @@
     if (type === 'telemetry') render(payload);
     else if (type === 'healthScan') renderHealth(payload);
     else if (type === 'diagRun') renderDiag(payload);
+    else if (type === 'suggest') renderSug(payload);
     else if (type === 'optStatus') renderOpt(payload);
     else if (type === 'memStatus') renderMem(payload);
     else if (type === 'memFreed') renderFreed(payload);
