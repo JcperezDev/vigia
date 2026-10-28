@@ -11,7 +11,7 @@
 <div class="shell">
   <nav class="rail" aria-label="Secciones">
     <div class="brand">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 20 7.5v9L12 21l-8-4.5v-9Z"/><path d="M4 7.5 12 12l8-4.5M12 12v9"/><path class="lid" d="M12 3 20 7.5 12 12 4 7.5Z"/></svg>
       <span>Vigía</span>
     </div>
     <button class="nav is-active" data-view="monitor" aria-current="page">
@@ -323,7 +323,9 @@
           <label class="chk"><input type="checkbox" id="iso-ads" checked><span><b>Sin anuncios ni apps sugeridas</b><span>Windows no instala Candy Crush y compañía al entrar por primera vez, ni pone recomendaciones en Inicio.</span></span></label>
           <label class="chk"><input type="checkbox" id="iso-local"><span><b>Cuenta local, sin cuenta de Microsoft</b><span>No pide correo ni internet al instalar. Entras sin contraseña; ponle una después en Configuración → Cuentas.</span>
             <input type="text" id="iso-user" class="iso-user" maxlength="20" placeholder="Nombre de usuario" spellcheck="false" hidden></span></label>
-          <label class="chk"><input type="checkbox" id="iso-skip"><span><b>Instalar en PCs sin TPM 2.0 ni Secure Boot</b><span>Para PCs viejos. Microsoft no da soporte en esos equipos y pueden quedarse sin las actualizaciones grandes.</span></span></label>
+          <label class="chk"><input type="checkbox" id="iso-skip"><span><b>Instalar en PCs sin TPM 2.0, Secure Boot ni 4 GB de RAM</b><span>Para PCs viejos. Microsoft no da soporte en esos equipos y pueden quedarse sin las actualizaciones grandes.</span></span></label>
+          <label class="chk"><input type="checkbox" id="iso-tele" checked><span><b>Sin recopilación de datos</b><span>Se salta las preguntas de privacidad al instalar y deja lo que se envía a Microsoft en lo mínimo que permite Windows. También apaga el ID de publicidad y el historial de actividad.</span></span></label>
+          <label class="chk"><input type="checkbox" id="iso-bitlocker" checked><span><b>Sin cifrado automático del disco (BitLocker)</b><span>Windows no cifra el disco solo al instalarse. Si quieres BitLocker, lo activas tú después.</span></span></label>
           <details class="iso-apps"><summary id="iso-apps-sum">Apps que se quitan</summary><div id="iso-apps"></div></details>
         </div>
       </section>
@@ -340,6 +342,24 @@
           <p class="op-line" id="iso-line"></p>
         </section>
         <p class="op-result" id="iso-result" aria-live="polite"></p>
+      </section>
+      <section class="tw-group" id="iso-usb">
+        <h2>Pasar a un USB</h2>
+        <div class="box usb-box">
+          <p class="sub" id="usb-iso">Elige la ISO que vas a pasar. Si acabas de crear una, ya está puesta.</p>
+          <button class="btn" id="usb-pick">Elegir ISO…</button>
+          <p class="sub" id="usb-none" hidden>Conecta una memoria USB de 8 GB o más y pulsa «Buscar de nuevo».</p>
+          <div class="usb-drive"><select class="st-select" id="usb-drive" aria-label="Memoria USB"></select><button class="btn" id="usb-refresh">Buscar de nuevo</button></div>
+          <p class="usb-warn">Se borra todo lo que tenga la memoria. Solo salen memorias USB, nunca tus discos internos ni los externos.</p>
+          <button class="btn primary" id="usb-go" disabled>Pasar a un USB</button>
+        </div>
+        <p class="src iso-note">Arranca en cualquier PC con UEFI (todos los que pueden con Windows 11). Tarda de 5 a 20 minutos según la memoria.</p>
+        <section class="oprun" id="usb-run" hidden aria-live="polite">
+          <div class="oprun-head"><strong id="usb-step"></strong><button class="btn" id="usb-cancel">Cancelar</button></div>
+          <div class="bar big-bar"><i id="usb-bar"></i></div>
+          <p class="op-line" id="usb-line"></p>
+        </section>
+        <p class="op-result" id="usb-result" aria-live="polite"></p>
       </section>
     </section>
 
@@ -365,8 +385,9 @@
     <section class="view" id="view-startup" hidden>
       <header class="head">
         <div><h1>Inicio de Windows</h1><p class="sub" id="su-sub">Lo que arranca solo al encender el PC. Apagar no borra nada: la entrada se queda y la puedes volver a encender.</p></div>
-        <button class="btn" id="su-reload">Volver a leer</button>
+        <div class="head-act"><button class="btn" id="su-all" hidden>Apagar todos los programas</button><button class="btn" id="su-reload">Volver a leer</button></div>
       </header>
+      <p class="src su-all-note" id="su-all-note" hidden>Apaga todos los programas que arrancan solos, menos Vigía y los marcados con aviso (antivirus, drivers, ventiladores). Antes guarda una copia de cada uno; los vuelves a encender cuando quieras.</p>
       <p class="result" id="su-result" aria-live="polite"></p>
       <div id="su-groups"><p class="empty">Leyendo lo que arranca con Windows…</p></div>
     </section>
@@ -418,7 +439,7 @@
 
     <section class="view" id="view-settings" hidden>
       <header class="head">
-        <div><h1>Configuración</h1><p class="sub">Actualizaciones e idioma.</p></div>
+        <div><h1>Configuración</h1><p class="sub">Actualizaciones, inicio con Windows e idioma.</p></div>
       </header>
       <section class="tw-group">
         <h2>Actualizaciones</h2>
@@ -433,6 +454,13 @@
             <button class="btn primary" id="st-run">Actualizar ahora</button>
           </div>
           <label class="chk"><input type="checkbox" id="st-auto"><span>Buscar sola al abrir Vigía y cada 6 horas<small>Solo pregunta a GitHub si hay versión nueva; no baja nada sin que lo pidas.</small></span></label>
+        </div>
+      </section>
+      <section class="tw-group">
+        <h2>Al iniciar Windows</h2>
+        <div class="panel st-panel">
+          <label class="chk"><input type="checkbox" id="st-boot"><span>Abrir Vigía al iniciar Windows<small>Se queda escondida en la bandeja sin gastar casi nada, para que la liberación de memoria funcione sola. A los 2 minutos revisa una vez si hay programas nuevos que arrancan con Windows o si se deshizo algún ajuste, y te avisa sin abrir nada. Si estás jugando, espera.</small></span></label>
+          <p class="result" id="st-boot-msg" aria-live="polite"></p>
         </div>
       </section>
       <section class="tw-group">

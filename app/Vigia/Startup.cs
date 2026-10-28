@@ -180,6 +180,26 @@ public static class Startup
     }
 
     // ------------------------------------------------------------------ cambiar
+    public record AllDone(int Off, int Kept, List<string> KeptNames, List<string> Failed);
+
+    /// <summary>
+    /// Apaga de una vez todos los programas que arrancan con Windows, menos Vigía y los que conviene dejar
+    /// (antivirus, ventiladores, drivers, antitrampas…: los que tienen aviso). Cada uno con su copia, como al hacerlo a mano.
+    /// Tareas y servicios no entran: ahí hay piezas de drivers y se revisan una a una.
+    /// </summary>
+    public static AllDone OffAll()
+    {
+        var progs = List().Where(s => s.Group == "Programas" && s.Enabled && !AutoStart.IsOurs(s.Name) && !AutoStart.IsOurs(s.Command)).ToList();
+        var kept = progs.Where(s => s.Warning is not null && !s.Missing).ToList();
+        var failed = new List<string>(); var off = 0;
+        foreach (var s in progs.Except(kept))
+        {
+            var r = Set(s.Id, false);
+            if (r.Ok) off++; else failed.Add($"{s.Name}: {r.Message}");
+        }
+        return new(off, kept.Count, kept.Select(k => k.Name).ToList(), failed);
+    }
+
     public static StartDone Set(string id, bool on)
     {
         try

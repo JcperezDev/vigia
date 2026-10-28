@@ -612,6 +612,7 @@
     if (s.error) { $('iso-src').textContent = `${s.path}: ${s.error}`; $('iso-src').classList.add('bad'); isoSrc = null; $('iso-opts').hidden = $('iso-go').hidden = true; return; }
     $('iso-src').classList.remove('bad');
     isoSrc = s; $('iso-src').textContent = `${s.path} · ${gb(s.bytes)}`;
+    if (!usbIso) usbSetIso(s.path, s.bytes);
     const sel = $('iso-ed');
     sel.replaceChildren(...s.editions.map((e) => { const o = el('option', null, e.name); o.value = e.index; return o; }));
     const pro = s.editions.find((e) => /\bPro\b/i.test(e.name) && !/Education|Workstation|N\b/i.test(e.name)); if (pro) sel.value = pro.index;
@@ -631,6 +632,7 @@
       source: isoSrc.path, output: isoOut, index: +$('iso-ed').value,
       apps: [...document.querySelectorAll('#iso-apps input:checked')].map((c) => c.dataset.id),
       noAds: $('iso-ads').checked, localAccount: $('iso-local').checked, user: $('iso-user').value.trim() || null, skipChecks: $('iso-skip').checked,
+      noTelemetry: $('iso-tele').checked, noBitLocker: $('iso-bitlocker').checked,
     } });
   });
   function isoProgress(p) {
@@ -645,6 +647,52 @@
     if (!d.ok) { r.textContent = d.message; return; }
     r.replaceChildren(`${d.message} ${gb(d.bytes)} en ${Math.max(1, Math.round(d.minutes))} min. `);
     const b = el('button', 'btn sp-inline', 'Mostrar en la carpeta'); b.addEventListener('click', () => send({ cmd: 'isoShow', path: d.output })); r.append(b);
+    usbSetIso(d.output, d.bytes);
+  }
+
+  // ---------- pasar a un USB ----------
+  let usbIso = null, usbDrives = [], usbBusy = false, usbArmed = 0;
+  function usbSetIso(path, bytes) { usbIso = path; $('usb-iso').textContent = `${path}${bytes ? ` · ${gb(bytes)}` : ''}`; usbReady(); }
+  function usbSel() { return usbDrives.find((d) => String(d.number) === $('usb-drive').value) || null; }
+  function usbDisarm() { usbArmed = 0; const g = $('usb-go'); g.textContent = 'Pasar a un USB'; g.classList.remove('danger'); }
+  function usbReady() { $('usb-go').disabled = usbBusy || !usbIso || !usbSel(); if (!usbArmed) usbDisarm(); }
+  function usbList(list) {
+    usbDrives = list || []; busyBtn($('usb-refresh'), false, 'Buscar de nuevo');
+    const sel = $('usb-drive'), keep = sel.value;
+    sel.replaceChildren(...usbDrives.map((d) => { const o = el('option', '', `${d.name} · ${gb(d.bytes)}${d.letters?.length ? ` · ${d.letters.map((l) => l + ':').join(' ')}` : ''}`); o.value = String(d.number); return o; }));
+    if (usbDrives.some((d) => String(d.number) === keep)) sel.value = keep;
+    $('usb-none').hidden = usbDrives.length > 0; sel.parentElement.querySelector('select').hidden = !usbDrives.length;
+    usbDisarm(); usbReady();
+  }
+  $('usb-pick').addEventListener('click', () => send({ cmd: 'usbPickIso' }));
+  $('usb-refresh').addEventListener('click', () => { busyBtn($('usb-refresh'), true, 'Buscando…'); send({ cmd: 'usbList' }); });
+  $('usb-drive').addEventListener('change', () => { usbDisarm(); usbReady(); });
+  $('usb-go').addEventListener('click', () => {
+    const d = usbSel(); if (!d || !usbIso) return;
+    const g = $('usb-go');
+    if (!usbArmed) {
+      usbArmed = setTimeout(usbDisarm, 6000);
+      g.textContent = `¿Seguro? Se borra ${d.name} (${gb(d.bytes)})`; g.classList.add('danger'); return;
+    }
+    clearTimeout(usbArmed); usbArmed = 0; usbDisarm();
+    usbBusy = true; usbReady();
+    $('usb-result').textContent = ''; $('usb-result').classList.remove('bad');
+    $('usb-run').hidden = false; $('usb-step').textContent = 'Empezando…'; $('usb-line').textContent = ''; $('usb-bar').style.width = '0';
+    busyBtn($('usb-cancel'), false, 'Cancelar');
+    send({ cmd: 'usbWrite', iso: usbIso, number: d.number, serial: d.serial });
+  });
+  $('usb-cancel').addEventListener('click', () => { busyBtn($('usb-cancel'), true, 'Cancelando…'); send({ cmd: 'usbCancel' }); });
+  function usbProgress(p) {
+    $('usb-step').textContent = `Paso ${p.num} de ${p.of}: ${p.step}`;
+    const bar = $('usb-bar').parentElement;
+    if (p.pct == null) { bar.classList.add('indet'); $('usb-line').textContent = ''; }
+    else { bar.classList.remove('indet'); $('usb-bar').style.width = `${p.pct}%`; $('usb-line').textContent = `${Math.floor(p.pct)} %`; }
+  }
+  function usbDone(d) {
+    usbBusy = false; $('usb-run').hidden = true;
+    const r = $('usb-result'); r.classList.toggle('bad', !d.ok);
+    r.textContent = d.ok ? `${d.message} Tardó ${Math.max(1, Math.round(d.minutes))} min.` : d.message;
+    send({ cmd: 'usbList' });
   }
 
   // ---------- herramientas ----------
@@ -706,6 +754,27 @@
     }));
   }
   $('su-reload').addEventListener('click', () => { busyBtn($('su-reload'), true, 'Leyendo…'); send({ cmd: 'startupList' }); });
+  // apagar todos los programas de una vez (Vigía y los que tienen aviso se quedan); dos pasos
+  let suArmed = 0;
+  function suDisarm() { if (suArmed) clearTimeout(suArmed); suArmed = 0; const b = $('su-all'); b.textContent = 'Apagar todos los programas'; b.classList.remove('primary'); }
+  function suAllShow(list) {
+    const n = list.filter((s) => s.group === 'Programas' && s.enabled && !s.warning && !/vig[ií]a/i.test(s.name + ' ' + s.command)).length;
+    $('su-all').hidden = $('su-all-note').hidden = n === 0;
+    suDisarm();
+  }
+  $('su-all').addEventListener('click', () => {
+    const b = $('su-all');
+    if (!suArmed) { suArmed = setTimeout(suDisarm, 6000); b.textContent = '¿Seguro? Apagar todos'; b.classList.add('primary'); return; }
+    suDisarm(); busyBtn(b, true, 'Apagando…'); send({ cmd: 'startupOffAll' });
+  });
+  function suAllDone(r) {
+    busyBtn($('su-all'), false, 'Apagar todos los programas');
+    const res = $('su-result'); res.classList.toggle('bad', r.failed.length > 0);
+    const parts = [`${plural(r.off, 'programa apagado', 'programas apagados')}.`];
+    if (r.kept) parts.push(`Se quedan encendidos: Vigía y ${r.keptNames.join(', ')}.`); else parts.push('Vigía sigue encendida.');
+    if (r.failed.length) parts.push(`No se pudo con: ${r.failed.join('; ')}.`);
+    res.textContent = parts.join(' ');
+  }
 
 
   // ---------- juegos: FPS antes y después + perfil de Fortnite ----------
@@ -994,6 +1063,7 @@
     else if (v === 'tweaks') send({ cmd: 'tweaksList' });
     else if (v === 'apps' || v === 'simple') { if (v === 'simple' && bloat.length) smApps(); else send({ cmd: 'bloatList' }); }
     else if (v === 'bios') send({ cmd: 'biosGet' });
+    else if (v === 'iso' && !usbBusy) send({ cmd: 'usbList' });
     else if (v === 'tools') { send({ cmd: 'toolsList' }); send({ cmd: 'displayStatus' }); }
     else if (v === 'startup') send({ cmd: 'startupList' });
     else if (v === 'games') send({ cmd: 'gamesGet' });
@@ -1225,6 +1295,12 @@
     applyLang($('st-lang').value);
     if (cfg) { cfg.lang = $('st-lang').value; send({ cmd: 'settingsSet', cfg }); }
   });
+  $('st-boot').addEventListener('change', () => { $('st-boot').disabled = true; $('st-boot-msg').textContent = ''; send({ cmd: 'autoStartSet', on: $('st-boot').checked }); });
+  function bootDone(d) {
+    const b = $('st-boot'); b.disabled = false; b.checked = d.on;
+    const m = $('st-boot-msg'); m.classList.toggle('bad', !d.ok);
+    m.textContent = !d.ok ? `No se pudo: ${d.message}` : d.on ? 'Listo: la próxima vez que entres a Windows, Vigía se queda en la bandeja.' : 'Listo: Vigía ya no se abre sola.';
+  }
   $('st-auto').addEventListener('change', () => { if (cfg) { cfg.updateCheck = $('st-auto').checked; send({ cmd: 'settingsSet', cfg }); } });
   send({ cmd: 'settingsGet' });
 
@@ -1369,6 +1445,7 @@
     else if (type === 'settings') {
       cfg = payload.cfg;
       $('st-auto').checked = cfg.updateCheck;
+      if (typeof payload.autoStart === 'boolean') $('st-boot').checked = payload.autoStart;
       if (cfg.lang && $('st-lang').value !== cfg.lang) { $('st-lang').value = cfg.lang; applyLang(cfg.lang); }
       $('m-auto').checked = cfg.memAuto; $('m-thr').value = cfg.memAutoThreshold; $('m-int').value = cfg.memAutoIntervalMin;
     }
@@ -1379,6 +1456,10 @@
     else if (type === 'isoOutput') { isoOut = payload.path; $('iso-out').textContent = `Se guarda como ${isoOut}`; isoReady(); }
     else if (type === 'isoProgress') isoProgress(payload);
     else if (type === 'isoDone') isoDone(payload);
+    else if (type === 'usbList') usbList(payload);
+    else if (type === 'usbIso') usbSetIso(payload.path, payload.bytes);
+    else if (type === 'usbProgress') usbProgress(payload);
+    else if (type === 'usbDone') usbDone(payload);
     else if (type === 'isoDl') isoDl(payload);
     else if (type === 'tweaksDone') renderTweaksDone(payload);
     else if (type === 'utilidad-externaRp') {
@@ -1411,7 +1492,9 @@
       $('ap-result').textContent = bad.length ? `No se pudieron quitar: ${bad.map((r) => `${r.id} (${r.error})`).join('; ')}.` : `${plural(payload.length, 'app quitada', 'apps quitadas')}.`;
     }
     else if (type === 'tools') renderTools(payload);
-    else if (type === 'startup') renderStartup(payload);
+    else if (type === 'startup') { renderStartup(payload); suAllShow(payload); }
+    else if (type === 'startupAll') suAllDone(payload);
+    else if (type === 'autoStart') bootDone(payload);
     else if (type === 'games') { busyBtn($('gm-reload'), false, 'Recargar'); renderRig(payload.rig); renderFps(payload.fps); renderFortnite(payload.fortnite); }
     else if (type === 'rigDone') rigDone(payload);
     else if (type === 'gameDone') $('gm-result').textContent = payload.message;

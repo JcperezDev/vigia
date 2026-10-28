@@ -1,4 +1,4 @@
-# Genera vigia.ico (ojo violeta sobre fondo oscuro) con PNGs de 16 a 256 px.
+# OBSOLETO: el icono actual (Prisma) lo genera tools/make-icon.py. Se deja como referencia del formato .ico.
 param([string]$Out)
 Add-Type -AssemblyName System.Drawing
 $sizes = 16, 24, 32, 48, 64, 128, 256

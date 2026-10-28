@@ -55,7 +55,8 @@ code { font: 500 0.88em "JBMono", ui-monospace, monospace; color: var(--fg-2); }
   font-size: 14px;
 }
 .brand { display: flex; align-items: center; gap: 10px; font-size: 17px; font-weight: 600; text-decoration: none; margin-right: auto; letter-spacing: -0.01em; }
-.brand svg { width: 22px; height: 22px; stroke: var(--blue); stroke-width: 1.8; }
+.brand svg { width: 22px; height: 22px; stroke: var(--blue); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.brand svg .lid { fill: #e9b45a; stroke: none; opacity: .9; }
 .top nav { display: flex; gap: 26px; }
 .top nav a { color: var(--fg-2); text-decoration: none; }
 .top nav a:hover { color: var(--fg); }

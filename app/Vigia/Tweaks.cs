@@ -105,6 +105,16 @@ public static class Tweaks
         return null;
     }
 
+    /// <summary>Ajustes que Vigía aplicó (tienen copia del original) y que ya no están puestos: los deshizo Windows u otro programa.</summary>
+    public static List<TweakView> Undone()
+    {
+        lock (Gate)
+        {
+            var bk = LoadBackup();
+            return List().Where(t => bk.ContainsKey(t.Id) && (t.State == "off" || t.State == "partial")).ToList();
+        }
+    }
+
     // ---------- aplicar / revertir ----------
     public static TweakBatch Apply(IEnumerable<string> ids, bool restorePoint = true)
     {
