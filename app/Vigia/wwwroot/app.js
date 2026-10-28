@@ -592,9 +592,9 @@
   // para --snap: abrir una sección
   // 'opt-run' = abrir Optimizar y lanzar la primera unidad (prueba de extremo a extremo)
   window.vigiaSnap = (spec) => {
-    const [v, lang] = spec.split('@');   // 'settings@en' = abrir Configuración en inglés
+    const [v, lang, dbg] = spec.split('@');   // 'settings@en' = Configuración en inglés; 'settings@en@dbg' añade el diagnóstico
     if (lang) window.vigiaI18n.set(lang);
-    if (lang) setTimeout(() => {   // diagnóstico de idioma en la captura
+    if (lang && dbg) setTimeout(() => {   // diagnóstico de idioma en la captura
       const I = window.vigiaI18n, left = [];
       const it = document.createTreeWalker(document.querySelector('.view:not([hidden])') || document.body, NodeFilter.SHOW_TEXT);
       for (let n = it.nextNode(); n; n = it.nextNode()) { const s = n.nodeValue.trim(); if (s && I.t(s) !== s) left.push(s.slice(0, 30) + ' ' + I.debug(n).slice(0, 80) + ' ' + n.parentElement.closest('[translate]')?.tagName); }

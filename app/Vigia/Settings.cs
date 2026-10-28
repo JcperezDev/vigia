@@ -13,6 +13,10 @@ public sealed class Settings
     public bool UpdateCheck { get; set; } = true;
     /// <summary>Idioma de la interfaz: auto (el de Windows), es, en, pt, fr, de. Puente también lo lee.</summary>
     public string Lang { get; set; } = "auto";
+    /// <summary>Cerrar la ventana la deja en la bandeja (en reposo) en vez de salir.</summary>
+    public bool TrayOnClose { get; set; } = true;
+    /// <summary>El aviso «Vigía sigue aquí» solo sale la primera vez.</summary>
+    public bool TrayHintShown { get; set; }
 
     public static string Dir { get; } = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Vigia");
     static string FilePath => Path.Combine(Dir, "settings.json");

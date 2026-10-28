@@ -69,9 +69,22 @@ static class Program
             Console.WriteLine(err ?? "ok");
             return err is null ? 0 : 1;
         }
+        // Menú de la bandeja en cada idioma, sin mostrar nada: Vigia.exe --tray-dump salida.txt
+        if (args.Length >= 2 && args[0] == "--tray-dump")
+        {
+            ApplicationConfiguration.Initialize();
+            using var f = new MainForm();
+            File.WriteAllText(args[1], MainForm.Dump(f));
+            return 0;
+        }
         // Una sola ventana: si ya está abierta, no abrir otra
         using var mutex = new Mutex(true, @"Local\Vigia.SingleInstance", out var first);
-        if (!first) return 0;
+        if (!first)
+        {
+            // ya está abierta (quizá escondida en la bandeja): pedirle que se muestre
+            try { using var ev = EventWaitHandle.OpenExisting(MainForm.ShowEventName); ev.Set(); } catch { }
+            return 0;
+        }
         ApplicationConfiguration.Initialize();
         // Verificación visual: Vigia.exe --snap salida.png [storage] -> captura la UI real tras ~8 s y sale
         // Consumo real: Vigia.exe --bench salida.json -> 30 s abierta, 60 s minimizada, y sale
@@ -81,7 +94,7 @@ static class Program
     }
 }
 
-sealed class MainForm : Form
+sealed partial class MainForm : Form
 {
     readonly WebView2 _web = new() { Dock = DockStyle.Fill, DefaultBackgroundColor = Color.FromArgb(14, 10, 24) };
     readonly Telemetry _tel = new();
@@ -105,7 +118,7 @@ sealed class MainForm : Form
         StartPosition = FormStartPosition.CenterScreen;
         try { Icon = new Icon(Path.Combine(AppContext.BaseDirectory, "vigia.ico")); } catch { }
         Controls.Add(_web);
-        Load += async (_, _) => await InitAsync();
+        Load += async (_, _) => { if (_snapPath is null) InitTray(); /* --bench mide con el icono puesto */ await InitAsync(); };
         FormClosed += (_, _) => { _timer.Stop(); Optimize.Cancel(); _tel.Dispose(); };
         Resize += async (_, _) => await SetRestingAsync(WindowState == FormWindowState.Minimized);
         Activated += (_, _) => { if (!_resting) _timer.Interval = 1000; };
@@ -142,7 +155,9 @@ sealed class MainForm : Form
         if (_snapView is { Length: > 0 } v)
         {
             await _web.CoreWebView2.ExecuteScriptAsync($"window.vigiaSnap && vigiaSnap({JsonSerializer.Serialize(v)})");
-            await Task.Delay(12000);
+            // VIGIA_SNAP_WAIT=segundos: esperar más (p. ej. para que la gráfica se llene en capturas de la web)
+            var wait = int.TryParse(Environment.GetEnvironmentVariable("VIGIA_SNAP_WAIT"), out var w) && w > 0 ? w * 1000 : 12000;
+            await Task.Delay(wait);
         }
         else await Task.Delay(3000);
         var metrics = await _web.CoreWebView2.ExecuteScriptAsync(
@@ -152,7 +167,7 @@ sealed class MainForm : Form
         File.WriteAllText(_snapPath + ".json", $"{{\"form\":\"{ClientSize.Width}x{ClientSize.Height}\",\"web\":\"{_web.Width}x{_web.Height}\",\"page\":{System.Text.Json.JsonSerializer.Deserialize<string>(metrics)}}}");
         using (var fs = File.Create(_snapPath!))
             await _web.CoreWebView2.CapturePreviewAsync(CoreWebView2CapturePreviewImageFormat.Png, fs);
-        Close();
+        _quitting = true; Close();
     }
 
     /// <summary>
@@ -214,7 +229,7 @@ sealed class MainForm : Form
             minimizada = new { cpuNucleoPct = Bench.CorePct(c, d), privadaMb = d.PrivateMb, ramMb = d.WorkingMb, procesos = d.Procs },
             alVolverLee = vuelve,
         }, new JsonSerializerOptions { WriteIndented = true }));
-        Close();
+        _quitting = true; Close();
     }
 
     async Task UpdateLoopAsync()
@@ -370,7 +385,7 @@ sealed class MainForm : Form
                     break;
                 case "updateRun":
                     if (await Updates.EnsurePuenteAsync() is string perr) { Send("update", (await Updates.CheckAsync()) with { Error = perr }); break; }
-                    if (Updates.StartPuente()) Close();
+                    if (Updates.StartPuente()) { _quitting = true; Close(); }   // salir de verdad, no a la bandeja
                     else Send("update", (await Updates.CheckAsync()) with { Error = "No pude abrir Puente." });
                     break;
                 case "utilidad-externa":
