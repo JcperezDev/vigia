@@ -73,8 +73,29 @@ public static class AutoStart
         return svc;
     }
 
-    public static bool IsOurs(string? text) =>
-        text is not null && (text.Contains("vigia", StringComparison.OrdinalIgnoreCase) || text.Contains("vigía", StringComparison.OrdinalIgnoreCase));
+    /// <summary>
+    /// ¿Esta entrada de inicio es de Vigía? Se mira el nombre exacto o el .exe que arranca, no el texto completo:
+    /// una ruta como C:\Users\vigia\…\OneDrive.exe no es nuestra aunque el usuario se llame así.
+    /// </summary>
+    public static bool IsOurs(StartItem s) => IsOursName(s.Name) || IsOursExe(s.Command);
+
+    static bool IsOursName(string? n)
+    {
+        var t = n?.Trim() ?? "";
+        return t.Equals("Vigia", StringComparison.OrdinalIgnoreCase) || t.Equals("Vigía", StringComparison.OrdinalIgnoreCase)
+            || t.Equals(Name, StringComparison.OrdinalIgnoreCase) || t.Equals(Folder.TrimStart('\\') + "\\" + Name, StringComparison.OrdinalIgnoreCase);
+    }
+
+    static bool IsOursExe(string? cmd)
+    {
+        if (string.IsNullOrWhiteSpace(cmd)) return false;
+        var c = cmd.Trim();
+        string exe;
+        if (c.StartsWith('"')) { var end = c.IndexOf('"', 1); exe = end > 0 ? c[1..end] : c[1..]; }
+        else { var i = c.IndexOf(".exe", StringComparison.OrdinalIgnoreCase); exe = i > 0 ? c[..(i + 4)] : c.Split(' ')[0]; }
+        var file = System.IO.Path.GetFileName(exe);
+        return file.Equals("Vigia.exe", StringComparison.OrdinalIgnoreCase) || file.Equals("Vigía.exe", StringComparison.OrdinalIgnoreCase);
+    }
 
     /// <summary>Guarda lo que arranca ahora como «conocido» para avisar solo de lo nuevo.</summary>
     public static void Remember(IEnumerable<StartItem>? items = null)
@@ -96,7 +117,7 @@ public static class AutoStart
         var now = Startup.List();
         var known = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         try { known.UnionWith(System.Text.Json.JsonSerializer.Deserialize<List<string>>(File.ReadAllText(KnownFile)) ?? []); } catch { }
-        var fresh = known.Count == 0 ? [] : now.Where(s => s.Enabled && !known.Contains(s.Id) && !IsOurs(s.Name) && !IsOurs(s.Command)).ToList();
+        var fresh = known.Count == 0 ? [] : now.Where(s => s.Enabled && !known.Contains(s.Id) && !IsOurs(s)).ToList();
         List<TweakView> undone = [];
         try { undone = Tweaks.Undone(); } catch { }
         Remember(now);   // cada cosa nueva se avisa una sola vez

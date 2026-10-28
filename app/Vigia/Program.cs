@@ -40,6 +40,23 @@ static class Program
             File.WriteAllText(args[1], JsonSerializer.Serialize(new { startup = Startup.List(), display = Display.Status() }, new JsonSerializerOptions(Json) { WriteIndented = true }));
             return 0;
         }
+        // «Apagar todos los programas» por consola, solo en laboratorio (VIGIA_LAB=1): Vigia.exe --startup-offall <salida.json>
+        if (args.Length >= 2 && args[0] == "--startup-offall" && Tweaks.Lab)
+        {
+            File.WriteAllText(args[1], JsonSerializer.Serialize(new { done = Startup.OffAll(), after = Startup.List() }, new JsonSerializerOptions(Json) { WriteIndented = true }));
+            return 0;
+        }
+        // «Abrir Vigía al iniciar Windows» por consola, solo en laboratorio: Vigia.exe --autostart <on|off|review> <salida.json>
+        if (args.Length >= 3 && args[0] == "--autostart" && Tweaks.Lab)
+        {
+            object res = args[1] switch
+            {
+                "on" or "off" => AutoStart.Set(args[1] == "on") is var (ok, m) ? new { ok, message = m, enabled = AutoStart.Enabled() } : null!,
+                _ => AutoStart.Review(),
+            };
+            File.WriteAllText(args[2], JsonSerializer.Serialize(res, new JsonSerializerOptions(Json) { WriteIndented = true }));
+            return 0;
+        }
         // Fortnite por consola (laboratorio y soporte): Vigia.exe --fortnite <read|unlock|profile|perf|dx12> <salida.json>
         if (args.Length >= 3 && args[0] == "--fortnite")
         {

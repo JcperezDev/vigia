@@ -754,11 +754,11 @@
     }));
   }
   $('su-reload').addEventListener('click', () => { busyBtn($('su-reload'), true, 'Leyendo…'); send({ cmd: 'startupList' }); });
-  // apagar todos los programas de una vez (Vigía y los que tienen aviso se quedan); dos pasos
+  // apagar todos los programas de una vez (Vigía y lo crítico se quedan); dos pasos
   let suArmed = 0;
   function suDisarm() { if (suArmed) clearTimeout(suArmed); suArmed = 0; const b = $('su-all'); b.textContent = 'Apagar todos los programas'; b.classList.remove('primary'); }
   function suAllShow(list) {
-    const n = list.filter((s) => s.group === 'Programas' && s.enabled && !s.warning && !/vig[ií]a/i.test(s.name + ' ' + s.command)).length;
+    const n = list.filter((s) => s.group === 'Programas' && s.enabled && !s.keep && !s.ours).length;
     $('su-all').hidden = $('su-all-note').hidden = n === 0;
     suDisarm();
   }
