@@ -311,7 +311,7 @@ dd { margin: 0; font: 500 14px "JBMono", monospace; font-variant-numeric: tabula
 
 /* Inicio de Windows */
 .su-note { margin: -4px 2px 8px; font-size: 12.5px; }
-.row.su { grid-template-columns: 64px 1fr auto; align-items: center; }
+.row.su { grid-template-columns: 84px 1fr auto; align-items: center; }
 .row.su .state { padding-top: 0; }
 .row.su .cmd { font: 11.5px "JBMono", monospace; color: var(--fg-2); margin-top: 5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 64ch; }
 .row.su .why { margin-top: 6px; }

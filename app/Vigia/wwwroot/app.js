@@ -1030,7 +1030,8 @@
     dsNative = d.saved || n;
     $('ds-restore').hidden = !d.saved;
     if (!n || !c) { $('ds-sub').textContent = 'No pude leer la pantalla principal.'; return; }
-    $('ds-sub').textContent = d.stretched ? `Ahora: ${dsRes(c)} estirada a ${c.hz} Hz. La normal es ${dsRes(d.saved)}.` : `Ahora: ${dsRes(c)} a ${c.hz} Hz.`;
+    $('ds-sub').textContent = c.hz > 1 ? (d.stretched ? `Ahora: ${dsRes(c)} estirada a ${c.hz} Hz. La normal es ${dsRes(d.saved)}.` : `Ahora: ${dsRes(c)} a ${c.hz} Hz.`)
+      : d.stretched ? `Ahora: ${dsRes(c)} estirada. La normal es ${dsRes(d.saved)}.` : `Ahora: ${dsRes(c)}.`;
     // primero las que la tarjeta ya tiene; luego las de la lista de Vigía, que se crean en su panel al aplicarlas
     const aspect = (m) => {
       const r = m.width / m.height;
