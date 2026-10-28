@@ -56,7 +56,7 @@ public static partial class Rig
     }
 
     // ---------- RAM ----------
-    static Check Ram(string board)
+    internal static Check Ram(string board)
     {
         int conf = 0, rated = 0, n = 0; string type = "DDR";
         try
@@ -118,7 +118,7 @@ public static partial class Rig
     }
 
     // ---------- Resizable BAR ----------
-    static Check ReBar(string board)
+    internal static Check ReBar(string board)
     {
         const string title = "Resizable BAR";
         var how = $"Se activa en la BIOS: {BiosReBar(board)}";
@@ -148,14 +148,14 @@ public static partial class Rig
         _ => "activa «Above 4G Decoding» y «Re-Size BAR Support». Necesita el arranque UEFI, sin CSM.",
     };
 
-    static string Vendor(string board)
+    internal static string Vendor(string board)
     {
         var b = board.ToLowerInvariant();
         return b.Contains("micro-star") || b.Contains("msi") ? "msi" : b.Contains("asus") ? "asus"
              : b.Contains("gigabyte") ? "gigabyte" : b.Contains("asrock") ? "asrock" : "";
     }
 
-    static string Cpu()
+    internal static string Cpu()
     {
         try { using var s = new ManagementObjectSearcher("SELECT Manufacturer FROM Win32_Processor"); foreach (var o in s.Get()) return o["Manufacturer"] as string ?? ""; } catch { }
         return "";

@@ -38,9 +38,37 @@ public static class Debloat
         new("Microsoft.Windows.DevHome", "Dev Home", "Panel para desarrolladores.", "bajo"),
         new("Microsoft.549981C3F5F10", "Cortana", "Asistente antiguo.", "bajo"),
         new("Microsoft.XboxApp", "Xbox (antigua)", "App de Xbox de Windows 10.", "medio"),
+        new("Microsoft.Copilot", "Copilot", "Chat de IA de Microsoft. Si lo quieres de vuelta, está en Microsoft Store.", "bajo"),
+        new("MicrosoftWindows.Client.WebExperience", "Widgets", "Panel de noticias y tiempo de la barra de tareas. Se reinstala con «Windows Web Experience Pack» de la Store.", "bajo"),
+        new("Microsoft.BingFinance", "Finanzas", "Cotizaciones de MSN.", "bajo"),
+        new("Microsoft.BingSports", "Deportes", "Resultados de MSN.", "bajo"),
+        new("Microsoft.BingTravel", "Viajes", "Guías de MSN.", "bajo"),
+        new("Microsoft.MixedReality.Portal", "Portal de realidad mixta", "Solo sirve con visores de realidad mixta de Windows, ya descontinuados.", "bajo"),
+        new("Microsoft.Microsoft3DViewer", "Visor 3D", "Abre modelos 3D.", "bajo"),
+        new("Microsoft.Print3D", "Print 3D", "Preparar piezas para impresora 3D.", "bajo"),
+        new("Microsoft.MSPaint", "Paint 3D", "No es el Paint normal: ese no se toca.", "bajo"),
+        new("Microsoft.SkypeApp", "Skype", "Microsoft cerró Skype en 2025.", "bajo"),
+        new("Microsoft.Office.OneNote", "OneNote para Windows 10", "Versión vieja de OneNote; no toca la de Office.", "bajo"),
+        new("Microsoft.Messaging", "Mensajes", "App de mensajes antigua.", "bajo"),
+        new("Microsoft.OneConnect", "Planes móviles", "Datos móviles para PCs con SIM.", "bajo"),
+        new("Microsoft.Wallet", "Microsoft Pay", "Cartera antigua.", "bajo"),
+        new("MicrosoftCorporationII.MicrosoftFamily", "Microsoft Family", "Control parental con cuenta de Microsoft.", "bajo"),
+        new("Microsoft.WindowsAlarms", "Alarmas y reloj", "Alarmas, temporizador y cronómetro.", "bajo"),
+        new("Microsoft.WindowsSoundRecorder", "Grabadora de sonido", "Grabar audio del micrófono.", "bajo"),
+        new("Microsoft.MicrosoftStickyNotes", "Notas rápidas", "Notas adhesivas del escritorio. Si las usas, no la quites: se pierden las que no estén sincronizadas.", "medio"),
+        new("SpotifyAB.SpotifyMusic", "Spotify", "Viene preinstalado en muchos PCs. Si lo usas, déjalo.", "bajo"),
+        new("Disney.37853FC22B2CE", "Disney+", "Viene preinstalado en algunos PCs.", "bajo"),
+        new("AmazonVideo.PrimeVideo", "Prime Video", "Viene preinstalado en algunos PCs.", "bajo"),
+        new("king.com.CandyCrushSaga", "Candy Crush Saga", "Juego con anuncios preinstalado.", "bajo"),
+        new("king.com.CandyCrushSodaSaga", "Candy Crush Soda Saga", "Juego con anuncios preinstalado.", "bajo"),
+        new("BytedancePte.Ltd.TikTok", "TikTok", "Viene preinstalado en algunos PCs.", "bajo"),
+        new("Facebook.InstagramBeta", "Instagram", "Viene preinstalado en algunos PCs.", "bajo"),
         new("Microsoft.GamingApp", "Xbox", "Rompe Game Pass para PC.", "medio"),
         new("Microsoft.XboxGamingOverlay", "Barra de juegos Xbox", "Win+G, capturas y grabación. Afecta también al overlay de FPS de Xbox.", "medio"),
     ];
+
+    /// <summary>El mismo catálogo, para quitar las apps de una ISO antes de instalar Windows.</summary>
+    internal static IEnumerable<(string Id, string Name, string Risk)> All() => Catalog.Select(d => (d.Id, d.Name, d.Risk));
 
     public static List<BloatApp> List()
     {

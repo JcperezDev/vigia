@@ -30,6 +30,9 @@
     <button class="nav" data-view="games">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 9h4M9 7v4M15 9.5h.01M17.5 11h.01"/><path d="M6.5 5h11A4.5 4.5 0 0 1 22 9.5v4a4 4 0 0 1-7.2 2.4L14 15h-4l-.8.9A4 4 0 0 1 2 13.5v-4A4.5 4.5 0 0 1 6.5 5Z"/></svg>Juegos
     </button>
+    <button class="nav" data-view="bios">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="1.5"/><rect x="9.5" y="9.5" width="5" height="5"/><path d="M9 3v3M15 3v3M9 18v3M15 18v3M3 9h3M3 15h3M18 9h3M18 15h3"/></svg>BIOS
+    </button>
     <button class="nav" data-view="apps">
       <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1"/><rect x="13" y="4" width="7" height="7" rx="1"/><rect x="4" y="13" width="7" height="7" rx="1"/><path d="m14 14 5 5M19 14l-5 5"/></svg>Apps de Windows
     </button>
@@ -52,6 +55,9 @@
     <p class="rail-sep">Más</p>
     <button class="nav" data-view="tools">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.2L4 16.8V20h3.2l5.3-5.3a4 4 0 0 0 5.2-5.4l-2.4 2.4-2.6-.6-.6-2.6 2.6-2.2Z"/></svg>Herramientas
+    </button>
+    <button class="nav" data-view="iso">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.5"/><path d="M12 3a9 9 0 0 1 9 9"/></svg>ISO de Windows
     </button>
     <button class="nav" data-view="backups">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.4-5.7"/><path d="M4 4v4h4"/><path d="M12 8v4l3 2"/></svg>Copias de seguridad
@@ -237,13 +243,62 @@
       </details>
     </section>
 
+    <section class="view" id="view-bios" hidden>
+      <header class="head">
+        <div><h1>BIOS</h1><p class="sub">Lo que se ajusta en la BIOS de tu placa, leído desde Windows. Vigía nunca escribe en la BIOS: te dice qué falta y dónde se cambia en tu modelo.</p></div>
+        <button class="btn" id="bi-reload">Volver a leer</button>
+      </header>
+      <section class="box bi-fw" id="bi-fw"><p class="empty">Leyendo la placa…</p></section>
+      <p class="result" id="bi-result" aria-live="polite"></p>
+      <ul class="findings" id="bi-list"></ul>
+    </section>
+
+    <section class="view" id="view-iso" hidden>
+      <header class="head">
+        <div><h1>ISO de Windows</h1><p class="sub">Crea una ISO de instalación sin las apps de relleno y sin anuncios, a partir de la oficial de Microsoft. La original no se toca y la ISO nueva no borra discos por su cuenta.</p></div>
+      </header>
+      <section class="tw-group">
+        <h2>1. La ISO oficial</h2>
+        <div class="box iso-step">
+          <p class="sub" id="iso-src">Elige la ISO de Windows 11 que bajaste de Microsoft. Si no la tienes, en su web es «Descargar imagen de disco (ISO)».</p>
+          <div class="ds-act"><button class="btn primary" id="iso-pick">Elegir ISO…</button><button class="btn" id="iso-ms">Bajar de Microsoft</button></div>
+        </div>
+      </section>
+      <section class="tw-group" id="iso-opts" hidden>
+        <h2>2. Qué cambia</h2>
+        <div class="box">
+          <label class="chk iso-ed-row"><span></span><span><b>Edición</b><select class="st-select" id="iso-ed" aria-label="Edición de Windows"></select><span class="iso-hint">Solo se queda la que elijas; así la ISO pesa menos.</span></span></label>
+          <label class="chk"><input type="checkbox" id="iso-ads" checked><span><b>Sin anuncios ni apps sugeridas</b><span>Windows no instala Candy Crush y compañía al entrar por primera vez, ni pone recomendaciones en Inicio.</span></span></label>
+          <label class="chk"><input type="checkbox" id="iso-local"><span><b>Cuenta local, sin cuenta de Microsoft</b><span>No pide correo ni internet al instalar. Entras sin contraseña; ponle una después en Configuración → Cuentas.</span>
+            <input type="text" id="iso-user" class="iso-user" maxlength="20" placeholder="Nombre de usuario" spellcheck="false" hidden></span></label>
+          <label class="chk"><input type="checkbox" id="iso-skip"><span><b>Instalar en PCs sin TPM 2.0 ni Secure Boot</b><span>Para PCs viejos. Microsoft no da soporte en esos equipos y pueden quedarse sin las actualizaciones grandes.</span></span></label>
+          <details class="iso-apps"><summary id="iso-apps-sum">Apps que se quitan</summary><div id="iso-apps"></div></details>
+        </div>
+      </section>
+      <section class="tw-group" id="iso-go" hidden>
+        <h2>3. Crear</h2>
+        <div class="box iso-step">
+          <p class="sub" id="iso-out"></p>
+          <div class="ds-act"><button class="btn" id="iso-saveas">Cambiar…</button><button class="btn primary" id="iso-build">Crear ISO</button></div>
+        </div>
+        <p class="src iso-note">Tarda entre 15 y 40 minutos y usa mucho el disco. Corre con prioridad baja, pero mejor no jugar mientras.</p>
+        <section class="oprun" id="iso-run" hidden aria-live="polite">
+          <div class="oprun-head"><strong id="iso-step"></strong><button class="btn" id="iso-cancel">Cancelar</button></div>
+          <div class="bar big-bar"><i id="iso-bar"></i></div>
+          <p class="op-line" id="iso-line"></p>
+        </section>
+        <p class="op-result" id="iso-result" aria-live="polite"></p>
+      </section>
+    </section>
+
     <section class="view" id="view-apps" hidden>
       <header class="head">
         <div><h1>Apps de Windows</h1><p class="sub">Quita apps que vienen con Windows. Se borran solo para tu usuario y se pueden volver a instalar desde Microsoft Store.</p></div>
-        <button class="btn primary" id="ap-remove" disabled>Quitar seleccionadas</button>
+        <div class="ds-act"><button class="btn" id="ap-rec">Marcar las recomendadas</button><button class="btn primary" id="ap-remove" disabled>Quitar seleccionadas</button></div>
       </header>
       <p class="result" id="ap-result" aria-live="polite"></p>
       <ul class="rows" id="ap-list"><li class="empty">Buscando apps instaladas…</li></ul>
+      <p class="src ap-note" id="ap-note" hidden></p>
     </section>
 
     <section class="view" id="view-startup" hidden>

@@ -62,7 +62,10 @@ button { font: inherit; color: inherit; cursor: pointer; }
 main { overflow: auto; padding: 28px 36px 28px; }
 main { display: flex; flex-direction: column; }
 main > .view:not([hidden]) { flex: 1 0 auto; }
-.head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 22px; }
+.head { display: flex; align-items: baseline; justify-content: space-between; gap: 24px; margin-bottom: 22px; }
+.head > div:first-child { min-width: 0; }
+.head .ds-act { flex: none; }
+.ap-note-act { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
 h1 { margin: 0; font-size: 24px; font-weight: 600; letter-spacing: -0.02em; }
 h2 { margin: 0; font-size: 13px; font-weight: 500; color: var(--fg-2); }
 .stale { margin: 0; color: var(--amber); font-size: 12px; }
@@ -442,3 +445,24 @@ dd { margin: 0; font: 500 14px "JBMono", monospace; font-variant-numeric: tabula
 .tw-group h2 .pill { margin-left: 8px; vertical-align: 2px; }
 #gm-rig-msg:empty { display: none; }
 #gm-rig-msg .btn { margin-left: 8px; }
+
+/* BIOS */
+.bi-fw { display: grid; grid-template-columns: 1fr auto; gap: 12px 24px; align-items: center; margin-bottom: 14px; }
+.bi-grid { display: flex; gap: 28px; flex-wrap: wrap; }
+.bi-kv span { display: block; font-size: 11.5px; color: var(--fg-3); }
+.bi-kv b { font-weight: 500; font-family: "JBMono", monospace; font-size: 13px; }
+/* ISO de Windows */
+.iso-step { display: grid; grid-template-columns: 1fr auto; gap: 10px 24px; align-items: center; }
+.iso-step .sub { margin: 0; max-width: 70ch; overflow-wrap: anywhere; }
+.iso-ed-row { cursor: default; }
+.iso-ed-row .st-select { display: block; margin: 6px 0 4px; min-width: 260px; }
+.iso-hint { display: block; }
+.iso-user { display: block; margin-top: 8px; width: 220px; padding: 6px 10px; background: var(--ink); color: var(--fg); border: 1px solid var(--line); border-radius: 6px; font: inherit; font-size: 13px; }
+.iso-user:focus-visible { outline: 2px solid var(--violet); outline-offset: 1px; }
+.iso-apps { margin-top: 6px; border-top: 1px solid var(--line); padding-top: 8px; }
+.iso-apps summary { cursor: pointer; color: var(--violet); font-size: 13px; width: max-content; }
+.iso-apps > div { columns: 2; column-gap: 28px; margin-top: 6px; }
+.iso-apps .chk { break-inside: avoid; }
+.iso-note { margin: 8px 2px 0; }
+#iso-result .btn, .ap-note .btn { margin-left: 4px; }
+.ap-note { margin: 12px 2px 0; }

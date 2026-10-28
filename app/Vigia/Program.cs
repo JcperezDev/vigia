@@ -119,6 +119,23 @@ static class Program
             return 0;
         }
         // Laboratorio del antivirus: Vigia.exe --sec <status|enable|scan> <salida.json>
+        // ISO limpia desde la línea de órdenes (laboratorio): --iso inspect <iso> <salida.json> | --iso build <opciones.json> <salida.json>
+        if (args.Length >= 4 && args[0] == "--iso")
+        {
+            var jo = new JsonSerializerOptions(Json) { WriteIndented = true };
+            if (args[1] == "inspect") { File.WriteAllText(args[3], JsonSerializer.Serialize(IsoBuild.Inspect(args[2]), jo)); return 0; }
+            var opt = JsonSerializer.Deserialize<IsoBuild.Options>(File.ReadAllText(args[2]), Json)!;
+            if (Environment.GetEnvironmentVariable("VIGIA_ISO_LAB_XML") is { Length: > 0 } lab) IsoBuild.LabUnattend = File.ReadAllText(lab);
+            var plog = args[3] + ".log"; string last = "";
+            var res = IsoBuild.Build(opt, pr =>
+            {
+                var line = $"{pr.Num}/{pr.Of} {pr.Step} {(pr.Pct is { } v ? $"{v:0}%" : "")}";
+                if (line != last) { last = line; File.AppendAllText(plog, $"{DateTime.Now:HH:mm:ss} {line}{Environment.NewLine}"); }
+            });
+            File.WriteAllText(args[3], JsonSerializer.Serialize(res, jo));
+            return res.Ok ? 0 : 1;
+        }
+        if (args.Length >= 2 && args[0] == "--bios") { File.WriteAllText(args[1], JsonSerializer.Serialize(Bios.Get(), new JsonSerializerOptions(Json) { WriteIndented = true })); return 0; }
         if (args.Length >= 3 && args[0] == "--sec")
         {
             var log = new List<string>();
@@ -552,6 +569,47 @@ sealed partial class MainForm : Form
                     var fid = (string)msg["id"]!;
                     await Task.Run(() => Fps.Delete(fid));
                     Send("games", await Task.Run(GamesPayload));
+                    break;
+                case "biosGet":
+                    Send("bios", await Task.Run(Bios.Get));
+                    break;
+                case "biosSupport":   // la URL la arma Vigía con el modelo de la placa; la interfaz no manda ninguna
+                    var burl = (await Task.Run(Bios.Get)).Fw.SupportUrl;
+                    if (burl is not null) System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(burl) { UseShellExecute = true });
+                    break;
+                case "biosReboot":
+                    Send("biosDone", await Task.Run(Bios.RebootToFirmware));
+                    break;
+                case "isoPick":
+                    using (var ofd = new OpenFileDialog { Filter = "Imagen de Windows (*.iso)|*.iso", Title = "Elige la ISO oficial de Windows" })
+                        if (ofd.ShowDialog(this) == DialogResult.OK) { Send("isoSource", new { path = ofd.FileName, busy = true }); Send("isoSource", await Task.Run(() => IsoBuild.Inspect(ofd.FileName))); }
+                    break;
+                case "isoSaveAs":
+                    var isrc = (string?)msg["source"] ?? "";
+                    using (var sfd = new SaveFileDialog { Filter = "Imagen de Windows (*.iso)|*.iso", Title = "Dónde guardar la ISO limpia", OverwritePrompt = true,
+                        FileName = Path.GetFileNameWithoutExtension(isrc) + "-vigia.iso", InitialDirectory = Path.GetDirectoryName(isrc) ?? "" })
+                        if (sfd.ShowDialog(this) == DialogResult.OK) Send("isoOutput", new { path = sfd.FileName });
+                    break;
+                case "isoBuild":
+                    var iopt = msg["options"].Deserialize<IsoBuild.Options>(Program.Json)!;
+                    string ilast = "";
+                    Send("isoDone", await Task.Run(() => IsoBuild.Build(iopt, pr =>
+                    {
+                        var key = $"{pr.Num}{pr.Step}{(int)(pr.Pct ?? -1)}";
+                        if (key == ilast) return; ilast = key;
+                        BeginInvoke(() => Send("isoProgress", pr));
+                    })));
+                    break;
+                case "isoCancel":
+                    IsoBuild.Cancel();
+                    break;
+                case "isoShow":
+                    var ishow = (string?)msg["path"];
+                    if (ishow is not null && File.Exists(ishow) && ishow.EndsWith(".iso", StringComparison.OrdinalIgnoreCase))
+                        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("explorer.exe", $"/select,\"{ishow}\"") { UseShellExecute = true });
+                    break;
+                case "isoGetWindows":
+                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("https://www.microsoft.com/software-download/windows11") { UseShellExecute = true });
                     break;
                 case "supportGet":
                     Send("support", await Support.GetAsync());

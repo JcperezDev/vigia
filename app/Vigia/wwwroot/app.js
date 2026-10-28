@@ -492,8 +492,11 @@
   const apSel = () => [...document.querySelectorAll('#ap-list input:checked')].map((c) => c.dataset.id);
   function renderBloat(list) {
     bloat = list;
+    isoApps();
+    if (!$('view-apps').hidden) send({ cmd: 'tweaksList' });
     const shown = list.filter((a) => a.installed);
     $('ap-remove').disabled = true;
+    $('ap-rec').hidden = $('ap-remove').hidden = !shown.length;
     if (!shown.length) {
       $('ap-list').replaceChildren(el('li', 'empty', `No queda instalada ninguna de las ${list.length} apps de la lista. No hay nada que quitar.`));
       return;
@@ -510,6 +513,109 @@
     }));
   }
   $('ap-remove').addEventListener('click', () => { busyBtn($('ap-remove'), true, 'Quitando…'); send({ cmd: 'bloatRemove', ids: apSel() }); });
+  $('ap-rec').addEventListener('click', () => {
+    document.querySelectorAll('#ap-list input[type=checkbox]').forEach((c) => { const a = bloat.find((b) => b.id === c.dataset.id); if (a && !c.disabled) c.checked = a.risk === 'bajo'; });
+    const n = apSel().length; $('ap-remove').disabled = !n; $('ap-remove').textContent = n ? `Quitar (${n})` : 'Quitar seleccionadas';
+  });
+  // Sin «Sin anuncios ni apps sugeridas», Windows vuelve a instalar parte de estas apps por su cuenta.
+  function apNote(items) {
+    const t = items.find((x) => x.id === 'suggestions-off'); const n = $('ap-note');
+    if (!t || t.state === 'applied') { n.hidden = true; return; }
+    const b = el('button', 'btn', 'Evitarlo');
+    b.addEventListener('click', () => { busyBtn(b, true, 'Aplicando…'); send({ cmd: 'tweaksApply', ids: ['suggestions-off'] }); });
+    const row = el('div', 'ap-note-act'); row.append(b, el('span', 'sub', '(activa «Sin anuncios ni apps sugeridas», con copia).'));
+    n.hidden = false; n.replaceChildren(el('p', null, 'Windows puede volver a instalar algunas por su cuenta.'), row);
+  }
+
+  // ---------- BIOS ----------
+  function renderBios(b) {
+    busyBtn($('bi-reload'), false, 'Volver a leer');
+    const f = b.fw, box = $('bi-fw');
+    const kv = (k, v) => { const d = el('div', 'bi-kv'); d.append(el('span', null, k), el('b', null, v)); return d; };
+    const grid = el('div', 'bi-grid');
+    grid.append(kv('Placa', f.board || 'N/D'), kv('BIOS', `${f.version || 'N/D'}${f.date ? ` · ${new Date(f.date).toLocaleDateString(window.vigiaI18n.locale(), { year: 'numeric', month: 'short', day: 'numeric' })}` : ''}`),
+      kv('Arranque', f.uefi ? 'UEFI' : 'Legacy (CSM)'));
+    const acts = el('div', 'ds-act');
+    if (f.supportUrl) { const s1 = el('button', 'btn', 'Descargas de tu placa'); s1.addEventListener('click', () => send({ cmd: 'biosSupport' })); acts.append(s1); }
+    if (f.uefi) {
+      const r = el('button', 'btn', 'Reiniciar y entrar a la BIOS');
+      bkArm(r, 'Reiniciar y entrar a la BIOS', '¿Seguro? Guarda lo que tengas abierto', () => { busyBtn(r, true, 'Reiniciando…'); send({ cmd: 'biosReboot' }); });
+      acts.append(r);
+    }
+    box.replaceChildren(grid, acts);
+    $('bi-list').replaceChildren(...b.checks.map((c) => {
+      const li = el('li', `finding lv-${c.level}`);
+      const body = el('div'); body.append(el('p', null, c.detail));
+      if (c.how) body.append(el('p', 'src', c.how));
+      li.append(el('span', 'dot'), el('strong', null, c.title), body);
+      return li;
+    }));
+  }
+  $('bi-reload').addEventListener('click', () => { busyBtn($('bi-reload'), true, 'Leyendo…'); send({ cmd: 'biosGet' }); });
+
+  // ---------- ISO de Windows ----------
+  let isoSrc = null, isoOut = null, isoBusy = false;
+  function isoApps() {
+    const list = bloat.length ? bloat : [];
+    const box = $('iso-apps');
+    if (box.childElementCount || !list.length) return;
+    box.replaceChildren(...list.map((a) => {
+      const l = el('label', 'chk'); const c = el('input'); c.type = 'checkbox'; c.dataset.id = a.id; c.checked = a.risk === 'bajo';
+      c.addEventListener('change', isoSum);
+      const t = el('span'); t.append(el('b', null, a.name), el('span', null, a.detail)); l.append(c, t); return l;
+    }));
+    isoSum();
+  }
+  function isoSum() { const n = document.querySelectorAll('#iso-apps input:checked').length; $('iso-apps-sum').textContent = `Apps que se quitan (${n})`; }
+  function isoReady() {
+    const local = $('iso-local').checked, u = $('iso-user').value.trim();
+    $('iso-user').hidden = !local;
+    $('iso-build').disabled = isoBusy || !isoSrc || !isoOut || (local && !/^[\p{L}\p{N}][\p{L}\p{N} ._-]{0,19}$/u.test(u));
+  }
+  ['iso-local', 'iso-user'].forEach((id) => $(id).addEventListener('input', isoReady));
+  $('iso-pick').addEventListener('click', () => send({ cmd: 'isoPick' }));
+  $('iso-ms').addEventListener('click', () => send({ cmd: 'isoGetWindows' }));
+  $('iso-saveas').addEventListener('click', () => isoSrc && send({ cmd: 'isoSaveAs', source: isoSrc.path }));
+  $('iso-cancel').addEventListener('click', () => { busyBtn($('iso-cancel'), true, 'Cancelando…'); send({ cmd: 'isoCancel' }); });
+  function renderIsoSource(s) {
+    if (s.busy) { $('iso-src').textContent = `Leyendo ${s.path}…`; $('iso-src').classList.remove('bad'); return; }
+    if (s.error) { $('iso-src').textContent = `${s.path}: ${s.error}`; $('iso-src').classList.add('bad'); isoSrc = null; $('iso-opts').hidden = $('iso-go').hidden = true; return; }
+    $('iso-src').classList.remove('bad');
+    isoSrc = s; $('iso-src').textContent = `${s.path} · ${gb(s.bytes)}`;
+    const sel = $('iso-ed');
+    sel.replaceChildren(...s.editions.map((e) => { const o = el('option', null, e.name); o.value = e.index; return o; }));
+    const pro = s.editions.find((e) => /\bPro\b/i.test(e.name) && !/Education|Workstation|N\b/i.test(e.name)); if (pro) sel.value = pro.index;
+    sel.disabled = s.editions.length < 2;
+    isoOut = s.path.replace(/\.iso$/i, '') + '-vigia.iso';
+    $('iso-out').textContent = `Se guarda como ${isoOut}`;
+    $('iso-opts').hidden = $('iso-go').hidden = false;
+    if (!bloat.length) send({ cmd: 'bloatList' }); else isoApps();
+    isoReady();
+  }
+  $('iso-build').addEventListener('click', () => {
+    isoBusy = true; isoReady();
+    $('iso-result').textContent = ''; $('iso-result').classList.remove('bad');
+    $('iso-run').hidden = false; $('iso-step').textContent = 'Empezando…'; $('iso-line').textContent = ''; $('iso-bar').style.width = '0';
+    busyBtn($('iso-cancel'), false, 'Cancelar');
+    send({ cmd: 'isoBuild', options: {
+      source: isoSrc.path, output: isoOut, index: +$('iso-ed').value,
+      apps: [...document.querySelectorAll('#iso-apps input:checked')].map((c) => c.dataset.id),
+      noAds: $('iso-ads').checked, localAccount: $('iso-local').checked, user: $('iso-user').value.trim() || null, skipChecks: $('iso-skip').checked,
+    } });
+  });
+  function isoProgress(p) {
+    $('iso-step').textContent = `Paso ${p.num} de ${p.of}: ${p.step}`;
+    const bar = $('iso-bar').parentElement;
+    if (p.pct == null) { bar.classList.add('indet'); $('iso-line').textContent = ''; }
+    else { bar.classList.remove('indet'); $('iso-bar').style.width = `${p.pct}%`; $('iso-line').textContent = `${Math.floor(p.pct)} %`; }
+  }
+  function isoDone(d) {
+    isoBusy = false; $('iso-run').hidden = true; isoReady();
+    const r = $('iso-result'); r.classList.toggle('bad', !d.ok);
+    if (!d.ok) { r.textContent = d.message; return; }
+    r.replaceChildren(`${d.message} ${gb(d.bytes)} en ${Math.max(1, Math.round(d.minutes))} min. `);
+    const b = el('button', 'btn sp-inline', 'Mostrar en la carpeta'); b.addEventListener('click', () => send({ cmd: 'isoShow', path: d.output })); r.append(b);
+  }
 
   // ---------- herramientas ----------
   function renderTools(p) {
@@ -856,6 +962,7 @@
     else if (v === 'mem') send({ cmd: 'settingsGet' });
     else if (v === 'tweaks') send({ cmd: 'tweaksList' });
     else if (v === 'apps') send({ cmd: 'bloatList' });
+    else if (v === 'bios') send({ cmd: 'biosGet' });
     else if (v === 'tools') { send({ cmd: 'toolsList' }); send({ cmd: 'displayStatus' }); }
     else if (v === 'startup') send({ cmd: 'startupList' });
     else if (v === 'games') send({ cmd: 'gamesGet' });
@@ -1079,7 +1186,13 @@
       if (cfg.lang && $('st-lang').value !== cfg.lang) { $('st-lang').value = cfg.lang; applyLang(cfg.lang); }
       $('m-auto').checked = cfg.memAuto; $('m-thr').value = cfg.memAutoThreshold; $('m-int').value = cfg.memAutoIntervalMin;
     }
-    else if (type === 'tweaks') renderTweaks(payload);
+    else if (type === 'tweaks') { renderTweaks(payload); apNote(payload.items); }
+    else if (type === 'bios') renderBios(payload);
+    else if (type === 'biosDone') { $('bi-result').textContent = payload.message; $('bi-result').classList.toggle('bad', !payload.ok); }
+    else if (type === 'isoSource') renderIsoSource(payload);
+    else if (type === 'isoOutput') { isoOut = payload.path; $('iso-out').textContent = `Se guarda como ${isoOut}`; isoReady(); }
+    else if (type === 'isoProgress') isoProgress(payload);
+    else if (type === 'isoDone') isoDone(payload);
     else if (type === 'tweaksDone') renderTweaksDone(payload);
     else if (type === 'utilidad-externaRp') {
       busyBtn($('tw-utilidad-externa'), false, 'Abrir utilidad externa');
