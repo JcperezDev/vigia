@@ -31,6 +31,11 @@ public static class Backups
             new() { ["t"] = "task", ["path"] = path, ["enabled"] = enabled, ["label"] = label };
         public static JsonObject Display(int w, int h, int hz) =>
             new() { ["t"] = "display", ["w"] = w, ["h"] = h, ["hz"] = hz, ["label"] = $"Resolución {w} × {h} a {hz} Hz" };
+        /// <summary>Un archivo de configuración entero (pequeño): su contenido exacto y si estaba en solo lectura.</summary>
+        public static JsonObject File(string path, string label) =>
+            new() { ["t"] = "file", ["path"] = path, ["label"] = label,
+                    ["data"] = System.IO.File.Exists(path) ? Convert.ToBase64String(System.IO.File.ReadAllBytes(path)) : null,
+                    ["readonly"] = System.IO.File.Exists(path) && (System.IO.File.GetAttributes(path) & FileAttributes.ReadOnly) != 0 };
         public static JsonObject Appx(string name, string label) =>
             new() { ["t"] = "appx", ["name"] = name, ["label"] = label };
     }
@@ -161,6 +166,7 @@ public static class Backups
         "tweak" => Tweaks.SnapshotItem((string)it["id"]!),
         "task" => Startup.TaskEnabled((string)it["path"]!) is bool on ? Item.Task((string)it["path"]!, on, (string)it["label"]!) : null,
         "display" => Display.Status().Current is { } c ? Item.Display(c.Width, c.Height, c.Hz) : null,
+        "file" => Item.File((string)it["path"]!, (string)it["label"]!),
         _ => null,   // apps quitadas: el estado actual es «quitada»; no hay nada que copiar
     };
 
@@ -174,6 +180,15 @@ public static class Backups
             case "display":
                 var r = Display.SetMode((int)it["w"]!, (int)it["h"]!, (int)it["hz"]!);
                 if (r is not null) throw new InvalidOperationException(r);
+                break;
+            case "file":
+                var fp = (string)it["path"]!;
+                if (fp.Contains("FortniteGame", StringComparison.OrdinalIgnoreCase) && Games.FortniteRunning())
+                    throw new InvalidOperationException("cierra Fortnite primero.");
+                if ((string?)it["data"] is not { } data) break;
+                if (System.IO.File.Exists(fp)) System.IO.File.SetAttributes(fp, System.IO.File.GetAttributes(fp) & ~FileAttributes.ReadOnly);
+                System.IO.File.WriteAllBytes(fp, Convert.FromBase64String(data));
+                if ((bool?)it["readonly"] == true) System.IO.File.SetAttributes(fp, System.IO.File.GetAttributes(fp) | FileAttributes.ReadOnly);
                 break;
             case "appx":
                 // Vigía solo quita la app de tu usuario: el paquete de Windows sigue ahí y se vuelve a registrar

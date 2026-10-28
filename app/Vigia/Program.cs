@@ -40,6 +40,30 @@ static class Program
             File.WriteAllText(args[1], JsonSerializer.Serialize(new { startup = Startup.List(), display = Display.Status() }, new JsonSerializerOptions(Json) { WriteIndented = true }));
             return 0;
         }
+        // Fortnite por consola (laboratorio y soporte): Vigia.exe --fortnite <read|unlock|profile|perf|dx12> <salida.json>
+        if (args.Length >= 3 && args[0] == "--fortnite")
+        {
+            object res = args[1] switch
+            {
+                "read" => Games.Fortnite(),
+                "unlock" => Games.ApplyFortnite(false, null),
+                "profile" => Games.ApplyFortnite(true, null),
+                "perf" or "dx12" => Games.ApplyFortnite(false, args[1]),
+                _ => new Games.Done(false, "uso: read|unlock|profile|perf|dx12"),
+            };
+            File.WriteAllText(args[2], JsonSerializer.Serialize(res, Json));
+            return res is Games.Done { Ok: false } ? 1 : 0;
+        }
+        // Prueba de la medición: Vigia.exe --fps-probe <segundos> <salida.txt> [pid]
+        // sin pid: cuenta los Present de todos los procesos (qué dibuja ahora mismo en el PC); con pid: estadística completa
+        if (args.Length >= 3 && args[0] == "--fps-probe")
+        {
+            var secs = int.Parse(args[1]);
+            File.WriteAllText(args[2], args.Length >= 4
+                ? JsonSerializer.Serialize(Fps.Measure(int.Parse(args[3]), "probe", "probe", secs, "", CancellationToken.None, requireForeground: false), Json)
+                : Fps.Probe(secs));
+            return 0;
+        }
         if (args.Length >= 2 && args[0] == "--restore-point")   // laboratorio: crea un punto (y activa la protección si se pide)
         {
             var lines = new List<string> { $"off antes: {RestorePoint.ProtectionOff()}", $"puntos antes: {RestorePoint.Count()}" };
@@ -97,7 +121,9 @@ static class Program
         if (args.Length >= 2 && args[0] == "--selftest")
         {
             var report = Cleanup.SelfTest() + Environment.NewLine + "--- ajustes" + Environment.NewLine + Tweaks.SelfTest()
-                + Environment.NewLine + "--- sugerencias" + Environment.NewLine + Suggestions.SelfTest();
+                + Environment.NewLine + "--- sugerencias" + Environment.NewLine + Suggestions.SelfTest()
+                + Environment.NewLine + "--- juegos" + Environment.NewLine + Games.SelfTest()
+                + Environment.NewLine + "--- fps" + Environment.NewLine + Fps.SelfTest();
             File.WriteAllText(args[1], report);
             return report.Contains("FAIL") ? 1 : 0;
         }
@@ -312,6 +338,9 @@ sealed partial class MainForm : Form
         finally { _busy = false; }
     }
 
+    bool _fpsHooked;
+    static object GamesPayload() => new { fortnite = Games.Fortnite(), fps = new { state = Fps.State, history = Fps.History() } };
+
     void Send(string type, object payload) =>
         _web.CoreWebView2?.PostWebMessageAsJson(JsonSerializer.Serialize(new { type, payload }, Program.Json));
 
@@ -445,6 +474,32 @@ sealed partial class MainForm : Form
                     });
                     if (rp.Ok) Toolbox.Openutilidad externa();
                     Send("utilidad-externaRp", new { ok = rp.Ok, opened = rp.Ok, off = rp.Off, message = rp.Message });
+                    break;
+                case "gamesGet":
+                    Send("games", await Task.Run(GamesPayload));
+                    break;
+                case "fortniteApply":
+                    var fprof = (bool?)msg["profile"] == true; var fmode = (string?)msg["mode"];
+                    Send("gameDone", await Task.Run(() => Games.ApplyFortnite(fprof, fmode)));
+                    Send("games", await Task.Run(GamesPayload));
+                    break;
+                case "fpsStart":
+                    var fsec = Math.Clamp((int?)msg["seconds"] ?? 180, 30, 1800);
+                    if (!_fpsHooked)
+                    {
+                        _fpsHooked = true;
+                        Fps.Changed += st => { try { BeginInvoke(() => Send("fpsState", st)); } catch { } };
+                        Fps.Finished += _ => { try { BeginInvoke(async () => Send("games", await Task.Run(GamesPayload))); } catch { } };
+                    }
+                    Fps.Start(fsec, (string?)msg["label"] ?? "");
+                    break;
+                case "fpsCancel":
+                    Fps.Cancel();
+                    break;
+                case "fpsDelete":
+                    var fid = (string)msg["id"]!;
+                    await Task.Run(() => Fps.Delete(fid));
+                    Send("games", await Task.Run(GamesPayload));
                     break;
                 case "supportGet":
                     Send("support", await Support.GetAsync());

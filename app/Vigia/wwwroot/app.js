@@ -536,8 +536,141 @@
   }
   $('su-reload').addEventListener('click', () => { busyBtn($('su-reload'), true, 'Leyendo…'); send({ cmd: 'startupList' }); });
 
+
+  // ---------- juegos: FPS antes y después + perfil de Fortnite ----------
+  const fpsFmt = (n) => (Math.round(n * 10) / 10).toLocaleString(window.vigiaI18n.locale(), { maximumFractionDigits: n >= 100 ? 0 : 1 });
+  const gmBase = (game) => localStorage.getItem('vigia.fpsBase.' + game);
+  function gmSetup(s) {
+    const out = [];
+    if (s.modo) out.push(`modo ${s.modo}`);
+    if (s.perfil) out.push(s.perfil === 'sí' ? 'perfil de Vigía' : 'sin perfil de Vigía');
+    if (s.ajustes != null) out.push(`${s.ajustes} ajustes de Vigía`);
+    if (s.pantalla) out.push(s.pantalla);
+    return out.join(' · ');
+  }
+  function renderFpsState(st) {
+    const m = $('gm-measure'), c = $('gm-cancel'), p = $('gm-state');
+    m.hidden = st.active; c.hidden = !st.active; $('gm-dur').disabled = st.active;
+    if (st.phase === 'waiting') p.textContent = 'Esperando tu juego. Ábrelo y juega normal; Vigía empieza sola cuando lo tengas delante.';
+    else if (st.phase === 'found') p.textContent = `${st.game} detectado. Empiezo a medir en unos segundos, cuando termine de cargar.`;
+    else if (st.phase === 'measuring') p.textContent = `Midiendo ${st.game}: ${Math.floor(st.done / 60)}:${String(st.done % 60).padStart(2, '0')} de ${Math.round(st.target / 60)} min. Si sales del juego, se pausa.`;
+    else if (st.phase === 'done') p.textContent = `Medición de ${st.game} guardada.`;
+    else if (st.phase === 'error') p.textContent = st.error || 'No se pudo medir.';
+    else p.textContent = '';
+  }
+  function renderFps(fps) {
+    renderFpsState(fps.state);
+    const hist = [...fps.history].reverse();
+    // comparación por juego: la medición marcada como «antes» (o la primera) contra la última
+    const games = [...new Set(hist.map((r) => r.game))];
+    $('gm-compare').replaceChildren(...games.map((g) => {
+      const runs = fps.history.filter((r) => r.game === g);
+      const last = runs[runs.length - 1];
+      const base = runs.find((r) => r.id === gmBase(g)) || runs[0];
+      const box = el('div', 'gm-cmp');
+      box.append(el('strong', null, g));
+      if (base === last) {
+        box.append(el('p', null, `${fpsFmt(last.avg)} FPS de media, ${fpsFmt(last.low1)} en el 1 % más lento y ${fpsFmt(last.max)} de máximo.`),
+          el('p', 'src', 'Optimiza y mide otra partida igual para ver la diferencia.'));
+        return box;
+      }
+      // la diferencia sale de los números que se ven, para que la resta cuadre a ojo
+      const shown = (n) => (n >= 100 ? Math.round(n) : Math.round(n * 10) / 10);
+      const d = shown(last.avg) - shown(base.avg), pct = base.avg ? (d / shown(base.avg)) * 100 : 0;
+      const dl = shown(last.low1) - shown(base.low1);
+      const big = el('p', `gm-delta ${d >= 0 ? 'up' : 'down'}`, `${d >= 0 ? '+' : '−'}${fpsFmt(Math.abs(d))} FPS (${d >= 0 ? '+' : '−'}${fpsFmt(Math.abs(pct))} %)`);
+      const grid = el('div', 'gm-grid');
+      [['', 'Media', '1 % bajos', 'Máximo'], ['Antes', fpsFmt(base.avg), fpsFmt(base.low1), fpsFmt(base.max)], ['Ahora', fpsFmt(last.avg), fpsFmt(last.low1), fpsFmt(last.max)]]
+        .forEach((row, i) => row.forEach((c) => grid.append(el('span', i === 0 ? 'gm-h' : null, c))));
+      box.append(big, grid);
+      box.append(el('p', 'src', `1 % bajos: ${dl >= 0 ? '+' : '−'}${fpsFmt(Math.abs(dl))} FPS. Es lo que notas como tirones; importa tanto como la media.`));
+      const bm = base.setup?.modo, lm = last.setup?.modo;
+      if (bm && lm && bm !== lm) box.append(el('p', 'src', `Cambió el modo del juego (${bm} → ${lm}): parte de la diferencia viene de ahí, no solo de optimizar Windows.`));
+      if (Math.abs(pct) < 3) box.append(el('p', 'src', 'Menos de un 3 % de diferencia entra en lo normal entre una partida y otra: para estar seguro, mide otra vez.'));
+      return box;
+    }));
+    $('gm-hist').replaceChildren(...(hist.length ? hist.map((r) => {
+      const li = el('li', 'row gm-run');
+      const body = el('div');
+      const d = new Date(r.at);
+      body.append(el('strong', null, `${r.game} · ${fpsFmt(r.avg)} FPS`),
+        el('p', null, `1 % bajos ${fpsFmt(r.low1)} · máximo ${fpsFmt(r.max)} · ${Math.round(r.seconds / 60 * 10) / 10} min medidos`),
+        el('p', 'src', `${d.toLocaleDateString(window.vigiaI18n.locale(), { day: 'numeric', month: 'short' })}, ${d.toLocaleTimeString(window.vigiaI18n.locale(), { hour: '2-digit', minute: '2-digit' })} · ${gmSetup(r.setup || {})}`));
+      const acts = el('div', 'gm-acts');
+      const isBase = (gmBase(r.game) || fps.history.find((x) => x.game === r.game)?.id) === r.id;
+      const mark = el('button', 'btn', isBase ? 'Es el «antes»' : 'Usar como «antes»');
+      mark.disabled = isBase;
+      mark.addEventListener('click', () => { localStorage.setItem('vigia.fpsBase.' + r.game, r.id); renderFps(fps); });
+      const del = el('button', 'btn', 'Borrar');
+      del.addEventListener('click', () => { del.disabled = true; send({ cmd: 'fpsDelete', id: r.id }); });
+      acts.append(mark, del);
+      li.append(el('span', `state ${isBase ? '' : 'applied'}`, isBase ? 'Antes' : 'Después'), body, acts);
+      return li;
+    }) : [el('li', 'empty', 'Todavía no hay mediciones. Mide una partida ahora, antes de optimizar: esa será tu referencia.')]));
+  }
+  const fnLevel = ['Bajo', 'Medio', 'Alto', 'Épico', 'Cinemático'];
+  function fnValue(s) {
+    const v = s.value;
+    if (/^(true|false)$/i.test(v)) return /^true$/i.test(v) ? 'Sí' : 'No';
+    if (s.key.startsWith('sg.') && s.key !== 'sg.ResolutionQuality') return fnLevel[+v] ?? v;
+    if (s.key === 'sg.ResolutionQuality') return `${Math.round(+v)} %`;
+    if (/FrameRateLimit$/.test(s.key)) return +v === 0 ? 'Sin límite' : `${Math.round(+v)} FPS`;
+    return v;
+  }
+  function renderFortnite(f) {
+    const box = $('gm-fn');
+    if (!f.found) { box.replaceChildren(el('p', 'empty', 'No encontré Fortnite en este PC. Si lo tienes, ábrelo una vez para que cree su configuración.')); return; }
+    const head = el('div', 'gm-fn-head');
+    head.append(el('p', null, `Modo de render: ${f.mode}.`));
+    if (f.profileApplied) head.append(el('p', null, 'Perfil competitivo de Vigía puesto.'));
+    if (f.running) head.append(el('p', 'src why', 'Fortnite está abierto. Ciérralo para cambiar algo: si no, al salir guarda encima.'));
+    if (f.readOnly) head.append(el('p', 'src why', 'El archivo está en «solo lectura»: Fortnite no puede guardar lo que cambies dentro del juego. Cualquier cambio de aquí lo quita.'));
+    const acts = el('div', 'gm-ctl');
+    const prof = el('button', 'btn primary', 'Aplicar perfil competitivo');
+    prof.hidden = f.profileApplied;
+    prof.disabled = f.running;
+    prof.addEventListener('click', () => { busyBtn(prof, true, 'Aplicando…'); send({ cmd: 'fortniteApply', profile: true }); });
+    const perf = f.mode.startsWith('Rendimiento');
+    const mode = el('button', 'btn', perf ? 'Cambiar a DirectX 12' : 'Cambiar a modo Rendimiento');
+    mode.disabled = f.running;
+    mode.addEventListener('click', () => { busyBtn(mode, true, 'Cambiando…'); send({ cmd: 'fortniteApply', profile: false, mode: perf ? 'dx12' : 'perf' }); });
+    acts.append(prof, mode);
+    if (f.readOnly && f.profileApplied) {
+      const un = el('button', 'btn', 'Permitir que Fortnite guarde');
+      un.disabled = f.running;
+      un.addEventListener('click', () => { busyBtn(un, true, 'Cambiando…'); send({ cmd: 'fortniteApply', profile: false }); });
+      acts.append(un);
+    }
+    const tip = el('p', 'src', perf
+      ? 'Rendimiento suele dar más FPS cuando el procesador es el límite; DirectX 12 se ve mejor. Mide una partida con cada uno y quédate con el que gane.'
+      : 'El modo Rendimiento quita detalle gráfico a cambio de FPS. Mide una partida antes y otra después de cambiar para saber si te conviene.');
+    // dos bloques compactos: lo que toca el perfil y lo que eliges tú; solo se marca lo que cambiaría
+    const table = (title, rows) => {
+      const sec = el('div', 'gm-tbl');
+      sec.append(el('h3', null, title));
+      const dl = el('dl');
+      rows.forEach((s) => {
+        const dd = el('dd', s.want != null && !s.ok ? 'chg' : null, s.want != null && !s.ok ? `${fnValue(s)} → ${fnValue({ ...s, value: s.want })}` : fnValue(s));
+        dl.append(el('dt', null, s.label), dd);
+      });
+      sec.append(dl);
+      return sec;
+    };
+    const rx = f.settings.find((s) => s.key === 'ResolutionSizeX'), ry = f.settings.find((s) => s.key === 'ResolutionSizeY');
+    const list = f.settings.filter((s) => s !== ry).map((s) => (s === rx && ry ? { ...s, label: 'Resolución', value: `${rx.value} × ${ry.value}`, key: 'res' } : s));
+    const mine = list.filter((s) => s.want != null), yours = list.filter((s) => s.want == null);
+    const pending = mine.filter((s) => !s.ok).length;
+    const ul = el('div', 'gm-tbls');
+    ul.append(table(pending ? `Perfil competitivo: ${pending} por cambiar` : 'Perfil competitivo: todo en su sitio', mine), table('Lo eliges tú', yours));
+    box.replaceChildren(head, acts, tip, ul,
+      el('p', 'src', 'Vigía solo cambia el archivo de configuración de Fortnite en tu usuario, con el juego cerrado y con copia en «Copias de seguridad». No toca distancia de visión, texturas, resolución ni tu límite de FPS.'));
+  }
+  $('gm-reload').addEventListener('click', () => { busyBtn($('gm-reload'), true, 'Recargando…'); send({ cmd: 'gamesGet' }); });
+  $('gm-measure').addEventListener('click', () => { $('gm-result').textContent = ''; send({ cmd: 'fpsStart', seconds: +$('gm-dur').value }); renderFpsState({ active: true, phase: 'waiting', target: +$('gm-dur').value, done: 0 }); });
+  $('gm-cancel').addEventListener('click', () => send({ cmd: 'fpsCancel' }));
+
   // ---------- copias de seguridad ----------
-  const bkKind = { ajustes: 'Ajustes', inicio: 'Inicio de Windows', pantalla: 'Pantalla', apps: 'Apps', restauracion: 'Restauración' };
+  const bkKind = { juegos: 'Juegos', ajustes: 'Ajustes', inicio: 'Inicio de Windows', pantalla: 'Pantalla', apps: 'Apps', restauracion: 'Restauración' };
   function bkWhen(s) {
     const d = new Date(s);
     return d.toLocaleDateString(window.vigiaI18n.locale(), { day: 'numeric', month: 'short' }) + ', ' + d.toLocaleTimeString(window.vigiaI18n.locale(), { hour: '2-digit', minute: '2-digit' });
@@ -654,6 +787,7 @@
     else if (v === 'apps') send({ cmd: 'bloatList' });
     else if (v === 'tools') { send({ cmd: 'toolsList' }); send({ cmd: 'displayStatus' }); }
     else if (v === 'startup') send({ cmd: 'startupList' });
+    else if (v === 'games') send({ cmd: 'gamesGet' });
     else if (v === 'backups') send({ cmd: 'backupsList' });
     else if (v === 'support') send({ cmd: 'supportGet' });
   }));
@@ -672,8 +806,10 @@
     }, 9000);
     if (v === 'welcome') { tourStart(true); return; }
     if (v.startsWith('tour')) { tourFrom = 'monitor'; tourShow(Number(v.split('-')[1] || 1) - 1); return; }
-    const [view, act] = v.split('-');
+    const [page, anchor] = v.split('#');   // 'games#gm-fn' = abrir Juegos y bajar hasta Fortnite
+    const [view, act] = page.split('-');
     document.querySelector(`.nav[data-view="${view}"]`)?.click();
+    if (anchor) setTimeout(() => $(anchor)?.scrollIntoView(), 2500);
     if (act === 'run' && view === 'opt') setTimeout(() => document.querySelector('.vol .btn')?.click(), 2500);
     if (act === 'run' && view === 'mem') setTimeout(() => $('m-free').click(), 2500);
     if (act === 'excl') setTimeout(() => { document.querySelector('.excluded').open = true; }, 500);
@@ -895,6 +1031,9 @@
     }
     else if (type === 'tools') renderTools(payload);
     else if (type === 'startup') renderStartup(payload);
+    else if (type === 'games') { busyBtn($('gm-reload'), false, 'Recargar'); renderFps(payload.fps); renderFortnite(payload.fortnite); }
+    else if (type === 'gameDone') $('gm-result').textContent = payload.message;
+    else if (type === 'fpsState') renderFpsState(payload);
     else if (type === 'backups') renderBackups(payload);
     else if (type === 'backupDone') {
       $('bk-result').textContent = payload.message + (payload.errors.length ? ` ${payload.errors.join('; ')}` : '');
