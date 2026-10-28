@@ -49,6 +49,7 @@ sealed partial class MainForm
         Show();
         if (WindowState == FormWindowState.Minimized) WindowState = FormWindowState.Normal;
         Activate();
+        UpdateIfStale();
         if (view is not null)
             _ = _web.CoreWebView2?.ExecuteScriptAsync($"document.querySelector('.nav[data-view=\"{view}\"]')?.click()");
     }
@@ -277,6 +278,7 @@ static class Tr
     static readonly Dictionary<string, string[]> S = new()
     {
         ["open"] = ["Abrir Vigía", "Open Vigía", "Abrir o Vigía", "Ouvrir Vigía", "Vigía öffnen"],
+        ["msWinTitle"] = ["Bajar Windows 11 de Microsoft", "Get Windows 11 from Microsoft", "Baixar o Windows 11 da Microsoft", "Télécharger Windows 11 chez Microsoft", "Windows 11 bei Microsoft holen"],
         ["optimize"] = ["Optimizar ahora", "Optimize now", "Otimizar agora", "Optimiser maintenant", "Jetzt optimieren"],
         ["optimizeTip"] = ["Libera la RAM y pasa TRIM a los SSD. No borra archivos.", "Frees RAM and runs TRIM on SSDs. Deletes no files.", "Libera a RAM e faz TRIM nos SSD. Não apaga arquivos.", "Libère la RAM et lance TRIM sur les SSD. Ne supprime aucun fichier.", "Gibt RAM frei und führt TRIM auf SSDs aus. Löscht keine Dateien."],
         ["freeRam"] = ["Liberar memoria", "Free memory", "Liberar memória", "Libérer la mémoire", "Speicher freigeben"],

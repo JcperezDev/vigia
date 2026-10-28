@@ -91,6 +91,21 @@ static class Program
             Console.WriteLine($"{r.Ok} {r.Message} {string.Join("; ", r.Errors)}");
             return r.Ok ? 0 : 1;
         }
+        if (args.Length >= 2 && args[0] == "--simple-plan")   // solo lectura: qué haría el modo simple con las respuestas por defecto
+        {
+            var ans = args.Length >= 3 ? JsonSerializer.Deserialize<Simple.Answers>(File.ReadAllText(args[2]), Json)! : new Simple.Answers();
+            File.WriteAllText(args[1], JsonSerializer.Serialize(Simple.Build(ans), new JsonSerializerOptions(Json) { WriteIndented = true }));
+            return 0;
+        }
+        if (args.Length >= 2 && args[0] == "--procs")   // solo lectura: Vigia --procs <salida.json> [segundos]
+        {
+            Procs.Reset(); Procs.Sample();
+            var secs = args.Length >= 3 ? int.Parse(args[2]) : 3;
+            Procs.View? v = null;
+            for (int i = 0; i < secs; i++) { Thread.Sleep(1000); v = Procs.Sample(); }
+            File.WriteAllText(args[1], JsonSerializer.Serialize(v, new JsonSerializerOptions(Json) { WriteIndented = true }));
+            return 0;
+        }
         if (args.Length >= 3 && args[0] == "--startup-set")   // prueba: Vigia --startup-set <id> on|off
         {
             var r = Startup.Set(args[1], args[2] == "on");
@@ -162,6 +177,7 @@ static class Program
                 + Environment.NewLine + "--- sugerencias" + Environment.NewLine + Suggestions.SelfTest()
                 + Environment.NewLine + "--- juegos" + Environment.NewLine + Games.SelfTest()
                 + Environment.NewLine + "--- fps" + Environment.NewLine + Fps.SelfTest()
+                + Environment.NewLine + "--- procesos" + Environment.NewLine + Procs.SelfTest()
                 + Environment.NewLine + "--- equipo" + Environment.NewLine + Rig.SelfTest();
             File.WriteAllText(args[1], report);
             return report.Contains("FAIL") ? 1 : 0;
@@ -253,8 +269,11 @@ sealed partial class MainForm : Form
         if (_snapPath is not null) _ = SnapAsync();
         else if (_benchPath is not null) _ = BenchAsync();
         // primera vez: foto de cómo estaba el sistema antes de que Vigía toque nada (una sola vez, en segundo plano)
-        if (_snapPath is null && _benchPath is null) _ = Task.Run(() => Backups.EnsureOriginal(withRestorePoint: true));
-        else if (_cfg.UpdateCheck) _ = UpdateLoopAsync();
+        if (_snapPath is null && _benchPath is null)
+        {
+            _ = Task.Run(() => Backups.EnsureOriginal(withRestorePoint: true));
+            if (_cfg.UpdateCheck) _ = UpdateLoopAsync();
+        }
     }
 
     async Task SnapAsync()
@@ -340,15 +359,31 @@ sealed partial class MainForm : Form
         _quitting = true; Close();
     }
 
+    DateTime _updChecked = DateTime.MinValue;
+    bool _procOn, _simpleBusy;
+
     async Task UpdateLoopAsync()
     {
         await Task.Delay(TimeSpan.FromSeconds(20));
         while (!IsDisposed)
         {
-            var u = await Updates.CheckAsync();
-            if (u.Available && !IsDisposed) Send("update", u);
+            await UpdateOnceAsync();
             await Task.Delay(TimeSpan.FromHours(6));
         }
+    }
+
+    /// <summary>Una sola consulta a GitHub; también al volver de la bandeja si pasó más de una hora.</summary>
+    internal async Task UpdateOnceAsync()
+    {
+        if (!_cfg.UpdateCheck || DateTime.UtcNow - _updChecked < TimeSpan.FromMinutes(5)) return;
+        _updChecked = DateTime.UtcNow;
+        var u = await Updates.CheckAsync();
+        if (u.Available && !IsDisposed) Send("update", u);
+    }
+
+    internal void UpdateIfStale()
+    {
+        if (DateTime.UtcNow - _updChecked > TimeSpan.FromHours(1)) _ = UpdateOnceAsync();
     }
 
     async Task PushAsync()
@@ -372,6 +407,8 @@ sealed partial class MainForm : Form
                 if (auto is not null) Send("memFreed", auto);
                 Send("memStatus", await Task.Run(Memory.Status));
             }
+            // lo que más consume: solo con la vista Monitor delante, cada 2 s
+            else if (_procOn && ContainsFocus) Send("procs", await Task.Run(Procs.Sample));
         }
         catch (Exception e) { Send("error", e.Message); }
         finally { _busy = false; }
@@ -476,6 +513,34 @@ sealed partial class MainForm : Form
                     break;
                 case "startupList":
                     Send("startup", await Task.Run(Startup.List));
+                    break;
+                case "simplePlan":
+                    var sa = msg["answers"].Deserialize<Simple.Answers>(Program.Json) ?? new();
+                    Send("simplePlan", await Task.Run(() => Simple.Build(sa)));
+                    break;
+                case "simpleRun":
+                    if (_simpleBusy) break;
+                    _simpleBusy = true;
+                    try
+                    {
+                        var ra = msg["answers"].Deserialize<Simple.Answers>(Program.Json) ?? new();
+                        var rep = await Task.Run(() => Simple.Run(Simple.Build(ra), st => BeginInvoke(() => Send("simpleStep", st)),
+                            on => BeginInvoke(() => { _cfg.MemAuto = on; if (on) _cfg.MemAutoThreshold = 60; _cfg.Save(); Send("settings", _cfg); })));
+                        Send("simpleDone", rep);
+                    }
+                    finally { _simpleBusy = false; }
+                    break;
+                case "procWatch":
+                    _procOn = (bool)msg["on"]!;
+                    if (_procOn) { Procs.Reset(); _ = Task.Run(Procs.Sample); }
+                    break;
+                case "procClose":
+                    var pexe = (string)msg["exe"]!;
+                    Send("procDone", await Task.Run(() => Procs.Close(pexe)));
+                    break;
+                case "procReveal":
+                    var rexe = (string)msg["exe"]!;
+                    await Task.Run(() => Procs.Reveal(rexe));
                     break;
                 case "startupSet":
                     var sid = (string)msg["id"]!; var son = (bool)msg["on"]!;
@@ -609,7 +674,10 @@ sealed partial class MainForm : Form
                         System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("explorer.exe", $"/select,\"{ishow}\"") { UseShellExecute = true });
                     break;
                 case "isoGetWindows":
-                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("https://www.microsoft.com/software-download/windows11") { UseShellExecute = true });
+                    await OpenMsDownloadAsync(Tr.Lang(_cfg));
+                    break;
+                case "isoDlCancel":
+                    CancelMsDownload();
                     break;
                 case "supportGet":
                     Send("support", await Support.GetAsync());
