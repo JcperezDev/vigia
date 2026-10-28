@@ -156,13 +156,13 @@ svg { fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round
   .board .lv.before { opacity: 0; }
 }
 
-.pitch { position: relative; max-width: 545px; }
+.pitch { position: relative; max-width: min(545px, calc(49% - 40px)); }
 .hero h1 {
-  font-size: clamp(2.6rem, 5.2vw, 4.9rem);
+  font-size: clamp(2.6rem, 4.6vw, 4.4rem);
   font-weight: 800; font-stretch: 114%;
   line-height: 1.07; letter-spacing: -.026em;
 }
-.lead { margin-top: 26px; font-size: clamp(17px, 1.5vw, 20px); line-height: 1.55; color: var(--ink-2); max-width: 50ch; }
+.lead { margin-top: 26px; font-size: clamp(17px, 1.5vw, 20px); line-height: 1.55; color: var(--ink-2); max-width: 46ch; }
 .cta { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 22px; margin-top: 36px; }
 .dl {
   display: inline-flex; align-items: center; gap: 14px;
@@ -309,3 +309,20 @@ footer a:hover { color: var(--ink); text-decoration: underline; }
   .acts li + li { border-left: 0; border-top: 1px solid var(--rule); }
   .dl { width: 100%; }
 }
+
+/* ---------------------------------------------------------------- privacidad y aviso legal */
+.doc { max-width: 68ch; margin: 0 auto; padding: clamp(40px, 7vw, 88px) var(--pad) clamp(72px, 9vw, 120px); }
+.doc .back { display: inline-block; color: var(--ink-3); font-size: 15px; text-decoration: none; margin-bottom: 28px; }
+.doc .back:hover { color: var(--ink); }
+.doc h1 { font-size: clamp(2.2rem, 4.4vw, 3.4rem); font-weight: 800; font-stretch: 114%; line-height: 1.08; letter-spacing: -.022em; }
+.doc .upd { margin: 12px 0 0; color: var(--ink-3); font-size: 14.5px; }
+.doc .short { margin: 30px 0 0; font-size: clamp(18px, 1.6vw, 21px); line-height: 1.5; color: var(--ink); }
+.doc h2 { margin-top: 44px; font-size: 21px; font-weight: 700; font-stretch: 108%; letter-spacing: -.01em; }
+.doc p, .doc li { color: var(--ink-2); font-size: 16.5px; line-height: 1.65; }
+.doc p { margin: 12px 0 0; }
+.doc ul { margin: 12px 0 0; padding-left: 1.2em; }
+.doc li + li { margin-top: 8px; }
+.doc li::marker { color: var(--amber); }
+.doc a:not(.back) { color: var(--ink); text-decoration-color: var(--rule-2); text-underline-offset: 3px; }
+.doc a:not(.back):hover { text-decoration-color: var(--ink); }
+.doc code { font: 500 .9em "JetBrains Mono", monospace; color: var(--ink); }

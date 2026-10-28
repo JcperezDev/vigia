@@ -47,4 +47,6 @@ Vigía es gratis. Si te sirve: dale una estrella, compártela o [invita un café
 
 ## Licencia
 
-[MIT](LICENSE). Componentes de terceros en [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
+[PolyForm Noncommercial 1.0.0](LICENSE). Puedes usar, leer, modificar y compartir Vigía gratis; lo que no se permite es venderla, cobrar por ella ni meterla en un producto o servicio de pago.
+
+Las versiones hasta la 0.20.0 salieron con licencia MIT y quien las tenga conserva ese permiso para esas versiones. Componentes de terceros en [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
