@@ -32,6 +32,7 @@ public static class Suggestions
         try { items.AddRange(RamSpeed()); } catch { }
         try { items.AddRange(Disks(tel)); } catch { }
         try { items.AddRange(Power()); } catch { }
+        try { items.AddRange(Battery()); } catch { }
         try { items.AddRange(Usage(tel.Read())); } catch { }
         var order = new Dictionary<string, int> { ["bad"] = 0, ["warn"] = 1, ["info"] = 2, ["ok"] = 3 };
         return new(items.OrderBy(i => order.GetValueOrDefault(i.Level, 9)).ToList(), net, DateTimeOffset.Now.ToUnixTimeMilliseconds());
@@ -315,6 +316,23 @@ public static class Suggestions
             yield return new("power-saver", "warn", "El PC está en modo Ahorro de energía",
                 ["En ese modo Windows baja la velocidad de la CPU para gastar menos.", "En un PC de escritorio solo te quita rendimiento."],
                 ["Panel de control › Opciones de energía › Equilibrado o Alto rendimiento."], null, ["Plan de energía: Ahorro de energía"]);
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    struct PowerStatus { public byte AcLine, BatteryFlag, BatteryPercent, SaverOn; public int LifeTime, FullLifeTime; }
+    [DllImport("kernel32.dll")] static extern bool GetSystemPowerStatus(out PowerStatus s);
+
+    /// <summary>Laptop funcionando con batería: Windows y la gráfica recortan potencia.</summary>
+    static IEnumerable<Suggestion> Battery()
+    {
+        var fake = Environment.GetEnvironmentVariable("VIGIA_FAKE_BATTERY") == "1";
+        var s = default(PowerStatus);
+        if (!fake && !GetSystemPowerStatus(out s)) yield break;
+        if (!fake && (s.BatteryFlag == 128 || s.BatteryFlag == 255 || s.AcLine != 0)) yield break;   // sin batería, desconocido o enchufada
+        var pct = fake ? 64 : s.BatteryPercent;
+        yield return new("battery", "warn", "Tu laptop está sin cargador",
+            ["Con batería, Windows y la gráfica bajan la potencia para que dure más.", "Por eso rinde menos: menos FPS y más tirones."],
+            ["Conecta el cargador para jugar."], null, pct <= 100 ? [$"Batería: {pct} %"] : []);
     }
 
     static IEnumerable<Suggestion> Usage(Snapshot s)

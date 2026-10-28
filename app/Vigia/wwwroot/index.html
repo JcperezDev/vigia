@@ -73,7 +73,7 @@
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7.5-4.6-7.5-10.1A4.2 4.2 0 0 1 12 7.4a4.2 4.2 0 0 1 7.5 2.5C19.5 15.4 12 20 12 20Z"/></svg>Apoya Vigía
       </button>
       <button class="nav" data-view="settings">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1 7 17M17 7l2.1-2.1"/></svg>Configuración
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10.23 4.61 L10.67 2.09 L13.33 2.09 L13.77 4.61 L15.97 5.52 L18.07 4.05 L19.95 5.93 L18.48 8.03 L19.39 10.23 L21.91 10.67 L21.91 13.33 L19.39 13.77 L18.48 15.97 L19.95 18.07 L18.07 19.95 L15.97 18.48 L13.77 19.39 L13.33 21.91 L10.67 21.91 L10.23 19.39 L8.03 18.48 L5.93 19.95 L4.05 18.07 L5.52 15.97 L4.61 13.77 L2.09 13.33 L2.09 10.67 L4.61 10.23 L5.52 8.03 L4.05 5.93 L5.93 4.05 L8.03 5.52Z" stroke-linejoin="round"/><circle cx="12" cy="12" r="3"/></svg>Configuración
       </button>
       <button class="nav nav-news" id="news-btn" aria-haspopup="dialog" aria-expanded="false" title="Novedades">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15Z"/><path d="M10 20.5a2.2 2.2 0 0 0 4 0"/></svg><span class="nn-text"><span class="t">Novedades</span><span class="s" id="news-sub">Versión —</span></span>
@@ -155,7 +155,7 @@
       <section class="box procs" aria-labelledby="pr-title">
         <header class="procs-head">
           <h2 id="pr-title">Lo que más consume</h2>
-          <p class="sub" id="pr-sub">Solo se mide con esta pantalla abierta. Los juegos cuentan como consumo normal.</p>
+          <p class="sub" id="pr-sub"></p>
         </header>
         <p class="pr-alert" id="pr-alert" hidden></p>
         <table class="pr-table"><thead><tr><th>Programa</th><th>CPU</th><th>Prom. 30 s</th><th>RAM</th><th></th></tr></thead><tbody id="pr-rows"><tr><td colspan="5" class="empty loading">Midiendo…</td></tr></tbody></table>
@@ -172,7 +172,6 @@
         <header class="clean-head">
           <div>
             <h2 id="clean-title">Limpieza</h2>
-            <p class="sub">Solo borra archivos de más de 24 horas en carpetas temporales. Lo que esté en uso se salta.</p>
           </div>
           <button class="btn" id="scan">Analizar</button>
         </header>
@@ -186,7 +185,7 @@
 
     <section class="view" id="view-health" hidden>
       <header class="head">
-        <div><h1>Salud de discos</h1><p class="sub">Lee el SMART de cada disco: vida útil, horas de uso y sectores dañados. No escribe nada.</p></div>
+        <div><h1>Salud de discos</h1><p class="sub">Vida útil, horas de uso y sectores dañados.</p></div>
         <button class="btn" id="h-scan">Escanear</button>
       </header>
       <div class="hcards" id="health-list" aria-live="polite"><p class="empty">Escaneando…</p></div>
@@ -194,7 +193,7 @@
 
     <section class="view" id="view-opt" hidden>
       <header class="head">
-        <div><h1>Optimizar</h1><p class="sub">Usa la herramienta de Windows: TRIM en los SSD y desfragmentación en los discos mecánicos. No borra ni mueve tus archivos de sitio.</p></div>
+        <div><h1>Optimizar</h1><p class="sub">TRIM en los SSD y desfragmentación en los discos mecánicos.</p></div>
         <button class="btn" id="o-analyze">Analizar fragmentación</button>
       </header>
       <ul class="vols" id="vols"><li class="empty">Cargando unidades…</li></ul>
@@ -209,7 +208,7 @@
 
     <section class="view" id="view-mem" hidden>
       <header class="head">
-        <div><h1>Memoria</h1><p class="sub">Libera RAM sin cerrar programas, con las mismas funciones de Windows que usan Mem Reduct e ISLC.</p></div>
+        <div><h1>Memoria</h1><p class="sub">Libera RAM sin cerrar programas.</p></div>
         <button class="btn primary" id="m-free">Liberar ahora</button>
       </header>
       <div class="memmap" aria-hidden="true"><i class="m-used"></i><i class="m-mod"></i><i class="m-stby"></i><i class="m-free"></i></div>
@@ -221,27 +220,26 @@
           <label class="chk"><input type="checkbox" data-opt="workingSets" checked><span><b>Memoria de los procesos</b>Saca a disco las páginas que los programas no están usando. Vuelven solas si las necesitan.</span></label>
           <label class="chk"><input type="checkbox" data-opt="fileCache" checked><span><b>Caché de archivos del sistema</b>Archivos que Windows dejó abiertos en memoria.</span></label>
           <label class="chk"><input type="checkbox" data-opt="modified" checked><span><b>Páginas modificadas</b>Escribe al disco lo pendiente para que esa memoria quede libre.</span></label>
-          <label class="chk"><input type="checkbox" data-opt="standby" checked><span><b>Caché en espera</b>Lo que más ocupa. Es lo que limpia ISLC.</span></label>
+          <label class="chk"><input type="checkbox" data-opt="standby" checked><span><b>Caché en espera</b>Lo que más ocupa.</span></label>
           <label class="chk"><input type="checkbox" data-opt="combine" checked><span><b>Combinar páginas repetidas</b>Junta copias idénticas de la misma página.</span></label>
         </fieldset>
         <fieldset class="box">
           <legend>Automático</legend>
           <label class="chk"><input type="checkbox" id="m-auto" checked><span><b>Liberar sola cuando la memoria pase de <input type="number" id="m-thr" min="50" max="98" step="1" value="60"> %</b>Como máximo una vez cada <input type="number" id="m-int" min="1" max="120" step="1" value="5"> min. Hace lo mismo que «Liberar ahora»; si salta en mitad de una partida puede dar un tirón corto.</span></label>
           <p class="note">Funciona mientras Vigía esté abierta.</p>
-          <p class="note">Windows usa la RAM libre como caché porque así abre las cosas más rápido, y la vuelve a llenar. Liberarla ayuda cuando un juego se queda corto de memoria o da tirones después de horas; no acelera el PC por sí sola.</p>
         </fieldset>
       </div>
     </section>
 
     <section class="view" id="view-simple" hidden>
       <header class="head">
-        <div><h1>Modo simple</h1><p class="sub">Contesta esto y Vigía hace el resto: rendimiento, servicios, red, apps de Windows, limpieza y memoria. Antes de tocar nada guarda una copia, y todo se puede deshacer desde Copias.</p></div>
+        <div><h1>Modo simple</h1><p class="sub">Contesta esto y Vigía hace el resto.</p></div>
       </header>
       <div id="sm-ask">
         <div class="sm-qs" id="sm-qs"></div>
         <section class="box sm-apps">
           <h2>¿Cuáles apps de Windows usas?</h2>
-          <p class="note">Marca las que usas y esas se quedan. Las que no marques se quitan, y se pueden volver a instalar desde la Tienda.</p>
+          <p class="note">Marca las que usas. Las demás se quitan y se pueden reinstalar desde la Tienda.</p>
           <div class="sm-applist" id="sm-applist"><p class="empty">Leyendo las apps instaladas…</p></div>
         </section>
         <footer class="sm-foot">
@@ -270,7 +268,7 @@
 
     <section class="view" id="view-tweaks" hidden>
       <header class="head">
-        <div><h1>Ajustes</h1><p class="sub" id="tw-sub">De tus carpetas de pack externo, de externo y de los recomendados de externo. Vigía guarda el valor que tenías antes de cada cambio y lo puede devolver.</p></div>
+        <div><h1>Ajustes</h1><p class="sub" id="tw-sub">Cada cambio se puede deshacer.</p></div>
         <div class="actions">
           <button class="btn" id="tw-revert" disabled>Deshacer</button>
           <button class="btn primary" id="tw-apply" disabled>Aplicar</button>
@@ -278,32 +276,11 @@
       </header>
       <p class="result" id="tw-result" aria-live="polite"></p>
       <div id="tw-groups"><p class="empty">Leyendo el estado actual…</p></div>
-      <section class="box utilidad-externa">
-        <div><h2>utilidad externa de externo</h2><p class="note">Abre la herramienta original en PowerShell. Se descarga de externo.com en ese momento y corre como administrador; Vigía crea antes un punto de restauración. Lo que marques ahí no lo puede deshacer Vigía.</p></div>
-        <button class="btn" id="tw-utilidad-externa">Abrir utilidad externa</button>
-      </section>
-      <details class="box excluded">
-        <summary>Lo que Vigía deja fuera de tus carpetas, y por qué</summary>
-        <ul>
-          <li><b>Aplicar antes de comenzar.reg</b> (externo): apaga el Control de cuentas (UAC). Cualquier programa tendría permisos de administrador sin preguntarte.</li>
-          <li><b>Ajustes de configuración de características.bat</b>: quita las protecciones contra Spectre y Meltdown. Con Defender apagado en este PC, es demasiado.</li>
-          <li><b>5; Optimización de la memoria</b> (externo): quita el archivo de paginación. Juegos y Chrome se cierran solos cuando se llena la RAM.</li>
-          <li><b>9- Disable Windows Update</b> (Wub): sin parches de seguridad. Vigía lo cambia por «Windows Update sin sorpresas».</li>
-          <li><b>2.bat</b> (DisableDynamicPstate): deja la GPU siempre a máxima frecuencia. Más calor y consumo; solo en la máquina virtual de pruebas.</li>
-          <li><b>Extra\Internet</b> y <b>7; Optimizar la Red</b>: TcpWindowSize, TcpNumConnections, chimney, netdma y dca no tienen efecto en Windows 11.</li>
-          <li><b>Extra\Configuraciones bajos recursos</b>: escriben en la GPU número 0000 sin comprobar que sea tu NVIDIA.</li>
-          <li><b>Eliminar limite de ram</b> e <b>IoPageLockLimit</b>: Windows ignora ese valor desde XP.</li>
-          <li><b>Enable Clear Pagefile at Shutdown</b>: solo hace que apagar tarde más.</li>
-          <li><b>DPS, NcbService, SharedAccess y wlidsvc</b> (externo 3): rompen el solucionador de red, el estado de la conexión, la zona Wi-Fi y el inicio de sesión con cuenta Microsoft.</li>
-          <li><b>Mouse Overcloock</b> y <b>Boost de USB</b>: instalan un driver sin firma de Microsoft.</li>
-          <li><b>Active win 11 pro</b>, <b>IObit Driver Booster Pro</b> y <b>Optimizer</b>: activación no oficial, versión Pro sin licencia, y un optimizador que apaga Defender.</li>
-        </ul>
-      </details>
     </section>
 
     <section class="view" id="view-bios" hidden>
       <header class="head">
-        <div><h1>BIOS</h1><p class="sub">Lo que se ajusta en la BIOS de tu placa, leído desde Windows. Vigía nunca escribe en la BIOS: te dice qué falta y dónde se cambia en tu modelo.</p></div>
+        <div><h1>BIOS</h1><p class="sub">Solo lectura: qué falta y dónde se cambia.</p></div>
         <button class="btn" id="bi-reload">Volver a leer</button>
       </header>
       <section class="box bi-fw" id="bi-fw"><p class="empty">Leyendo la placa…</p></section>
@@ -313,12 +290,12 @@
 
     <section class="view" id="view-iso" hidden>
       <header class="head">
-        <div><h1>ISO de Windows</h1><p class="sub">Crea una ISO de instalación sin las apps de relleno y sin anuncios, a partir de la oficial de Microsoft. La original no se toca y la ISO nueva no borra discos por su cuenta.</p></div>
+        <div><h1>ISO de Windows</h1><p class="sub">Windows sin apps de relleno ni anuncios.</p></div>
       </header>
       <section class="tw-group">
         <h2>1. La ISO oficial</h2>
         <div class="box iso-step">
-          <p class="sub" id="iso-src">Elige la ISO de Windows 11 que ya tengas, o bájala de Microsoft: se abre su página oficial, eliges el idioma y pulsas «Descargar». Vigía la guarda y la carga sola.</p>
+          <p class="sub" id="iso-src">Elige tu ISO de Windows 11 o bájala de Microsoft.</p>
           <div class="ds-act"><button class="btn primary" id="iso-pick">Elegir ISO…</button><button class="btn" id="iso-ms">Bajar de Microsoft</button></div>
           <section class="oprun" id="iso-dl" hidden aria-live="polite">
             <div class="oprun-head"><strong id="iso-dl-step"></strong><button class="btn" id="iso-dl-cancel">Cancelar</button></div>
@@ -395,7 +372,7 @@
 
     <section class="view" id="view-startup" hidden>
       <header class="head">
-        <div><h1>Inicio de Windows</h1><p class="sub" id="su-sub">Lo que arranca solo al encender el PC. Apagar no borra nada: la entrada se queda y la puedes volver a encender.</p></div>
+        <div><h1>Inicio de Windows</h1><p class="sub" id="su-sub">Lo que arranca al encender el PC.</p></div>
         <div class="head-act"><button class="btn" id="su-all" hidden>Apagar todos los programas</button><button class="btn" id="su-reload">Volver a leer</button></div>
       </header>
       <p class="src su-all-note" id="su-all-note" hidden>Apaga todos los programas que arrancan solos, menos Vigía y lo que el PC necesita: antivirus, drivers, ventiladores, antitrampas, Bluetooth y teclado. Antes guarda una copia de cada uno; los vuelves a encender cuando quieras.</p>
@@ -405,13 +382,12 @@
 
     <section class="view" id="view-games" hidden>
       <header class="head">
-        <div><h1>Juegos</h1><p class="sub">Los FPS reales de tus partidas, antes y después de optimizar, y un perfil competitivo para Fortnite.</p></div>
+        <div><h1>Juegos</h1></div>
         <button class="btn" id="gm-reload">Recargar</button>
       </header>
       <p class="result" id="gm-result" aria-live="polite"></p>
       <section class="tw-group">
         <h2>Tu PC para jugar <span class="pill" id="gm-rig-sum"></span></h2>
-        <p class="sub gm-note">Lo que más pesa en los FPS y casi nadie revisa. Lo de Windows se cambia aquí con copia; lo de la BIOS (RAM y Resizable BAR) solo se detecta y te dice dónde está, porque Vigía nunca toca la BIOS.</p>
         <p class="result" id="gm-rig-msg" aria-live="polite"></p>
         <ul class="findings" id="gm-rig"><li class="empty">Revisando…</li></ul>
       </section>
@@ -427,7 +403,7 @@
           <button class="btn primary" id="ds-apply" disabled>Estirar</button>
           <button class="btn" id="ds-restore" hidden>Volver a la normal</button>
         </div>
-        <label class="chk ds-games" id="ds-games-row" hidden><input type="checkbox" id="ds-games" checked><span><b>Fortnite en ventana a pantalla completa</b>Lo deja a la misma resolución, así abre estirado sin pelear con la pantalla. Con el juego cerrado y copia antes.</span></label>
+        <input type="checkbox" id="ds-games" checked hidden>
         <p class="sub ds-gpu" id="ds-gpu"></p>
         <div class="ds-confirm" id="ds-confirm" hidden>
           <p>¿Se ve bien? Si no confirmas, vuelve sola en <b id="ds-count">15</b> s.</p>
@@ -438,7 +414,6 @@
       </section>
       <section class="tw-group">
         <h2>FPS: antes y después</h2>
-        <p class="sub gm-note">Vigía cuenta los fotogramas que tu juego entrega de verdad, no una estimación. Pulsa el botón, entra a jugar y Vigía mide solo mientras el juego está delante; al terminar se apaga sola. No se mete en el juego ni toca el antitrampas.</p>
         <div class="gm-ctl">
           <select id="gm-dur" class="st-select" aria-label="Cuánto medir">
             <option value="120">2 minutos de juego</option>
@@ -460,7 +435,7 @@
 
     <section class="view" id="view-backups" hidden>
       <header class="head">
-        <div><h1>Copias de seguridad</h1><p class="sub" id="bk-sub">Antes de cada cambio, Vigía guarda cómo estaba todo. Restaurar una copia deja esas cosas como estaban en ese momento.</p></div>
+        <div><h1>Copias de seguridad</h1><p class="sub" id="bk-sub">Cómo estaba todo antes de cada cambio.</p></div>
         <button class="btn" id="bk-reload">Volver a leer</button>
       </header>
       <p class="result" id="bk-result" aria-live="polite"></p>
@@ -477,7 +452,7 @@
         <h2>Actualizaciones</h2>
         <div class="panel st-panel">
           <div class="st-line">
-            <div><strong id="st-ver">Versión —</strong><p class="sub" id="st-state">Vigía baja la versión nueva, comprueba la firma, se cierra, se actualiza y vuelve a abrir sola.</p></div>
+            <div><strong id="st-ver">Versión —</strong><p class="sub" id="st-state">Se descarga, se comprueba la firma y Vigía se reinicia sola.</p></div>
             <button class="btn" id="st-check">Buscar actualizaciones</button>
           </div>
           <div class="st-new" id="st-new" hidden>
@@ -598,7 +573,7 @@
 
     <section class="view" id="view-sug" hidden>
       <header class="head">
-        <div><h1>Sugerencias</h1><p class="sub" id="sug-sub">Lo que se puede mejorar en tu PC y por qué. Vigía no cambia nada de esto por su cuenta.</p></div>
+        <div><h1>Sugerencias</h1><p class="sub" id="sug-sub">Lo que se puede mejorar en tu PC.</p></div>
         <button class="btn" id="s-run">Volver a revisar</button>
       </header>
       <ul class="findings sugs" id="sugs"><li class="empty">Revisando la conexión, la pantalla, la memoria y los discos…</li></ul>
@@ -610,6 +585,10 @@
       </header>
       <dl class="sysinfo" id="sysinfo"></dl>
       <div class="card sec" id="sec" hidden></div>
+      <div class="crashes" id="crashes" hidden>
+        <h2>¿Por qué se cerró?</h2>
+        <ul class="crash-list" id="crash-list"></ul>
+      </div>
       <p class="tally" id="tally"></p>
       <ul class="findings" id="findings"><li class="empty">Revisando…</li></ul>
     </section>

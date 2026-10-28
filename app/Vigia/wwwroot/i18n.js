@@ -6,6 +6,7 @@
   const LANGS = { es: 'Español', en: 'English', pt: 'Português', fr: 'Français', de: 'Deutsch' };
   const LOCALE = { es: 'es', en: 'en-US', pt: 'pt-BR', fr: 'fr', de: 'de' };
   let lang = 'es', dict = null, pats = [], cache = new Map();
+  const IDS = /^[A-Z][\w.-]*(, [A-Z][\w.-]*)*…?$/;   // «WinDefend, WdFilter, WdBoot…»: nombres que no se traducen
   const orig = new WeakMap();      // nodo de texto -> { es, shown }
   const origAttr = new WeakMap();  // elemento -> { attr: { es, shown } }
   const ATTRS = ['title', 'aria-label', 'placeholder'];
@@ -48,7 +49,7 @@
         const done = parts.map((x) => tr(x.trim(), depth + 1));
         // una parte larga que no se pudo traducir = el patrón agarró una frase que no es la suya
         // (las fechas y cifras no se traducen y pueden ser largas: «Oct 27, 10:17 PM»)
-        if (parts.some((x, i) => done[i] === x.trim() && x.trim().split(' ').length > 3 && !/\d/.test(x))) continue;
+        if (parts.some((x, i) => done[i] === x.trim() && x.trim().split(' ').length > 3 && !/\d/.test(x) && !IDS.test(x.trim()))) continue;
         const byIdx = {};
         p.order.forEach((n, i) => { byIdx[n] = done[i] === parts[i].trim() ? parts[i] : done[i]; });
         res = p.to.replace(/\{(\d+)\}/g, (_, n) => byIdx[n] ?? '');

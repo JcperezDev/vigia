@@ -315,8 +315,35 @@
     box.replaceChildren(el('strong', null, 'Antivirus'), ...body, acts, msg);
   }
 
+  function renderCrashes(list, days) {
+    $('crashes').hidden = false;
+    if (!list || !list.length) {
+      $('crash-list').replaceChildren(el('li', 'crash lv-ok', `Nada se cerró de golpe en los últimos ${days} días.`));
+      return;
+    }
+    const MS = { es: 'ene feb mar abr may jun jul ago sept oct nov dic', en: 'Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec', pt: 'jan fev mar abr mai jun jul ago set out nov dez', fr: 'janv févr mars avr mai juin juil août sept oct nov déc', de: 'Jan. Feb. März Apr. Mai Juni Juli Aug. Sept. Okt. Nov. Dez.' };
+    const when = (t) => { const d = new Date(t); const m = (MS[window.vigiaI18n.lang] || MS.es).split(' ')[d.getMonth()]; return `${d.getDate()} ${m}, ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
+    $('crash-list').replaceChildren(...list.map((c) => {
+      const li = el('li', `crash lv-${c.level}`);
+      const head = el('div', 'crash-head');
+      head.append(el('span', 'dot'), el('strong', null, c.app), el('span', 'crash-kind', c.kind),
+        el('span', 'crash-when', c.count > 1 ? `${c.count} veces · la última: ${when(c.last)}` : when(c.last)));
+      const body = el('div', 'crash-body');
+      body.append(el('p', null, c.why));
+      if (c.hardware) body.append(el('p', 'crash-hw', 'A esa misma hora Windows registró un error de hardware (WHEA), así que lo más probable es que la causa sea el equipo y no el programa.'));
+      body.append(el('p', 'crash-fix', `Qué hacer: ${c.fix}`));
+      if (c.tech.length) {
+        const det = el('details'); det.append(el('summary', null, 'Datos técnicos'));
+        const ul = el('ul'); c.tech.forEach((x) => ul.append(el('li', null, x))); det.append(ul); body.append(det);
+      }
+      li.append(head, body);
+      return li;
+    }));
+  }
+
   function renderDiag(r) {
     busyBtn($('d-run'), false, 'Volver a revisar');
+    renderCrashes(r.crashes, r.days);
     const s = r.system;
     const up = s.uptimeHours >= 48 ? `${Math.round(s.uptimeHours / 24)} días` : `${fmt(s.uptimeHours, 0)} h`;
     $('sysinfo').replaceChildren(stat('Sistema', `${s.os} ${s.build}`), stat('Placa base', s.board || 'N/D'), stat('BIOS', s.bios || 'N/D'), stat('Encendido', up));
@@ -348,7 +375,7 @@
     busyBtn($('s-run'), false, 'Volver a revisar');
     const n = r.items.filter((i) => i.level === 'warn' || i.level === 'bad').length;
     $('sug-count').hidden = !n; $('sug-count').textContent = n;
-    $('sug-sub').textContent = `Lo que se puede mejorar en tu PC y por qué. Vigía no cambia nada de esto por su cuenta. Revisado a las ${new Date(r.ts).toLocaleTimeString(window.vigiaI18n.locale())}.`;
+    $('sug-sub').textContent = 'Lo que se puede mejorar en tu PC.';
     if (!r.items.length) { $('sugs').replaceChildren(el('li', 'empty', 'Nada que sugerir ahora mismo.')); return; }
     $('sugs').replaceChildren(...r.items.map((i) => {
       const li = el('li', `finding lv-${i.level}`);
@@ -455,10 +482,9 @@
         const body = el('label'); body.htmlFor = id;
         body.append(el('strong', null, t.title), el('p', null, t.detail));
         const src = el('p', 'src');
-        src.append(t.source);
-        if (t.risk !== 'bajo') { src.append(' · '); src.append(el('span', `risk-${t.risk}`, `riesgo ${t.risk}`)); }
-        if (t.reboot) src.append(' · pide reiniciar');
-        body.append(src);
+        if (t.risk !== 'bajo') src.append(el('span', `risk-${t.risk}`, `riesgo ${t.risk}`));
+        if (t.reboot) { if (src.childNodes.length) src.append(' · '); src.append(el('span', null, 'pide reiniciar')); }
+        if (src.childNodes.length) body.append(src);
         if (t.blocked) body.append(el('p', 'src why', t.blocked));
         li.append(cb, body, el('span', `state ${t.state}`, STATE[t.state] || t.state));
         ul.append(li);
@@ -468,12 +494,11 @@
     }));
     const applied = tweaks.filter((t) => t.state === 'applied').length;
     const rp = p.restorePoints < 0 ? 'no se pudo leer los puntos de restauración' : plural(p.restorePoints, 'punto de restauración', 'puntos de restauración');
-    $('tw-sub').textContent = `${applied} de ${tweaks.length} ya están aplicados en este PC · ${rp}. Antes de aplicar se crea uno nuevo; Vigía guarda además el valor que tenías en cada cambio.`;
+    $('tw-sub').textContent = `${applied} de ${tweaks.length} ya están aplicados en este PC.`;
     twButtons();
   }
   $('tw-apply').addEventListener('click', () => { busyBtn($('tw-apply'), true, 'Aplicando…'); $('tw-revert').disabled = true; send({ cmd: 'tweaksApply', ids: twSel() }); });
   $('tw-revert').addEventListener('click', () => { busyBtn($('tw-revert'), true, 'Deshaciendo…'); $('tw-apply').disabled = true; send({ cmd: 'tweaksRevert', ids: twSel() }); });
-  $('tw-utilidad-externa').addEventListener('click', () => { busyBtn($('tw-utilidad-externa'), true, 'Creando punto de restauración…'); send({ cmd: 'utilidad-externa' }); });
   function renderTweaksDone(b) {
     busyBtn($('tw-apply'), false, 'Aplicar'); busyBtn($('tw-revert'), false, 'Deshacer');
     const ok = b.results.filter((r) => r.ok).length, bad = b.results.filter((r) => !r.ok);
@@ -699,7 +724,7 @@
   function renderTools(p) {
     const mine = p.items.filter((t) => t.kind === 'folder');
     const apps = p.items.filter((t) => t.kind === 'app');
-    $('tl-sub').textContent = `${mine.filter((t) => t.found).length} programas de ${p.root}, ${apps.length === 1 ? '1 programa instalado' : `${apps.length} programas instalados`} y ${p.items.length - mine.length - apps.length} herramientas de Windows. Vigía solo los abre; no los copia ni los cambia.`;
+    $('tl-sub').textContent = `${mine.filter((t) => t.found).length} programas de tu carpeta, ${apps.length === 1 ? '1 programa instalado' : `${apps.length} programas instalados`} y ${p.items.length - mine.length - apps.length} herramientas de Windows.`;
     const groups = [...new Set(p.items.map((t) => t.group))];
     $('tl-groups').replaceChildren(...groups.map((g) => {
       const sec = el('section', 'tw-group'); sec.append(el('h2', null, g));
@@ -731,7 +756,7 @@
   function renderStartup(list) {
     busyBtn($('su-reload'), false, 'Volver a leer');
     const on = list.filter((s) => s.enabled).length;
-    $('su-sub').textContent = `${plural(list.length, 'cosa arranca', 'cosas arrancan')} con Windows; ${on} ${on === 1 ? 'encendida' : 'encendidas'}. Apagar no borra nada: la entrada se queda y la puedes volver a encender.`;
+    $('su-sub').textContent = `${plural(list.length, 'cosa arranca', 'cosas arrancan')} con Windows; ${on} ${on === 1 ? 'encendida' : 'encendidas'}.`;
     $('su-groups').replaceChildren(...suOrder.filter((g) => list.some((s) => s.group === g)).map((g) => {
       const sec = el('section', 'tw-group');
       sec.append(el('h2', null, g), el('p', 'sub su-note', suNote[g]));
@@ -1011,7 +1036,7 @@
   $('bk-reload').addEventListener('click', () => { busyBtn($('bk-reload'), true, 'Leyendo…'); send({ cmd: 'backupsList' }); });
 
   // ---------- resolución estirada (en Juegos) ----------
-  let dsTimer = null, dsNative = null;
+  let dsTimer = null, dsNative = null, dsFortnite = false;
   const dsRes = (m) => `${m.width} × ${m.height}`;
   // Menos píxeles = menos trabajo para la tarjeta gráfica. Los FPS no suben en la misma proporción: en juegos
   // limitados por la gráfica suben más o menos entre la raíz y la potencia 0,7 de la reducción. Si limita el
@@ -1021,9 +1046,9 @@
     const [w, h] = v === 'custom' ? [+$('ds-w').value, +$('ds-h').value] : v.split('x').map(Number);
     if (!dsNative || !w || !h) { $('ds-est').textContent = ''; return; }
     const ratio = (dsNative.width * dsNative.height) / (w * h);
-    if (ratio <= 1.02) { $('ds-est').textContent = 'Misma cantidad de píxeles que tu resolución normal: no cambia los FPS.'; return; }
+    if (ratio <= 1.02) { $('ds-est').textContent = ''; return; }
     const less = Math.round((1 - 1 / ratio) * 100), lo = Math.round((ratio ** 0.5 - 1) * 100), hi = Math.round((ratio ** 0.7 - 1) * 100);
-    $('ds-est').textContent = `${dsRes({ width: w, height: h })} tiene ${less} % menos píxeles que ${dsRes(dsNative)}: entre +${lo} % y +${hi} % FPS si la tarjeta gráfica va al límite; si el que limita es el procesador, casi nada. Mide una partida antes y otra después para ver lo tuyo.`;
+    $('ds-est').textContent = `+${lo}–${hi} % FPS`;
   }
   function renderDisplay(d) {
     const n = d.native, c = d.current;
@@ -1033,14 +1058,9 @@
     $('ds-sub').textContent = c.hz > 1 ? (d.stretched ? `Ahora: ${dsRes(c)} estirada a ${c.hz} Hz. La normal es ${dsRes(d.saved)}.` : `Ahora: ${dsRes(c)} a ${c.hz} Hz.`)
       : d.stretched ? `Ahora: ${dsRes(c)} estirada. La normal es ${dsRes(d.saved)}.` : `Ahora: ${dsRes(c)}.`;
     // primero las que la tarjeta ya tiene; luego las de la lista de Vigía, que se crean en su panel al aplicarlas
-    const aspect = (m) => {
-      const r = m.width / m.height;
-      const k = [['1:1', 1], ['5:4', 1.25], ['4:3', 4 / 3], ['3:2', 1.5], ['16:10', 1.6]].find(([, v]) => Math.abs(r - v) < 0.012);
-      return k ? ` · ${k[0]}` : '';
-    };
     const extra = d.extra || [];
     const opt = (m, made) => {
-      const o = el('option', null, `${dsRes(m)}${aspect(m)}${m.width === 1440 && m.height === 1080 ? ' · la más usada' : ''}${made ? ' · se crea en la gráfica' : ''}`);
+      const o = el('option', null, dsRes(m));
       o.value = `${m.width}x${m.height}`;
       return o;
     };
@@ -1051,11 +1071,8 @@
     const cur = `${c.width}x${c.height}`;
     $('ds-mode').value = d.stretched && all.some((m) => `${m.width}x${m.height}` === cur) ? cur
       : all.some((m) => m.width === 1440 && m.height === 1080) ? '1440x1080' : all[0] ? `${all[0].width}x${all[0].height}` : 'custom';
-    $('ds-gpu').textContent = !extra.length ? ''
-      : d.gpu === 'nvidia' ? 'Las que dicen «se crea en la gráfica» las añado al Panel de control de NVIDIA (Cambiar resolución › Personalizar) cuando las aplicas.'
-      : d.gpu === 'amd' ? 'Las que dicen «se crea en la gráfica» las añado a AMD Software (Resoluciones personalizadas) cuando las aplicas.'
-      : 'Las que dicen «se crea en la gráfica» hay que crearlas antes en el panel de tu tarjeta; si eliges una te digo cómo.';
-    $('ds-games-row').hidden = !d.fortnite;
+    $('ds-gpu').textContent = '';
+    dsFortnite = !!d.fortnite;
     $('ds-w').max = dsNative.width; $('ds-h').max = dsNative.height;
     if (!$('ds-w').value) { $('ds-w').value = Math.round(dsNative.height * 4 / 3 / 2) * 2; $('ds-h').value = dsNative.height; }
     $('ds-custom').hidden = $('ds-mode').value !== 'custom';
@@ -1085,7 +1102,7 @@
     }
     $('ds-result').textContent = '';
     busyBtn($('ds-apply'), true, 'Cambiando…');
-    send({ cmd: 'displayStretch', w, h, games: !$('ds-games-row').hidden && $('ds-games').checked });
+    send({ cmd: 'displayStretch', w, h, games: dsFortnite && $('ds-games').checked });
   });
   $('ds-restore').addEventListener('click', () => { dsConfirm(false); send({ cmd: 'displayRestore' }); });
   $('ds-undo').addEventListener('click', () => { dsConfirm(false); send({ cmd: 'displayRestore' }); });
@@ -1234,7 +1251,7 @@
   function renderProcs(v) {
     const tb = $('pr-rows');
     if (!v.top.length) return;
-    $('pr-sub').textContent = v.game ? `Jugando ${v.game}: el consumo alto ahí es normal, no se marca.` : (v.seconds < 30 ? `Midiendo… el promedio se completa en ${30 - v.seconds} s. Solo con esta pantalla abierta.` : 'Solo se mide con esta pantalla abierta. Los juegos cuentan como consumo normal.');
+    $('pr-sub').textContent = v.game ? `Jugando ${v.game}: el consumo alto ahí es normal, no se marca.` : '';
     const warn = v.top.filter((r) => r.level === 'warn');
     $('pr-alert').hidden = !warn.length;
     if (warn.length) $('pr-alert').textContent = warn.length === 1 ? `${warn[0].name} está consumiendo más de lo normal.` : `${warn.length} programas están consumiendo más de lo normal.`;
@@ -1613,22 +1630,6 @@
     else if (type === 'usbDone') usbDone(payload);
     else if (type === 'isoDl') isoDl(payload);
     else if (type === 'tweaksDone') renderTweaksDone(payload);
-    else if (type === 'utilidad-externaRp') {
-      busyBtn($('tw-utilidad-externa'), false, 'Abrir utilidad externa');
-      const r = $('tw-result'); r.textContent = '';
-      if (payload.opened) r.textContent = payload.message ? `${payload.message} utilidad externa se abre en otra ventana.` : 'utilidad externa se abre en otra ventana.';
-      else {
-        r.append(`${payload.message} Por eso no abrí utilidad externa: sin ese punto no hay forma fácil de deshacer lo que cambie. `);
-        if (payload.off) {
-          const on = el('button', 'btn primary sp-inline', 'Activar la protección y abrir');
-          on.addEventListener('click', () => { busyBtn($('tw-utilidad-externa'), true, 'Creando punto de restauración…'); r.textContent = ''; send({ cmd: 'utilidad-externa', enable: true }); });
-          r.append(on);
-        }
-        const go = el('button', 'btn sp-inline', 'Abrir igual, sin punto');
-        go.addEventListener('click', () => { go.disabled = true; send({ cmd: 'utilidad-externa', force: true }); });
-        r.append(go);
-      }
-    }
     else if (type === 'bloat') { renderBloat(payload); send({ cmd: 'wallGet' }); }
     else if (type === 'wall') renderWall(payload);
     else if (type === 'wallDone') { $('wall-result').textContent = payload.message; $('wall-result').classList.toggle('bad', !payload.ok); }

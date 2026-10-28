@@ -5,10 +5,10 @@ namespace Vigia;
 
 public sealed record DiagItem(string Level, string Title, string Detail, IReadOnlyList<string> Examples);
 public sealed record SystemInfo(string Os, string Build, string Board, string Bios, double UptimeHours, DateTime? LastBoot);
-public sealed record DiagReport(SystemInfo System, int Days, IReadOnlyList<DiagItem> Items, long Ts);
+public sealed record DiagReport(SystemInfo System, int Days, IReadOnlyList<DiagItem> Items, long Ts, IReadOnlyList<Crash> Crashes);
 
 /// <summary>Diagnóstico de solo lectura: registro de eventos de Windows, volcados y estado del antivirus. No cambia nada.</summary>
-public static class Diagnostics
+public static partial class Diagnostics
 {
     static string P(int n, string one, string many) => $"{n} {(n == 1 ? one : many)}";
 
@@ -120,14 +120,6 @@ public static class Diagnostics
             ? new DiagItem("ok", "Servicios y drivers", "Ningún servicio falló al arrancar o se cerró solo.", Array.Empty<string>())
             : new DiagItem("info", "Servicios y drivers", $"{P(svc.Count, "fallo", "fallos")} de servicios. Casi siempre es inofensivo si no notas nada raro.", svcNames));
 
-        // --- Programas que se cerraron o colgaron ---
-        var apps = Query("Application", $"*[System[(Provider[@Name='Application Error'] and EventID=1000) or (Provider[@Name='Application Hang'] and EventID=1002)] and System[{Since(days)}]]");
-        var appTop = apps.Select(e => e.Props.Count > 0 ? e.Props[0].Value?.ToString() ?? "?" : "?")
-            .GroupBy(n => n, StringComparer.OrdinalIgnoreCase).OrderByDescending(g => g.Count()).Take(6).Select(g => $"{g.Key} · {g.Count()} vez/veces").ToList();
-        items.Add(apps.Count == 0
-            ? new DiagItem("ok", "Programas que se cerraron", "Ningún programa se cerró de golpe ni se colgó.", Array.Empty<string>())
-            : new DiagItem(apps.Count >= 15 ? "warn" : "info", "Programas que se cerraron", $"{P(apps.Count, "cierre o cuelgue", "cierres o cuelgues")}.", appTop));
-
         // --- Antivirus (solo lectura) ---
         var av = Wmi(@"root\Microsoft\Windows\Defender", "SELECT AntivirusEnabled, RealTimeProtectionEnabled, AntivirusSignatureAge, QuickScanAge FROM MSFT_MpComputerStatus").FirstOrDefault();
         var avOthers = Wmi(@"root\SecurityCenter2", "SELECT displayName FROM AntiVirusProduct").Select(o => (string)o["displayName"]).Where(n => !n.Contains("Defender")).ToList();
@@ -162,7 +154,8 @@ public static class Diagnostics
 
         items.Add(Clock());
 
-        return new DiagReport(sys, days, items, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+        List<Crash> crashes; try { crashes = Crashes(days); } catch { crashes = []; }
+        return new DiagReport(sys, days, items, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), crashes);
     }
 
     // --- Reloj del sistema ---

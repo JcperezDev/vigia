@@ -134,7 +134,7 @@ public static class Procs
 
         bool game = Fps.Known.ContainsKey(name) || (fg is { } f && f.Exe.Equals(name, StringComparison.OrdinalIgnoreCase))
                     || (path is not null && GameDirs.Any(d => path.Contains(d, StringComparison.OrdinalIgnoreCase)));
-        if (game) return new(Pretty(name), name, count, R(cpu), R(avg), gb, win, "game", "ok", "Juego: que consuma es lo normal.", path, canClose);
+        if (game) return new(Pretty(name), name, count, R(cpu), R(avg), gb, win, "game", "ok", null, path, canClose);
         if (WindowsWork.TryGetValue(name, out var ww))
             return new(Pretty(name), name, count, R(cpu), R(avg), gb, win, "windows", "ok", ww, path, false);
 

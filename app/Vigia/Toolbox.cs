@@ -6,7 +6,7 @@ public record ToolItem(string Id, string Group, string Name, string Detail, stri
 public record ToolDone(string Id, bool Ok, string? Message);
 
 /// <summary>
-/// Herramientas: programas de la carpeta del usuario (por defecto D:\pack externo), herramientas de Windows
+/// Herramientas: programas de la carpeta del usuario (la que elija en Herramientas), herramientas de Windows
 /// y reparaciones con las órdenes de Microsoft. Vigía no copia ni modifica los programas: solo los abre.
 /// Quedan fuera los que activan Windows, apagan Windows Update o Defender, o instalan drivers sin firma.
 /// </summary>
@@ -114,7 +114,7 @@ public static class Toolbox
                 return new ToolItem(d.Id, d.Group, d.Name, d.Detail, exe ?? "", exe is not null, d.Warning, d.Kind);
             }
             var p = d.Kind == Folder ? Path.Combine(root, d.Target) : Environment.ExpandEnvironmentVariables(d.Target);
-            return new ToolItem(d.Id, d.Group, d.Name, d.Detail, p, d.Kind != Folder || File.Exists(p), d.Warning, d.Kind);
+            return new ToolItem(d.Id, d.Group, d.Name, d.Detail, p, d.Kind != Folder || (root.Length > 0 && File.Exists(p)), d.Warning, d.Kind);
         }).ToList();
         items.AddRange(Discover(root));
         return items;
@@ -198,12 +198,4 @@ public static class Toolbox
         Process.Start(psi);
     }
 
-    /// <summary>utilidad externa de externo en su propia ventana de PowerShell. Se descarga de internet en el momento:
-    /// Vigía no lo incluye ni lo modifica. El usuario elige qué aplicar dentro de utilidad externa.</summary>
-    public static string? Openutilidad externa()
-    {
-        Process.Start(new ProcessStartInfo("powershell.exe",
-            "-NoProfile -ExecutionPolicy Bypass -NoExit -Command \"irm https://externo.com/win | iex\"") { UseShellExecute = true });
-        return null;
-    }
 }

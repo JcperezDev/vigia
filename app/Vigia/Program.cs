@@ -136,6 +136,12 @@ static class Program
             File.WriteAllText(args[1], JsonSerializer.Serialize(new { rep, steps }, new JsonSerializerOptions(Json) { WriteIndented = true }));
             return rep.Ok ? 0 : 1;
         }
+        if (args.Length >= 2 && args[0] == "--crashes")   // solo lectura: Vigia --crashes <salida.json> [días]
+        {
+            var days = args.Length >= 3 ? int.Parse(args[2]) : 7;
+            File.WriteAllText(args[1], JsonSerializer.Serialize(Diagnostics.Crashes(days), new JsonSerializerOptions(Json) { WriteIndented = true }));
+            return 0;
+        }
         if (args.Length >= 2 && args[0] == "--procs")   // solo lectura: Vigia --procs <salida.json> [segundos]
         {
             Procs.Reset(); Procs.Sample();
@@ -710,18 +716,6 @@ sealed partial class MainForm : Form
                     if (await Updates.EnsurePuenteAsync() is string perr) { Send("update", (await Updates.CheckAsync()) with { Error = perr }); break; }
                     if (Updates.StartPuente()) { _quitting = true; Close(); }   // salir de verdad, no a la bandeja
                     else Send("update", (await Updates.CheckAsync()) with { Error = "No pude abrir Puente." });
-                    break;
-                case "utilidad-externa":
-                    // sin punto de restauración no se abre, salvo que el usuario lo confirme (force)
-                    if ((bool?)msg["force"] == true) { Toolbox.Openutilidad externa(); Send("utilidad-externaRp", new { ok = true, opened = true, message = "" }); break; }
-                    var enable = (bool?)msg["enable"] == true;
-                    var rp = await Task.Run(() =>
-                    {
-                        if (enable) { var en = RestorePoint.EnableC(); if (!en.Ok) return en; }
-                        return RestorePoint.Create("Vigía: antes de utilidad externa");
-                    });
-                    if (rp.Ok) Toolbox.Openutilidad externa();
-                    Send("utilidad-externaRp", new { ok = rp.Ok, opened = rp.Ok, off = rp.Off, message = rp.Message });
                     break;
                 case "gamesGet":
                     Send("games", await Task.Run(GamesPayload));
