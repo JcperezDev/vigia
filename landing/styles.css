@@ -262,9 +262,8 @@ h2 { font-size: clamp(2rem, 3.8vw, 3.3rem); font-weight: 780; font-stretch: 112%
 .acts span { color: var(--ink-3); font-size: 15px; }
 .acts .ok span { color: var(--amber); }
 
-.end { display: grid; grid-template-columns: 1fr minmax(300px, 440px); gap: 40px 80px; align-items: center; padding-bottom: clamp(80px, 10vw, 130px) !important; }
-.end h2 { font-size: clamp(2.3rem, 4.2vw, 3.7rem); }
-.end .dl { margin-top: 34px; }
+.end { padding-bottom: clamp(80px, 10vw, 130px) !important; }
+.end .smart { max-width: 640px; }
 .smart { border-left: 2px solid var(--amber); padding: 4px 0 4px 22px; }
 .smart b { display: block; font-size: 17px; font-weight: 650; font-stretch: 106%; margin-bottom: 8px; }
 .smart p { color: var(--ink-2); font-size: 15.5px; }
