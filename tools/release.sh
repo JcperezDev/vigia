@@ -14,7 +14,7 @@ KEY="$USERPROFILE/.vigia/release-key.pem"
 DOTNET="$USERPROFILE/.dotnet/dotnet.exe"
 export DOTNET_ROOT="$USERPROFILE/.dotnet" DOTNET_NOLOGO=1 DOTNET_CLI_TELEMETRY_OPTOUT=1
 
-V=$(sed -n 's|.*<Version>\(.*\)</Version>.*|\1|p' src/Vigia/Vigia.csproj)
+V=$(sed -n 's|.*<Version>\(.*\)</Version>.*|\1|p' app/Vigia/Vigia.csproj)
 [ -f "$KEY" ] || { echo "Falta la clave de firma: $KEY"; exit 1; }
 [ -z "$(git status --porcelain)" ] || { echo "Hay cambios sin commit; haz commit antes de publicar."; exit 1; }
 
@@ -25,15 +25,15 @@ api() { curl -sS -H "Authorization: token $TOKEN" -H "Accept: application/vnd.gi
 
 mkdir -p out
 if [ "$(api -o "$DISCARD" -w '%{http_code}' "https://api.github.com/repos/$PUB_REPO/releases/tags/v$V")" = 200 ]; then
-  echo "v$V ya está publicada. Sube <Version> en src/Vigia/Vigia.csproj y src/Vigia/app.manifest."; exit 1
+  echo "v$V ya está publicada. Sube <Version> en app/Vigia/Vigia.csproj y app/Vigia/app.manifest."; exit 1
 fi
 
 OUT="$ROOT/out/$V"
 rm -rf "out/$V"; mkdir -p "out/$V"
 echo "== Vigía $V"
-"$DOTNET" publish src/Vigia/Vigia.csproj -c Release -r win-x64 --self-contained true -o "$OUT/Vigia" -v quiet -nologo
+"$DOTNET" publish app/Vigia/Vigia.csproj -c Release -r win-x64 --self-contained true -o "$OUT/Vigia" -v quiet -nologo
 echo "== Puente"
-"$DOTNET" publish src/Puente/Puente.csproj -c Release -o "$OUT/puente" -v quiet -nologo
+"$DOTNET" publish app/Puente/Puente.csproj -c Release -o "$OUT/puente" -v quiet -nologo
 cp "out/$V/puente/Puente.exe" "out/$V/Puente.exe"
 
 ZIP="Vigia-$V-win-x64.zip"

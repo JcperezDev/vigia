@@ -5,7 +5,7 @@
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
-const www = path.join(__dirname, '..', 'src', 'Vigia', 'wwwroot');
+const www = path.join(__dirname, '..', 'app', 'Vigia', 'wwwroot');
 const code = fs.readFileSync(path.join(www, 'i18n.js'), 'utf8');
 
 function load(lang) {

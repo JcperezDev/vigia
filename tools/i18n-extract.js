@@ -1,10 +1,10 @@
 // Saca todos los textos en español de la interfaz (index.html, app.js), del backend (*.cs) y del catálogo (tweaks.json)
-// y los deja en src/Vigia/wwwroot/i18n/strings.json. Las partes variables (${x} en JS, {x} en C#) quedan como {0}, {1}…
+// y los deja en app/Vigia/wwwroot/i18n/strings.json. Las partes variables (${x} en JS, {x} en C#) quedan como {0}, {1}…
 // Uso: node tools/i18n-extract.js
 'use strict';
 const fs = require('fs');
 const path = require('path');
-const root = path.join(__dirname, '..', 'src', 'Vigia');
+const root = path.join(__dirname, '..', 'app', 'Vigia');
 const out = new Map();   // clave -> fuentes
 
 function add(s, src) {
