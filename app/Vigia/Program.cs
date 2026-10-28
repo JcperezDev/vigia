@@ -275,6 +275,7 @@ static class Program
             return 0;
         }
         ApplicationConfiguration.Initialize();
+        if (args.Length == 0 || args[0] == AutoStart.Arg) IconOnce();
         // Verificación visual: Vigia.exe --snap salida.png [storage] -> captura la UI real tras ~8 s y sale
         // Consumo real: Vigia.exe --bench salida.json -> 30 s abierta, 60 s minimizada, y sale
         Application.Run(args.Length >= 2 && args[0] == "--snap" ? new MainForm(args[1], args.ElementAtOrDefault(2))
@@ -282,6 +283,23 @@ static class Program
             : args.Length >= 1 && args[0] == AutoStart.Arg ? new MainForm(startHidden: true) : new MainForm());
         return 0;
     }
+    // Tras instalar o actualizar, Windows puede seguir mostrando el icono viejo en el acceso directo
+    // (lo guarda en caché). Una vez por versión se le avisa que lo vuelva a leer; no abre nada.
+    [System.Runtime.InteropServices.DllImport("shell32.dll")] static extern void SHChangeNotify(int ev, uint flags, IntPtr a, IntPtr b);
+    static void IconOnce()
+    {
+        try
+        {
+            var v = typeof(Program).Assembly.GetName().Version?.ToString() ?? "";
+            var mark = Path.Combine(Settings.Dir, "icono.txt");
+            if (File.Exists(mark) && File.ReadAllText(mark) == v) return;
+            SHChangeNotify(0x08000000, 0x2000, IntPtr.Zero, IntPtr.Zero);   // SHCNE_ASSOCCHANGED, SHCNF_FLUSHNOWAIT
+            Directory.CreateDirectory(Settings.Dir);
+            File.WriteAllText(mark, v);
+        }
+        catch { }
+    }
+
 }
 
 sealed partial class MainForm : Form

@@ -1047,16 +1047,23 @@
   $('ds-undo').addEventListener('click', () => { dsConfirm(false); send({ cmd: 'displayRestore' }); });
   $('ds-keep').addEventListener('click', () => { dsConfirm(false); $('tl-result').textContent = 'Resolución estirada guardada. «Volver a la normal» la deja como estaba.'; });
 
-  // primera visita a cada sección: cargar sus datos
-  const loaded = new Set();
+  // Cada sección carga sus datos al abrirla. Si desde entonces se cambió algo (en otra sección, o fuera de Vigía
+  // mientras la ventana estaba oculta), se vuelven a leer al volver a ella. Escanear discos o almacenamiento solo la primera vez.
+  const loaded = new Map();
+  let changes = 0;
+  const changed = () => { changes += 1; };
+  const REREAD = new Set(['opt', 'diag', 'sug', 'mem', 'tweaks', 'apps', 'simple', 'tools', 'startup', 'games', 'backups']);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') changed(); });
   document.querySelectorAll('.nav').forEach((b) => b.addEventListener('click', () => {
     const v = b.dataset.view;
-    if (loaded.has(v)) return;
-    loaded.add(v);
+    if (loaded.has(v) && (loaded.get(v) === changes || !REREAD.has(v))) return;
+    const again = loaded.has(v);
+    loaded.set(v, changes);
+    if (v === 'simple' && again && $('sm-ask').hidden) return;   // modo simple corriendo o terminado: no se toca
     if (v === 'health') $('h-scan').click();
     else if (v === 'opt') send({ cmd: 'optStatus', analyze: false });
     else if (v === 'diag') $('d-run').click();
-    else if (v === 'sug') { if (!sugDone) $('s-run').click(); }
+    else if (v === 'sug') { if (!sugDone || again) $('s-run').click(); }
     else if (v === 'storage' && !targets.length) $('scan').click();
     else if (v === 'mem') send({ cmd: 'settingsGet' });
     else if (v === 'tweaks') send({ cmd: 'tweaksList' });
@@ -1173,7 +1180,7 @@
     const ul = $('sm-problems'); ul.textContent = ''; ul.hidden = !r.problems.length;
     for (const p of r.problems.slice(0, 8)) { const li = document.createElement('li'); li.textContent = p; ul.append(li); }
     $('sm-done').hidden = false;
-    loaded.delete('tweaks'); loaded.delete('apps'); loaded.delete('backups');
+    changed();
   }
   $('sm-again').addEventListener('click', () => { $('sm-run').hidden = true; $('sm-done').hidden = true; $('sm-ask').hidden = false; send({ cmd: 'bloatList' }); });
   $('sm-backups').addEventListener('click', () => document.querySelector('.nav[data-view="backups"]').click());
@@ -1429,8 +1436,11 @@
   setTimeout(() => { if (!window.__vigiaSnap && !tourSeen()) tourStart(true); }, 900);
 
   // ---------- mensajes del backend ----------
+  // respuestas que significan que algo del sistema cambió
+  const DONE = new Set(['tweaksDone', 'simpleDone', 'bloatDone', 'startupAll', 'secDone', 'rigDone', 'gameDone', 'backupDone', 'optDone', 'autoStart', 'wallDone', 'memFreed', 'startupDone', 'displayDone', 'toolDone']);
   if (host) host.addEventListener('message', (e) => {
     const { type, payload } = e.data;
+    if (DONE.has(type)) changed();
     if (type === 'telemetry') render(payload);
     else if (type === 'healthScan') renderHealth(payload);
     else if (type === 'diagRun') renderDiag(payload);
