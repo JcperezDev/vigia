@@ -137,7 +137,7 @@ dd { margin: 0; font: 500 14px "JBMono", monospace; font-variant-numeric: tabula
 .lv-ok { --lv: var(--ok); } .lv-info { --lv: var(--cyan); } .lv-warn { --lv: var(--amber); } .lv-bad { --lv: var(--hot); }
 .pill { font-size: 12px; font-weight: 500; color: var(--lv); white-space: nowrap; }
 .empty { color: var(--fg-3); font-size: 13px; margin: 0; padding: 6px 0; list-style: none; }
-.head .sub { margin-top: 4px; }
+.head .sub { display: none; }   /* sin subtítulo arriba en ningún módulo */
 .head .btn { flex: none; }
 
 /* Salud */
