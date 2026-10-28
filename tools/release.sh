@@ -44,13 +44,16 @@ for f in "$ZIP" Puente.exe; do
   "$P" --sign "$OUT/$f" "$KEY"
   "$P" --verify "$OUT/$f" || { echo "La firma de $f no se pudo comprobar."; exit 1; }
 done
+# el mismo Puente con otro nombre: es el que se baja desde la web. Su contador en GitHub = descargas nuevas;
+# Puente.exe lo usan las actualizaciones, así no se mezclan (ver tools/stats.js)
+cp "$OUT/Puente.exe" "$OUT/Vigia-Setup.exe"
 ls -la "out/$V" | grep -E "zip|exe|sig"
 
 echo "== Publicando v$V"
 node -e "require('fs').writeFileSync(process.argv[1], JSON.stringify({tag_name:'v'+process.argv[2], target_commitish:'main', name:'Vigía '+process.argv[2], body:process.argv[3]}))" "$OUT/release.json" "$V" "$NOTES"
 api -o "$OUT/release-out.json" -H "Content-Type: application/json; charset=utf-8" --data-binary "@$OUT/release.json" "https://api.github.com/repos/$PUB_REPO/releases"
 RID=$(node -e "const r=require(process.argv[1]); if(!r.id){console.error(JSON.stringify(r)); process.exit(1)} console.log(r.id)" "$OUT/release-out.json")
-for f in "$ZIP" "$ZIP.sig" Puente.exe Puente.exe.sig; do
+for f in "$ZIP" "$ZIP.sig" Puente.exe Puente.exe.sig Vigia-Setup.exe; do
   code=$(api -o "$DISCARD" -w '%{http_code}' -H "Content-Type: application/octet-stream" --data-binary "@$OUT/$f" \
     "https://uploads.github.com/repos/$PUB_REPO/releases/$RID/assets?name=$f")
   echo "  $f: $code"; [ "$code" = 201 ] || exit 1

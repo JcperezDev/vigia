@@ -732,7 +732,7 @@
   // ---------- ayuda y apoyo ----------
   const goView = (v) => document.querySelector(`.nav[data-view="${v}"]`)?.click();
   document.querySelectorAll('.hp-go').forEach((b) => b.addEventListener('click', () => goView(b.dataset.go)));
-  const DOWNLOAD = 'https://github.com/JcperezDev/vigia-releases/releases/latest';
+  const DOWNLOAD = 'https://jcperezdev.github.io/vigia-releases/';
   $('sp-star').addEventListener('click', () => send({ cmd: 'openUrl', url: 'repo' }));
   $('sp-issue').addEventListener('click', () => send({ cmd: 'openUrl', url: 'https://github.com/JcperezDev/vigia-releases/issues' }));
   $('sp-share').addEventListener('click', async () => {
