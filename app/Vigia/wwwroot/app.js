@@ -677,30 +677,25 @@
   }
 
   // ---------- pasar a un USB ----------
-  let usbIso = null, usbDrives = [], usbBusy = false, usbArmed = 0;
+  let usbIso = null, usbDrives = [], usbBusy = false;
   function usbSetIso(path, bytes) { usbIso = path; $('usb-iso').textContent = `${path}${bytes ? ` · ${gb(bytes)}` : ''}`; usbReady(); }
   function usbSel() { return usbDrives.find((d) => String(d.number) === $('usb-drive').value) || null; }
-  function usbDisarm() { usbArmed = 0; const g = $('usb-go'); g.textContent = 'Pasar a un USB'; g.classList.remove('danger'); }
-  function usbReady() { $('usb-go').disabled = usbBusy || !usbIso || !usbSel(); if (!usbArmed) usbDisarm(); }
-  function usbList(list) {
-    usbDrives = list || []; busyBtn($('usb-refresh'), false, 'Buscar de nuevo');
-    const sel = $('usb-drive'), keep = sel.value;
-    sel.replaceChildren(...usbDrives.map((d) => { const o = el('option', '', `${d.name} · ${gb(d.bytes)}${d.letters?.length ? ` · ${d.letters.map((l) => l + ':').join(' ')}` : ''}`); o.value = String(d.number); return o; }));
-    if (usbDrives.some((d) => String(d.number) === keep)) sel.value = keep;
-    $('usb-none').hidden = usbDrives.length > 0; sel.parentElement.querySelector('select').hidden = !usbDrives.length;
-    usbDisarm(); usbReady();
+  function usbReady() { $('usb-go').disabled = usbBusy || !usbIso || !usbSel(); }
+  // pregunta antes de algo que no tiene vuelta atrás; resuelve true solo si se pulsa el botón rojo
+  function ask(title, text, yes) {
+    const d = $('ask'); $('ask-t').textContent = title; $('ask-p').textContent = text; $('ask-yes').textContent = yes;
+    return new Promise((res) => {
+      const done = (v) => { d.removeEventListener('close', onClose); if (d.open) d.close(); res(v); };
+      const onClose = () => done(false);
+      $('ask-yes').onclick = () => done(true); $('ask-no').onclick = () => done(false);
+      d.addEventListener('close', onClose); d.showModal(); $('ask-no').focus();
+    });
   }
-  $('usb-pick').addEventListener('click', () => send({ cmd: 'usbPickIso' }));
   $('usb-refresh').addEventListener('click', () => { busyBtn($('usb-refresh'), true, 'Buscando…'); send({ cmd: 'usbList' }); });
-  $('usb-drive').addEventListener('change', () => { usbDisarm(); usbReady(); });
-  $('usb-go').addEventListener('click', () => {
+  $('usb-drive').addEventListener('change', usbReady);
+  $('usb-go').addEventListener('click', async () => {
     const d = usbSel(); if (!d || !usbIso) return;
-    const g = $('usb-go');
-    if (!usbArmed) {
-      usbArmed = setTimeout(usbDisarm, 6000);
-      g.textContent = `¿Seguro? Se borra ${d.name} (${gb(d.bytes)})`; g.classList.add('danger'); return;
-    }
-    clearTimeout(usbArmed); usbArmed = 0; usbDisarm();
+    if (!await ask('¿Seguro?', `Se va a borrar todo lo que tiene ${d.name} (${gb(d.bytes)}). No se puede recuperar.`, 'Borrar y pasar')) return;
     usbBusy = true; usbReady();
     $('usb-result').textContent = ''; $('usb-result').classList.remove('bad');
     $('usb-run').hidden = false; $('usb-step').textContent = 'Empezando…'; $('usb-line').textContent = ''; $('usb-bar').style.width = '0';
@@ -1313,6 +1308,7 @@
   window.vigiaSnap = (spec) => {
     const [v, lang, dbg] = spec.split('@');   // 'settings@en' = Configuración en inglés; 'settings@en@dbg' añade el diagnóstico
     if (lang) window.vigiaI18n.set(lang);
+    if (v === 'ask') { document.querySelector('.nav[data-view="iso"]')?.click(); setTimeout(() => ask('¿Seguro?', `Se va a borrar todo lo que tiene ${'Kingston DataTraveler 3.0'} (${gb(15472000000)}). No se puede recuperar.`, 'Borrar y pasar'), 1500); return; }
     if (lang && dbg) setTimeout(() => {   // diagnóstico de idioma en la captura
       const I = window.vigiaI18n, left = [];
       const it = document.createTreeWalker(document.querySelector('.view:not([hidden])') || document.body, NodeFilter.SHOW_TEXT);

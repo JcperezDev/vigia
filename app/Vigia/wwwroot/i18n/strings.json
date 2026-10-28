@@ -2161,5 +2161,8 @@
  "Eso es drift: el juego lo lee como si movieras el stick.",
  "Drift leve: en algunos juegos ya se nota.",
  "Sube la zona muerta de ese stick en el juego a {0} %. Si va a más, limpia el stick o cámbialo.",
- "Juegos detecta el drift: te dice si el ratón o el stick del mando se mueven solos y qué hacer."
+ "Juegos detecta el drift: te dice si el ratón o el stick del mando se mueven solos y qué hacer.",
+ "¿Seguro?",
+ "Se va a borrar todo lo que tiene {0} ({1}). No se puede recuperar.",
+ "Borrar y pasar"
 ]

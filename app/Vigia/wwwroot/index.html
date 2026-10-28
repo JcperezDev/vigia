@@ -338,7 +338,6 @@
           <button class="btn" id="usb-pick">Elegir ISO…</button>
           <p class="sub" id="usb-none" hidden>Conecta una memoria USB de 8 GB o más y pulsa «Buscar de nuevo».</p>
           <div class="usb-drive"><select class="st-select" id="usb-drive" aria-label="Memoria USB"></select><button class="btn" id="usb-refresh">Buscar de nuevo</button></div>
-          <p class="usb-warn">Se borra todo lo que tenga la memoria. Solo salen memorias USB, nunca tus discos internos ni los externos.</p>
           <button class="btn primary" id="usb-go" disabled>Pasar a un USB</button>
         </div>
         <p class="src iso-note">Arranca en cualquier PC con UEFI (todos los que pueden con Windows 11). Tarda de 5 a 20 minutos según la memoria.</p>
@@ -601,6 +600,11 @@
       <ul class="findings" id="findings"><li class="empty">Revisando…</li></ul>
     </section>
   </main>
+  <dialog class="ask" id="ask" aria-labelledby="ask-t">
+    <h2 id="ask-t"></h2>
+    <p id="ask-p"></p>
+    <div class="ask-act"><button class="btn" id="ask-no" value="no">Cancelar</button><button class="btn danger" id="ask-yes" value="yes"></button></div>
+  </dialog>
 </div>
 <div class="tour" id="tour" hidden>
   <div class="tour-hole" id="tour-hole" hidden></div>

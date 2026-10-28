@@ -1956,5 +1956,8 @@
  "Eso es drift: el juego lo lee como si movieras el stick.": "C'est du drift : le jeu le lit comme si tu bougeais le stick.",
  "Drift leve: en algunos juegos ya se nota.": "Drift léger : certains jeux le remarquent déjà.",
  "Sube la zona muerta de ese stick en el juego a {0} %. Si va a más, limpia el stick o cámbialo.": "Monte la zone morte de ce stick dans le jeu à {0} %. Si ça empire, nettoie le stick ou change-le.",
- "Juegos detecta el drift: te dice si el ratón o el stick del mando se mueven solos y qué hacer.": "Jeux détecte le drift : il te dit si la souris ou un stick de manette bouge tout seul et quoi faire."
+ "Juegos detecta el drift: te dice si el ratón o el stick del mando se mueven solos y qué hacer.": "Jeux détecte le drift : il te dit si la souris ou un stick de manette bouge tout seul et quoi faire.",
+ "¿Seguro?": "Tu es sûr ?",
+ "Se va a borrar todo lo que tiene {0} ({1}). No se puede recuperar.": "Tout ce qui se trouve sur {0} ({1}) sera effacé. Impossible à récupérer.",
+ "Borrar y pasar": "Effacer et écrire"
 }
