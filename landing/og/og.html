@@ -1,0 +1,33 @@
+<!doctype html>
+<!-- Tarjeta para compartir el enlace (1200×630). Se captura a img/og-en.png; no se publica. -->
+<html lang="en">
+<meta charset="utf-8">
+<style>
+@font-face { font-family: Archivo; src: url(../fonts/archivo-var-latin.woff2) format("woff2"); font-weight: 100 900; }
+@font-face { font-family: Plex; src: url(../fonts/ibm-plex-sans-latin-400-normal.woff2) format("woff2"); font-weight: 400; }
+* { margin: 0; box-sizing: border-box; }
+html, body { width: 1200px; height: 630px; overflow: hidden; }
+body { background: radial-gradient(900px 520px at 78% 40%, #1a2230, #0c1016 70%); color: #f1f4f9; font-family: Plex, "Segoe UI", sans-serif; position: relative; }
+.l { position: absolute; left: 72px; top: 0; bottom: 0; width: 540px; display: flex; flex-direction: column; justify-content: center; }
+.brand { display: flex; align-items: center; gap: 14px; font: 650 34px Archivo, sans-serif; letter-spacing: -.5px; margin-bottom: 42px; }
+.brand svg { width: 44px; height: 44px; fill: none; stroke: #f1f4f9; stroke-width: 1.4; stroke-linejoin: round; }
+.brand .lid { fill: #e9b45a; stroke: #e9b45a; }
+h1 { font: 700 64px/1.02 Archivo, sans-serif; letter-spacing: -2px; }
+h1 span { color: #e9b45a; display: block; }
+p { margin-top: 28px; font-size: 24px; line-height: 1.35; color: #c3ccda; }
+.frame { position: absolute; left: 650px; top: 120px; width: 600px; height: 390px; overflow: hidden; border-radius: 14px 0 0 14px;
+  border: 1px solid rgba(241,244,249,.16); border-right: 0; box-shadow: 0 30px 80px rgba(0,0,0,.55), 0 0 120px rgba(233,180,90,.08); }
+.frame img { position: absolute; left: -168px; top: -6px; width: 820px; }
+.frame::after { content: ""; position: absolute; inset: 0; z-index: 1; background: linear-gradient(90deg, transparent 62%, #0e131a 97%), linear-gradient(180deg, transparent 70%, #0e131a 100%); }
+.rule { position: absolute; left: 72px; right: 72px; bottom: 54px; height: 1px; background: rgba(241,244,249,.1); }
+.url { position: absolute; left: 72px; bottom: 22px; font: 500 20px "Segoe UI", sans-serif; color: #b4bcc8; letter-spacing: .3px; }
+</style>
+<div class="l">
+  <div class="brand"><svg viewBox="0 0 24 24"><path class="lid" d="M12 3 20 7.5 12 12 4 7.5Z"/><path d="M12 3 20 7.5v9L12 21l-8-4.5v-9Z"/><path d="M4 7.5 12 12l8-4.5M12 12v9"/></svg>Vigía</div>
+  <h1>Real optimization.<span>Measurable performance.</span></h1>
+  <p>Free for Windows 10/11. No account, no ads, and every change can be undone.</p>
+</div>
+<div class="frame"><img src="../img/monitor-en.webp" alt=""></div>
+<div class="rule"></div>
+<div class="url">vigiapc.vercel.app</div>
+</html>
