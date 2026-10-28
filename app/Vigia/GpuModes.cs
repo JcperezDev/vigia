@@ -103,6 +103,14 @@ public static class GpuModes
                 t = default;
                 r = get(id, ref input, ref t);
                 if (r == 0 && t.HVisible == w && t.VVisible == h && t.Pclk > 0) return (id, t, 0);
+                // El driver calcula en bloques de 8 píxeles: 1750 sale como 1744 o 1752. Igual que «Manual» en el panel
+                // de NVIDIA, se deja el ancho pedido y el total de la línea, y el margen de delante absorbe la diferencia.
+                var diff = w - t.HVisible;
+                if (r == 0 && t.VVisible == h && t.Pclk > 0 && Math.Abs(diff) < 8 && t.HFrontPorch - diff >= 8)
+                {
+                    t.HVisible = (ushort)w; t.HFrontPorch = (ushort)(t.HFrontPorch - diff);
+                    return (id, t, 0);
+                }
             }
             return (id, t, r != 0 ? r : -9);
         }
@@ -113,7 +121,7 @@ public static class GpuModes
             {
                 var (id, t, r) = Prepare(w, h, hz);
                 return r != 0 ? $"NVIDIA: error {r} (id {id:x})"
-                    : $"NVIDIA id {id:x}: {t.HVisible}x{t.VVisible} total {t.HTotal}x{t.VTotal} pclk {t.Pclk / 100.0:0.00} MHz · tamaños {Marshal.SizeOf<TimingInput>()}/{Marshal.SizeOf<Timing>()}/{Marshal.SizeOf<CustomDisplay>()}";
+                    : $"NVIDIA id {id:x}: {t.HVisible}x{t.VVisible} fp {t.HFrontPorch} total {t.HTotal}x{t.VTotal} pclk {t.Pclk / 100.0:0.00} MHz · tamaños {Marshal.SizeOf<TimingInput>()}/{Marshal.SizeOf<Timing>()}/{Marshal.SizeOf<CustomDisplay>()}";
             }
             catch (Exception e) { return "NVIDIA: " + e.Message; }
         }

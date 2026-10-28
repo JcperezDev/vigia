@@ -1802,6 +1802,7 @@
  "Fondo de VigíaOS": "VigíaOS wallpaper",
  "BIOS, más apps y ISO limpia": "BIOS, more apps and a clean ISO",
  "Mientras juegas, Vigía ya no le quita memoria al juego: solo suelta la que nadie usa, y solo si de verdad queda poca. Antes podía dar tirones cada pocos minutos.": "While you play, Vigía no longer takes memory away from the game: it only frees what nobody is using, and only if you're really running low. Before, it could cause stutters every few minutes.",
+ "Las resoluciones que no van en bloques de 8, como 1750×1080 o 1154×864, ya se pueden crear en tarjetas NVIDIA.": "Resolutions that aren't a multiple of 8, like 1750×1080 or 1154×864, can now be created on NVIDIA cards.",
  "Vigía reconoce también los juegos en ventana a pantalla completa (Fortnite, Valorant, CS2) y espera a que termines.": "Vigía also recognizes games in borderless fullscreen (Fortnite, Valorant, CS2) and waits until you're done.",
  "Con un juego delante, Vigía no lee sensores aunque la tengas abierta en otra pantalla. La temperatura de la RAM y de los discos se lee cada 30 segundos.": "With a game in front, Vigía doesn't read sensors even if it's open on another screen. RAM and drive temperatures are read every 30 seconds.",
  "Novedades: abajo en la barra lateral ves qué trae cada versión y actualizas desde ahí.": "What's new: at the bottom of the sidebar you see what each version brings and update from there.",
