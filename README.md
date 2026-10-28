@@ -1,28 +1,30 @@
 # Vigía
 
-Optimizador y monitor para PCs con Windows 10/11, pensado para jugar. Gratis, sin anuncios, sin cuentas y de código abierto.
+A monitor and optimizer for Windows 10/11 PCs, built for gaming. Free, no ads, no accounts, and the source code is public.
 
-**Descarga:** https://vigiapc.vercel.app · [Última versión](https://github.com/JcperezDev/vigia-releases/releases/latest)
+**Download:** https://vigiapc.vercel.app · [Latest release](https://github.com/JcperezDev/vigia-releases/releases/latest)
 
-## Qué hace
+The app is available in English, Spanish, Portuguese, French and German. [Leer en español](README.es.md).
 
-- **Monitor:** CPU, GPU, memoria y discos con los mismos contadores del Administrador de tareas, más temperaturas y qué programa está gastando de más.
-- **Modo simple:** unas preguntas (impresora, red, apps de Windows…) y Vigía hace el resto.
-- **Ajustes, Juegos y Memoria:** ajustes de Windows explicados uno a uno, FPS reales antes y después, perfil para Fortnite y liberación de memoria automática.
-- **Apps de Windows, Inicio de Windows, Almacenamiento:** quitar lo que sobra, apagar lo que arranca solo y limpiar archivos temporales.
-- **Diagnóstico, Salud de discos, BIOS:** revisa el PC y explica qué conviene cambiar. La BIOS solo se lee; Vigía nunca escribe en ella.
-- **ISO de Windows:** crea una ISO limpia a partir de la oficial (sin anuncios, cuenta local, sin TPM ni Secure Boot, sin recopilación de datos ni BitLocker automático) y la pasa a un USB.
+## What it does
 
-## Seguridad
+- **Monitor:** CPU, GPU, memory and disks, using the same counters as Task Manager, plus temperatures and which program is using more than it should.
+- **Simple mode:** answer a few questions (printer, network, Windows apps…) and Vigía does the rest.
+- **Tweaks, Games and Memory:** Windows tweaks explained one by one, real FPS before and after, a Fortnite profile, stretched resolution with an FPS estimate, and automatic memory release.
+- **Windows apps, Windows startup, Storage:** remove what you don't need, turn off what starts on its own, and clean temporary files and the Recycle Bin.
+- **Diagnostics, Disk health, BIOS:** checks your PC and explains what's worth changing. The BIOS is read only; Vigía never writes to it.
+- **Windows ISO:** builds a clean ISO from the official one (no ads, local account, no TPM or Secure Boot check, no data collection, no automatic BitLocker) and writes it to a USB drive.
 
-- **Copia antes de cada cambio.** La primera vez guarda cómo estaba el sistema; cada ajuste se puede deshacer y «Volver a como estaba» lo devuelve todo.
-- **No envía nada.** Sin telemetría. Solo pregunta a GitHub si hay versión nueva (se puede apagar).
-- **Actualizaciones firmadas.** El actualizador comprueba una firma ECDSA antes de instalar.
-- **No hace cosas peligrosas:** no apaga Defender, UAC ni las protecciones de la CPU; no usa drivers de terceros; no toca antitrampas ni procesos de juegos (solo archivos de configuración, con el juego cerrado).
+## Safety
 
-## Compilar
+- **A backup before every change.** The first time, it saves how your system was. Every tweak can be undone, and «Go back to how it was» restores everything.
+- **Sends nothing.** No telemetry. It only asks GitHub whether there's a new version (you can turn that off).
+- **Signed updates.** The updater checks an ECDSA signature before installing.
+- **No risky stuff:** it doesn't turn off Defender, UAC or CPU protections, doesn't use third-party drivers, and doesn't touch anti-cheat or game processes. For games it only edits config files, with the game closed.
 
-Necesitas el SDK de .NET 10 en Windows.
+## Build
+
+You need the .NET 10 SDK on Windows.
 
 ```
 cd app/Vigia
@@ -30,23 +32,23 @@ dotnet build -c Release
 bin/Release/net10.0-windows/win-x64/Vigia.exe
 ```
 
-Vigía pide permisos de administrador porque cambia ajustes de Windows.
+Vigía asks for administrator rights because it changes Windows settings.
 
-## Estructura
+## Layout
 
-| Carpeta | Contenido |
+| Folder | Contents |
 |---|---|
-| `app/Vigia` | La app (.NET 10, WinForms + WebView2; la interfaz está en `wwwroot`) |
-| `app/Puente` | Instalador y actualizador |
-| `landing` | La web (https://vigiapc.vercel.app) |
-| `tools` | Publicación, traducciones, iconos, fondo y pruebas en máquina virtual |
+| `app/Vigia` | The app (.NET 10, WinForms + WebView2; the UI lives in `wwwroot`) |
+| `app/Puente` | Installer and updater |
+| `landing` | The website (https://vigiapc.vercel.app) |
+| `tools` | Publishing, translations, icons, wallpaper and virtual machine tests |
 
-## Apoyar
+## Support
 
-Vigía es gratis. Si te sirve: dale una estrella, compártela o [invita un café en Ko-fi](https://ko-fi.com/vigiapc). ¿Algo falla o se te ocurre una mejora? Abre un [issue](https://github.com/JcperezDev/vigia/issues).
+Vigía is free. If it helps you, give it a star, share it, or [buy me a coffee on Ko-fi](https://ko-fi.com/vigiapc). Something broken, or an idea to make it better? Open an [issue](https://github.com/JcperezDev/vigia/issues).
 
-## Licencia
+## License
 
-[PolyForm Noncommercial 1.0.0](LICENSE). Puedes usar, leer, modificar y compartir Vigía gratis; lo que no se permite es venderla, cobrar por ella ni meterla en un producto o servicio de pago.
+[PolyForm Noncommercial 1.0.0](LICENSE). You can use, read, modify and share Vigía for free. What's not allowed is selling it, charging for it, or putting it in a paid product or service.
 
-Las versiones hasta la 0.20.0 salieron con licencia MIT y quien las tenga conserva ese permiso para esas versiones. Componentes de terceros en [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
+Versions up to 0.20.0 were released under the MIT license, and anyone who has them keeps that permission for those versions. Third-party components are listed in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
