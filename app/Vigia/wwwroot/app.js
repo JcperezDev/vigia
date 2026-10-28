@@ -368,7 +368,7 @@
 
   // ---------- sugerencias ----------
   // Se revisa una vez al abrir la ventana (unos 2 s de pings y lecturas) y cuando se pide; nunca con la ventana oculta.
-  const GO = { health: 'Abrir Salud de discos', storage: 'Abrir Almacenamiento', mem: 'Abrir Memoria' };
+  const GO = { health: 'Abrir Salud de discos', storage: 'Abrir Almacenamiento', mem: 'Abrir Memoria', tweaks: 'Abrir Ajustes' };
   let sugDone = false;
   $('s-run').addEventListener('click', () => { busyBtn($('s-run'), true, 'Revisando…'); send({ cmd: 'suggest' }); });
   function renderSug(r) {
@@ -468,6 +468,7 @@
   }
   function renderTweaks(p) {
     tweaks = p.items;
+    twLaptop = !!p.laptop;
     const keep = new Set(twSel());
     const groups = [...new Set(tweaks.map((t) => t.group))];
     $('tw-groups').replaceChildren(...groups.map((g) => {
@@ -496,12 +497,30 @@
     const applied = tweaks.filter((t) => t.state === 'applied').length;
     const rp = p.restorePoints < 0 ? 'no se pudo leer los puntos de restauración' : plural(p.restorePoints, 'punto de restauración', 'puntos de restauración');
     $('tw-sub').textContent = `${applied} de ${tweaks.length} ya están aplicados en este PC.`;
-    twButtons();
+    twButtons(); twAllCard();
   }
+  // «Aplicar todo»: los de riesgo bajo que faltan. Fuera la impresión (rompe imprimir) y, en laptop, lo que gasta batería.
+  let twLaptop = false;
+  const twAll = () => tweaks.filter((t) => t.risk === 'bajo' && !t.blocked && t.state !== 'applied' && t.state !== 'na'
+    && !['print-off', 'boot-info'].includes(t.id) && !(twLaptop && ['power-ultimate', 'hibernate-off'].includes(t.id)));
+  function twAllCard() {
+    const n = twAll().length;
+    $('tw-all-t').textContent = n ? plural(n, 'ajuste por aplicar', 'ajustes por aplicar') : 'Todo aplicado';
+    $('tw-all-p').textContent = n ? 'Con copia: se puede deshacer.' : '';
+    $('tw-all').disabled = !n; $('tw-all').hidden = !n;
+  }
+  // Aplicar/Deshacer de arriba solo cuando se eligen uno por uno
+  const twOne = document.querySelector('.tw-one'), twAct = $('tw-apply').parentElement;
+  twAct.hidden = true; twOne.addEventListener('toggle', () => { twAct.hidden = !twOne.open; });
+  $('tw-all').addEventListener('click', () => {
+    const ids = twAll().map((t) => t.id); if (!ids.length) return;
+    busyBtn($('tw-all'), true, 'Aplicando…'); $('tw-apply').disabled = $('tw-revert').disabled = true;
+    send({ cmd: 'tweaksApply', ids });
+  });
   $('tw-apply').addEventListener('click', () => { busyBtn($('tw-apply'), true, 'Aplicando…'); $('tw-revert').disabled = true; send({ cmd: 'tweaksApply', ids: twSel() }); });
   $('tw-revert').addEventListener('click', () => { busyBtn($('tw-revert'), true, 'Deshaciendo…'); $('tw-apply').disabled = true; send({ cmd: 'tweaksRevert', ids: twSel() }); });
   function renderTweaksDone(b) {
-    busyBtn($('tw-apply'), false, 'Aplicar'); busyBtn($('tw-revert'), false, 'Deshacer');
+    busyBtn($('tw-apply'), false, 'Aplicar'); busyBtn($('tw-revert'), false, 'Deshacer'); busyBtn($('tw-all'), false, 'Aplicar todo');
     const ok = b.results.filter((r) => r.ok).length, bad = b.results.filter((r) => !r.ok);
     let txt = `${plural(ok, 'cambio hecho', 'cambios hechos')}`;
     if (bad.length) txt += `; ${bad.length} con problemas: ${bad.map((r) => `${(tweaks.find((t) => t.id === r.id) || {}).title || r.id} (${r.error})`).join('; ')}`;

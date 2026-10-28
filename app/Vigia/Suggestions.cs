@@ -34,6 +34,7 @@ public static class Suggestions
         try { items.AddRange(Power()); } catch { }
         try { items.AddRange(Battery()); } catch { }
         try { items.AddRange(Usage(tel.Read())); } catch { }
+        try { items.AddRange(InputLag()); } catch { }
         var order = new Dictionary<string, int> { ["bad"] = 0, ["warn"] = 1, ["info"] = 2, ["ok"] = 3 };
         return new(items.OrderBy(i => order.GetValueOrDefault(i.Level, 9)).ToList(), net, DateTimeOffset.Now.ToUnixTimeMilliseconds());
     }
@@ -322,6 +323,10 @@ public static class Suggestions
     struct PowerStatus { public byte AcLine, BatteryFlag, BatteryPercent, SaverOn; public int LifeTime, FullLifeTime; }
     [DllImport("kernel32.dll")] static extern bool GetSystemPowerStatus(out PowerStatus s);
 
+    /// <summary>¿Tiene batería (laptop)? Sirve para no poner cosas de PC de escritorio.</summary>
+    public static bool HasBattery() => Environment.GetEnvironmentVariable("VIGIA_FAKE_BATTERY") == "1"
+        || (GetSystemPowerStatus(out var s) && s.BatteryFlag != 128 && s.BatteryFlag != 255);
+
     /// <summary>Laptop funcionando con batería: Windows y la gráfica recortan potencia.</summary>
     static IEnumerable<Suggestion> Battery()
     {
@@ -347,6 +352,74 @@ public static class Suggestions
             yield return new("uptime", "info", $"El PC lleva {Math.Floor(days)} días sin reiniciar",
                 ["Apagar y encender no reinicia Windows del todo (inicio rápido).", "Con el tiempo se acumulan procesos colgados y actualizaciones a medio instalar."],
                 ["Reinicia desde Inicio › Reiniciar cuando termines de jugar."], null, [$"Encendido: {Math.Floor(days)} días"]);
+    }
+
+    // ======================= input lag y tirones =======================
+
+    /// <summary>
+    /// Pausas del sistema: un hilo con prioridad alta mira el reloj sin parar durante 1,5 s. Si de una lectura a la
+    /// siguiente pasa más de 1 ms, el procesador se fue a atender un driver (DPC o interrupción): eso es lo que se
+    /// siente como input lag y tirones. Solo corre al revisar Sugerencias.
+    /// </summary>
+    public static (int Spikes, double MaxMs) Pauses(int ms = 1500)
+    {
+        int spikes = 0; double max = 0;
+        var t = new Thread(() =>
+        {
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            double f = 1000.0 / System.Diagnostics.Stopwatch.Frequency;
+            long last = sw.ElapsedTicks, end = (long)(ms / f);
+            while (last < end)
+            {
+                long now = sw.ElapsedTicks; double gap = (now - last) * f;
+                if (gap > max) max = gap;
+                if (gap >= 1.0) spikes++;
+                last = now;
+            }
+        }) { IsBackground = true, Priority = ThreadPriority.Highest };
+        t.Start(); t.Join();
+        return (spikes, Math.Round(max, 1));
+    }
+
+    static IEnumerable<Suggestion> InputLag()
+    {
+        var res = new List<Suggestion>();
+        var fake = Environment.GetEnvironmentVariable("VIGIA_FAKE_LAG") == "1";
+        var (spikes, max) = fake ? (14, 4.2) : Pauses();
+        var facts = new List<string> { $"Pausas de más de 1 ms: {spikes} en 1,5 s", $"Pausa más larga: {max:0.0} ms" };
+        if (spikes >= 3 || max >= 3)
+            res.Add(new("lag-dpc", "warn", "Tu PC se traba a ratos: input lag y tirones",
+                [$"En 1,5 s el procesador se paró {spikes} veces para atender un driver, la más larga de {max:0.0} ms.", "En el juego se nota como tirones y como que el ratón responde tarde."],
+                ["Actualiza los drivers de la gráfica, del chipset de la placa, del audio y de la red.", "Desconecta lo USB que no uses (luces RGB, hubs, mandos) y vuelve a revisar."],
+                null, facts));
+        else
+            res.Add(new("lag-ok", "ok", "Sin input lag del sistema", ["En la prueba el procesador no se trabó con ningún driver."], ["Nada que hacer."], null, facts));
+
+        using (var m = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Control Panel\Mouse"))
+            if ((m?.GetValue("MouseSpeed") as string) is { } sp && sp != "0")
+                res.Add(new("lag-accel", "info", "El ratón tiene aceleración",
+                    ["Con aceleración, el puntero se mueve distinto según lo rápido que muevas la mano.", "Apuntar se siente raro y cuesta repetir el mismo movimiento."],
+                    ["Ajustes › Ratón sin aceleración."], "tweaks", ["«Mejorar la precisión del puntero»: encendido"]));
+
+        var bcd = Bcd();
+        if (bcd.Contains("useplatformclock") && Regex.IsMatch(bcd, @"useplatformclock\s+(yes|on|true|sí|si|sim|oui|ja)", RegexOptions.IgnoreCase))
+            res.Add(new("lag-hpet", "warn", "Windows usa el reloj HPET a la fuerza",
+                ["Alguien activó «useplatformclock». Ese reloj es más lento de leer y causa tirones en juegos."],
+                ["Abre «Símbolo del sistema» como administrador y escribe: bcdedit /deletevalue useplatformclock", "Reinicia cuando termines de jugar."],
+                null, ["useplatformclock: sí"]));
+        return res;
+    }
+
+    static string Bcd()
+    {
+        try
+        {
+            using var p = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("bcdedit.exe", "/enum {current}")
+            { CreateNoWindow = true, UseShellExecute = false, RedirectStandardOutput = true, WindowStyle = System.Diagnostics.ProcessWindowStyle.Hidden });
+            if (p is null) return "";
+            var o = p.StandardOutput.ReadToEnd(); p.WaitForExit(3000); return o;
+        }
+        catch { return ""; }
     }
 
     // ======================= prueba =======================

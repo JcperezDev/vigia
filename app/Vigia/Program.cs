@@ -618,14 +618,14 @@ sealed partial class MainForm : Form
                     Send("settings", new { cfg = _cfg, lab = Tweaks.Lab, autoStart = AutoStart.Enabled() });
                     break;
                 case "tweaksList":
-                    Send("tweaks", new { items = await Task.Run(Tweaks.List), restorePoints = await Task.Run(RestorePoint.Count) });
+                    Send("tweaks", new { items = await Task.Run(Tweaks.List), restorePoints = await Task.Run(RestorePoint.Count), laptop = Suggestions.HasBattery() });
                     break;
                 case "tweaksApply":
                 case "tweaksRevert":
                     var tids = msg["ids"]!.AsArray().Select(x => (string)x!).ToList();
                     var batch = (string?)msg["cmd"] == "tweaksApply" ? await Task.Run(() => Tweaks.Apply(tids)) : await Task.Run(() => Tweaks.Revert(tids));
                     Send("tweaksDone", batch);
-                    Send("tweaks", new { items = await Task.Run(Tweaks.List), restorePoints = await Task.Run(RestorePoint.Count) });
+                    Send("tweaks", new { items = await Task.Run(Tweaks.List), restorePoints = await Task.Run(RestorePoint.Count), laptop = Suggestions.HasBattery() });
                     break;
                 case "bloatList":
                     Send("bloat", await Task.Run(Debloat.List));

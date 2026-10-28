@@ -658,3 +658,12 @@ td.empty.loading::before { display: inline-block; vertical-align: -2px; margin-r
 .ask h2 { margin: 0 0 8px; font-size: 15px; font-weight: 600; }
 .ask p { margin: 0 0 18px; color: var(--fg-2); font-size: 13px; line-height: 1.5; }
 .ask-act { display: flex; justify-content: flex-end; gap: 8px; }
+/* Ajustes: un botón para todo y la lista detallada plegada */
+.tw-all { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 14px; }
+.tw-all h2 { margin: 0; }
+.tw-all .sub { margin-top: 4px; }
+.tw-all .btn { flex: none; }
+.tw-one > summary { cursor: pointer; color: var(--fg-2); font-size: 13px; padding: 6px 0 12px; user-select: none; }
+.tw-one > summary:hover { color: var(--fg); }
+.tw-one[open] > summary { margin-bottom: 4px; }
+.head .actions[hidden] { display: none; }

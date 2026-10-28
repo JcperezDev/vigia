@@ -274,8 +274,15 @@
           <button class="btn primary" id="tw-apply" disabled>Aplicar</button>
         </div>
       </header>
+      <section class="box tw-all">
+        <div><h2 id="tw-all-t">Leyendo…</h2><p class="sub" id="tw-all-p"></p></div>
+        <button class="btn primary" id="tw-all" disabled>Aplicar todo</button>
+      </section>
       <p class="result" id="tw-result" aria-live="polite"></p>
-      <div id="tw-groups"><p class="empty">Leyendo el estado actual…</p></div>
+      <details class="tw-one">
+        <summary>Elegir uno por uno</summary>
+        <div id="tw-groups"><p class="empty">Leyendo el estado actual…</p></div>
+      </details>
     </section>
 
     <section class="view" id="view-bios" hidden>
