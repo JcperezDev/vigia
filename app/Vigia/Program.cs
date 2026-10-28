@@ -118,12 +118,20 @@ static class Program
             File.WriteAllText(args[3], JsonSerializer.Serialize(res, new JsonSerializerOptions(Json) { WriteIndented = true }));
             return 0;
         }
+        // Lectura de «Tu PC para jugar» y del antivirus, sin cambiar nada: Vigia.exe --rig <salida.json>
+        if (args.Length >= 2 && args[0] == "--rig")
+        {
+            File.WriteAllText(args[1], JsonSerializer.Serialize(new { screens = Rig.Screens(), checks = Rig.Checks(), security = Security.Status() },
+                new JsonSerializerOptions(Json) { WriteIndented = true }));
+            return 0;
+        }
         if (args.Length >= 2 && args[0] == "--selftest")
         {
             var report = Cleanup.SelfTest() + Environment.NewLine + "--- ajustes" + Environment.NewLine + Tweaks.SelfTest()
                 + Environment.NewLine + "--- sugerencias" + Environment.NewLine + Suggestions.SelfTest()
                 + Environment.NewLine + "--- juegos" + Environment.NewLine + Games.SelfTest()
-                + Environment.NewLine + "--- fps" + Environment.NewLine + Fps.SelfTest();
+                + Environment.NewLine + "--- fps" + Environment.NewLine + Fps.SelfTest()
+                + Environment.NewLine + "--- equipo" + Environment.NewLine + Rig.SelfTest();
             File.WriteAllText(args[1], report);
             return report.Contains("FAIL") ? 1 : 0;
         }
@@ -339,7 +347,7 @@ sealed partial class MainForm : Form
     }
 
     bool _fpsHooked;
-    static object GamesPayload() => new { fortnite = Games.Fortnite(), fps = new { state = Fps.State, history = Fps.History() } };
+    static object GamesPayload() => new { rig = Rig.Checks(), fortnite = Games.Fortnite(), fps = new { state = Fps.State, history = Fps.History() } };
 
     void Send(string type, object payload) =>
         _web.CoreWebView2?.PostWebMessageAsJson(JsonSerializer.Serialize(new { type, payload }, Program.Json));
@@ -366,6 +374,17 @@ sealed partial class MainForm : Form
                     break;
                 case "diagRun":
                     Send("diagRun", await Task.Run(() => Diagnostics.Run(7)));
+                    break;
+                case "secGet":
+                    Send("sec", await Task.Run(Security.Status));
+                    break;
+                case "secEnable":
+                case "secScan":
+                    var secCmd = (string?)msg["cmd"];
+                    Send("secDone", await Task.Run(() => secCmd == "secEnable"
+                        ? Security.Enable(p => BeginInvoke(() => Send("secProgress", p)))
+                        : Security.UpdateAndScan(p => BeginInvoke(() => Send("secProgress", p)))));
+                    Send("sec", await Task.Run(Security.Status));
                     break;
                 case "optStatus":
                     var analyze = (bool?)msg["analyze"] ?? false;
@@ -476,6 +495,25 @@ sealed partial class MainForm : Form
                     Send("utilidad-externaRp", new { ok = rp.Ok, opened = rp.Ok, off = rp.Off, message = rp.Message });
                     break;
                 case "gamesGet":
+                    Send("games", await Task.Run(GamesPayload));
+                    break;
+                case "rigHz":
+                    var rdev = (string)msg["device"]!; var rhz = (int)msg["hz"]!;
+                    Send("rigDone", await Task.Run(() => Rig.SetHz(rdev, rhz, r => BeginInvoke(async () =>
+                    {
+                        Send("rigDone", r);
+                        Send("games", await Task.Run(GamesPayload));
+                    }))));
+                    Send("games", await Task.Run(GamesPayload));
+                    break;
+                case "rigKeep":
+                    Send("rigDone", Rig.Keep());
+                    break;
+                case "rigTweak":
+                    var rid = (string)msg["id"]!;
+                    var rb = await Task.Run(() => Tweaks.Apply(new[] { rid }));
+                    var rr = rb.Results.FirstOrDefault();
+                    Send("rigDone", new Rig.HzDone(rb.Ok, rb.Ok ? (rb.NeedsReboot ? "Activado. Se nota después de reiniciar." : "Listo, activado.") : $"No se pudo: {rr?.Error}", false));
                     Send("games", await Task.Run(GamesPayload));
                     break;
                 case "fortniteApply":

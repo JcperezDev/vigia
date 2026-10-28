@@ -280,7 +280,42 @@
   }
 
   // ---------- diagnóstico ----------
-  $('d-run').addEventListener('click', () => { busyBtn($('d-run'), true, 'Revisando…'); send({ cmd: 'diagRun' }); });
+  $('d-run').addEventListener('click', () => { busyBtn($('d-run'), true, 'Revisando…'); send({ cmd: 'diagRun' }); send({ cmd: 'secGet' }); });
+
+  // ---------- antivirus (Microsoft Defender) ----------
+  // Vigía no trae antivirus propio: muestra si Defender protege y, si otra herramienta lo apagó, lo vuelve a encender con copia.
+  let secBusy = false;
+  function renderSec(s) {
+    const box = $('sec'); box.hidden = false;
+    const ok = s.running && s.realTime;
+    box.className = `card sec ${ok ? 'lv-ok' : s.others.length ? 'lv-info' : 'lv-bad'}`;
+    const body = [];
+    const age = s.sigAgeDays == null ? '' : s.sigAgeDays === 0 ? ' Firmas de hoy.' : ` Firmas de hace ${plural(s.sigAgeDays, 'día', 'días')}.`;
+    if (ok) body.push(el('p', null, `Microsoft Defender te está protegiendo.${age}`));
+    else if (s.others.length) body.push(el('p', null, `Te protege ${s.others.join(', ')}. Defender se queda en pausa para no chocar.`));
+    else if (s.needsReboot) body.push(el('p', null, 'Ya no hay nada que lo bloquee. Falta reiniciar el PC para que arranque.'));
+    else if (s.running) body.push(el('p', null, 'Defender está encendido, pero la protección en tiempo real está apagada.'));
+    else body.push(el('p', null, 'Microsoft Defender está apagado y no hay otro antivirus. Ahora mismo nada vigila lo que descargas o abres.'));
+    if (!ok && s.blocks.length && !s.others.length) {
+      const ul = el('ul', 'sec-why'); s.blocks.forEach((b) => ul.append(el('li', null, b.label))); body.push(el('p', 'sec-h', 'Lo que lo tiene apagado:'), ul);
+    }
+    const acts = el('div', 'sec-acts');
+    if (!ok && !s.others.length && s.blocks.length) {
+      const b = el('button', 'btn', 'Activar Defender');
+      bkArm(b, 'Activar Defender', '¿Seguro? Activar', () => { secBusy = true; busyBtn(b, true, 'Activando…'); send({ cmd: 'secEnable' }); });
+      body.push(el('p', 'src', 'Guarda una copia, quita las reglas que lo apagan y deja sus servicios como vienen de fábrica. Después hay que reiniciar.'));
+      acts.append(b);
+    }
+    if (s.canScan) {
+      const b = el('button', 'btn', 'Actualizar y analizar');
+      b.addEventListener('click', () => { secBusy = true; busyBtn(b, true, 'Analizando…'); send({ cmd: 'secScan' }); });
+      acts.append(b);
+    }
+    const msg = el('p', 'sec-msg'); msg.id = 'sec-msg';
+    const keep = $('sec-msg'); if (keep && (secBusy || keep.dataset.keep)) { msg.textContent = keep.textContent; msg.dataset.keep = keep.dataset.keep || ''; }
+    box.replaceChildren(el('strong', null, 'Antivirus'), ...body, acts, msg);
+  }
+
   function renderDiag(r) {
     busyBtn($('d-run'), false, 'Volver a revisar');
     const s = r.system;
@@ -617,6 +652,42 @@
     if (/FrameRateLimit$/.test(s.key)) return +v === 0 ? 'Sin límite' : `${Math.round(+v)} FPS`;
     return v;
   }
+  // «Tu PC para jugar»: pantallas, RAM, Resizable BAR, modo juego, HAGS y energía
+  let rigKeepT = null;
+  function renderRig(list) {
+    const ul = $('gm-rig'); if (!ul || !list) return;
+    const warn = list.filter((c) => c.level === 'warn').length;
+    $('gm-rig-sum').textContent = warn ? `${plural(warn, 'cosa por aprovechar', 'cosas por aprovechar')}` : 'Todo aprovechado';
+    $('gm-rig-sum').className = `pill ${warn ? 'lv-warn' : 'lv-ok'}`;
+    ul.replaceChildren(...list.map((c) => {
+      const li = el('li', `finding lv-${c.level}`);
+      const body = el('div'); body.append(el('p', null, c.detail));
+      if (c.how) body.append(el('p', 'src', c.how));
+      if (c.fix) {
+        const btn = el('button', 'btn primary', c.fixLabel);
+        btn.addEventListener('click', () => {
+          busyBtn(btn, true, 'Cambiando…');
+          const [kind, ...rest] = c.fix.split(':');
+          if (kind === 'hz') { const hz = +rest.pop(); send({ cmd: 'rigHz', device: rest.join(':'), hz }); }
+          else send({ cmd: 'rigTweak', id: rest.join(':') });
+        });
+        const acts = el('div', 'sec-acts'); acts.append(btn); body.append(acts);
+      }
+      li.append(el('span', 'dot'), el('strong', null, c.title), body);
+      return li;
+    }));
+  }
+  function rigDone(r) {
+    const box = $('gm-rig-msg'); box.replaceChildren(el('span', null, r.message)); box.className = `result ${r.ok ? 'ok' : 'bad'}`;
+    clearInterval(rigKeepT);
+    if (r.pending) {
+      let n = 15; const b = el('button', 'btn primary', `Se ve bien (${n})`);
+      b.addEventListener('click', () => { clearInterval(rigKeepT); send({ cmd: 'rigKeep' }); });
+      box.append(' ', b);
+      rigKeepT = setInterval(() => { n -= 1; b.textContent = `Se ve bien (${n})`; if (n <= 0) clearInterval(rigKeepT); }, 1000);
+    }
+  }
+
   function renderFortnite(f) {
     const box = $('gm-fn');
     if (!f.found) { box.replaceChildren(el('p', 'empty', 'No encontré Fortnite en este PC. Si lo tienes, ábrelo una vez para que cree su configuración.')); return; }
@@ -994,6 +1065,9 @@
     if (type === 'telemetry') render(payload);
     else if (type === 'healthScan') renderHealth(payload);
     else if (type === 'diagRun') renderDiag(payload);
+    else if (type === 'sec') renderSec(payload);
+    else if (type === 'secProgress') { const m = $('sec-msg'); if (m) m.textContent = payload; }
+    else if (type === 'secDone') { secBusy = false; const m = $('sec-msg'); if (m) { m.textContent = payload.message; m.dataset.keep = '1'; m.className = `sec-msg ${payload.ok ? 'ok' : 'bad'}`; } }
     else if (type === 'suggest') renderSug(payload);
     else if (type === 'support') renderSupport(payload);
     else if (type === 'optStatus') renderOpt(payload);
@@ -1031,7 +1105,8 @@
     }
     else if (type === 'tools') renderTools(payload);
     else if (type === 'startup') renderStartup(payload);
-    else if (type === 'games') { busyBtn($('gm-reload'), false, 'Recargar'); renderFps(payload.fps); renderFortnite(payload.fortnite); }
+    else if (type === 'games') { busyBtn($('gm-reload'), false, 'Recargar'); renderRig(payload.rig); renderFps(payload.fps); renderFortnite(payload.fortnite); }
+    else if (type === 'rigDone') rigDone(payload);
     else if (type === 'gameDone') $('gm-result').textContent = payload.message;
     else if (type === 'fpsState') renderFpsState(payload);
     else if (type === 'backups') renderBackups(payload);

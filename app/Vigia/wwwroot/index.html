@@ -262,6 +262,12 @@
       </header>
       <p class="result" id="gm-result" aria-live="polite"></p>
       <section class="tw-group">
+        <h2>Tu PC para jugar <span class="pill" id="gm-rig-sum"></span></h2>
+        <p class="sub gm-note">Lo que más pesa en los FPS y casi nadie revisa. Lo de Windows se cambia aquí con copia; lo de la BIOS (RAM y Resizable BAR) solo se detecta y te dice dónde está, porque Vigía nunca toca la BIOS.</p>
+        <p class="result" id="gm-rig-msg" aria-live="polite"></p>
+        <ul class="findings" id="gm-rig"><li class="empty">Revisando…</li></ul>
+      </section>
+      <section class="tw-group">
         <h2>FPS: antes y después</h2>
         <p class="sub gm-note">Vigía cuenta los fotogramas que tu juego entrega de verdad, no una estimación. Pulsa el botón, entra a jugar y Vigía mide solo mientras el juego está delante; al terminar se apaga sola. No se mete en el juego ni toca el antitrampas.</p>
         <div class="gm-ctl">
@@ -447,6 +453,7 @@
         <button class="btn" id="d-run">Volver a revisar</button>
       </header>
       <dl class="sysinfo" id="sysinfo"></dl>
+      <div class="card sec" id="sec" hidden></div>
       <p class="tally" id="tally"></p>
       <ul class="findings" id="findings"><li class="empty">Revisando…</li></ul>
     </section>

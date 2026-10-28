@@ -181,6 +181,10 @@ public static class Backups
                 var r = Display.SetMode((int)it["w"]!, (int)it["h"]!, (int)it["hz"]!);
                 if (r is not null) throw new InvalidOperationException(r);
                 break;
+            case "hz":
+                var hr = Rig.Restore((string)it["device"]!, (int)it["w"]!, (int)it["h"]!, (int)it["hz"]!);
+                if (hr is not null) throw new InvalidOperationException(hr);
+                break;
             case "file":
                 var fp = (string)it["path"]!;
                 if (fp.Contains("FortniteGame", StringComparison.OrdinalIgnoreCase) && Games.FortniteRunning())

@@ -424,3 +424,21 @@ dd { margin: 0; font: 500 14px "JBMono", monospace; font-variant-numeric: tabula
 .gm-tbl dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
 .gm-tbl dd.chg { color: var(--amber); }
 .gm-note, .gm-fn-head p, #gm-fn > .src { max-width: 72ch; }
+
+/* antivirus y «Tu PC para jugar» */
+.card.sec { background: var(--ink-2); border: 1px solid var(--line); border-left: 3px solid var(--lv, var(--line)); border-radius: var(--r); padding: 16px 20px 18px; margin: 14px 0 18px; }
+.card.sec > strong { font-weight: 600; font-size: 16px; display: block; margin-bottom: 6px; }
+.card.sec p:not(.sec-h):not(.src) { font-weight: 400; }
+.card.sec p { margin: 4px 0; }
+.sec-h { color: var(--fg-2); margin-top: 10px !important; }
+.sec-why { margin: 4px 0 0; padding-left: 18px; color: var(--fg-2); }
+.sec-why li + li { margin-top: 2px; }
+.sec-acts { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.sec-msg { color: var(--fg-2); min-height: 0; }
+.sec-msg:empty { display: none; }
+.sec-msg.ok { color: var(--ok); }
+.sec-msg.bad { color: var(--hot); }
+#gm-rig .finding p.src { margin-top: 4px; }
+.tw-group h2 .pill { margin-left: 8px; vertical-align: 2px; }
+#gm-rig-msg:empty { display: none; }
+#gm-rig-msg .btn { margin-left: 8px; }
