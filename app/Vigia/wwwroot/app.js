@@ -346,7 +346,7 @@
   }
 
   function renderDiag(r) {
-    busyBtn($('d-run'), false, 'Volver a revisar');
+    busyBtn($('d-run'), false, 'Analizar');
     renderCrashes(r.crashes, r.days);
     const s = r.system;
     const up = s.uptimeHours >= 48 ? `${Math.round(s.uptimeHours / 24)} días` : `${fmt(s.uptimeHours, 0)} h`;
@@ -376,7 +376,7 @@
   $('s-run').addEventListener('click', () => { busyBtn($('s-run'), true, 'Revisando…'); send({ cmd: 'suggest' }); });
   function renderSug(r) {
     sugDone = true;
-    busyBtn($('s-run'), false, 'Volver a revisar');
+    busyBtn($('s-run'), false, 'Analizar');
     const n = r.items.filter((i) => i.level === 'warn' || i.level === 'bad').length;
     $('sug-count').hidden = !n; $('sug-count').textContent = n;
     $('sug-sub').textContent = 'Lo que se puede mejorar en tu PC.';
@@ -387,8 +387,13 @@
       // una frase por nodo: así cada una se traduce sola
       const sentences = (p, list) => { list.forEach((x, k) => { if (k) p.append(' '); p.append(el('span', null, x)); }); return p; };
       body.append(sentences(el('p'), i.why));
-      const todo = el('p', 'sug-do'); todo.append(el('b', null, 'Qué hacer'), ' '); body.append(sentences(todo, i.do));
+      if (i.do.length) { const todo = el('p', 'sug-do'); todo.append(el('b', null, 'Qué hacer'), ' '); body.append(sentences(todo, i.do)); }
       const foot = el('div', 'sug-foot');
+      if (i.fix) {
+        const b = el('button', 'btn primary', i.fixLabel || 'Arreglar');
+        b.addEventListener('click', () => { busyBtn(b, true, 'Cambiando…'); send({ cmd: 'sugFix', fix: i.fix }); });
+        foot.append(b);
+      }
       if (i.go && GO[i.go]) {
         const b = el('button', 'link', GO[i.go]);
         b.addEventListener('click', () => document.querySelector(`.nav[data-view="${i.go}"]`).click());
@@ -402,6 +407,17 @@
       li.append(el('span', 'dot'), el('strong', null, i.title), body);
       return li;
     }));
+  }
+  let sugKeepT = 0;
+  function sugDone_(r) {
+    const box = $('sug-msg'); box.replaceChildren(el('span', null, r.message)); box.className = `result ${r.ok ? 'ok' : 'bad'}`;
+    clearInterval(sugKeepT);
+    if (r.pending) {
+      let n = 15; const b = el('button', 'btn primary', `Se ve bien (${n})`);
+      b.addEventListener('click', () => { clearInterval(sugKeepT); send({ cmd: 'rigKeep' }); });
+      box.append(' ', b);
+      sugKeepT = setInterval(() => { n -= 1; b.textContent = `Se ve bien (${n})`; if (n <= 0) clearInterval(sugKeepT); }, 1000);
+    }
   }
   function sugAuto() { if (!sugDone && document.visibilityState === 'visible') send({ cmd: 'suggest' }); }
   setTimeout(sugAuto, 20000);
@@ -586,7 +602,7 @@
 
   // ---------- BIOS ----------
   function renderBios(b) {
-    busyBtn($('bi-reload'), false, 'Volver a leer');
+    busyBtn($('bi-reload'), false, 'Analizar');
     const f = b.fw, box = $('bi-fw');
     const kv = (k, v) => { const d = el('div', 'bi-kv'); d.append(el('span', null, k), el('b', null, v)); return d; };
     const grid = el('div', 'bi-grid');
@@ -710,6 +726,15 @@
       d.addEventListener('close', onClose); d.showModal(); $('ask-no').focus();
     });
   }
+  function usbList(list) {
+    usbDrives = list || []; busyBtn($('usb-refresh'), false, 'Analizar');
+    const sel = $('usb-drive'), keep = sel.value;
+    sel.replaceChildren(...usbDrives.map((d) => { const o = el('option', '', `${d.name} · ${gb(d.bytes)}${d.letters?.length ? ` · ${d.letters.map((l) => l + ':').join(' ')}` : ''}`); o.value = String(d.number); return o; }));
+    if (usbDrives.some((d) => String(d.number) === keep)) sel.value = keep;
+    $('usb-none').hidden = usbDrives.length > 0; sel.hidden = !usbDrives.length;
+    usbReady();
+  }
+  $('usb-pick').addEventListener('click', () => send({ cmd: 'usbPickIso' }));
   $('usb-refresh').addEventListener('click', () => { busyBtn($('usb-refresh'), true, 'Buscando…'); send({ cmd: 'usbList' }); });
   $('usb-drive').addEventListener('change', usbReady);
   $('usb-go').addEventListener('click', async () => {
@@ -769,7 +794,7 @@
     'Servicios': 'Servicios de otros programas. Apagar = pasan a manual: arrancan cuando el programa los pida.',
   };
   function renderStartup(list) {
-    busyBtn($('su-reload'), false, 'Volver a leer');
+    busyBtn($('su-reload'), false, 'Analizar');
     const on = list.filter((s) => s.enabled).length;
     $('su-sub').textContent = `${plural(list.length, 'cosa arranca', 'cosas arrancan')} con Windows; ${on} ${on === 1 ? 'encendida' : 'encendidas'}.`;
     $('su-groups').replaceChildren(...suOrder.filter((g) => list.some((s) => s.group === g && !(s.missing && g === 'Programas'))).map((g) => {
@@ -902,30 +927,7 @@
     return v;
   }
   // «Tu PC para jugar»: pantallas, RAM, Resizable BAR, modo juego, HAGS y energía
-  let rigKeepT = null;
-  function renderRig(list) {
-    const ul = $('gm-rig'); if (!ul || !list) return;
-    const warn = list.filter((c) => c.level === 'warn').length;
-    $('gm-rig-sum').textContent = warn ? `${plural(warn, 'cosa por aprovechar', 'cosas por aprovechar')}` : 'Todo aprovechado';
-    $('gm-rig-sum').className = `pill ${warn ? 'lv-warn' : 'lv-ok'}`;
-    ul.replaceChildren(...list.map((c) => {
-      const li = el('li', `finding lv-${c.level}`);
-      const body = el('div'); body.append(el('p', null, c.detail));
-      if (c.how) body.append(el('p', 'src', c.how));
-      if (c.fix) {
-        const btn = el('button', 'btn primary', c.fixLabel);
-        btn.addEventListener('click', () => {
-          busyBtn(btn, true, 'Cambiando…');
-          const [kind, ...rest] = c.fix.split(':');
-          if (kind === 'hz') { const hz = +rest.pop(); send({ cmd: 'rigHz', device: rest.join(':'), hz }); }
-          else send({ cmd: 'rigTweak', id: rest.join(':') });
-        });
-        const acts = el('div', 'sec-acts'); acts.append(btn); body.append(acts);
-      }
-      li.append(el('span', 'dot'), el('strong', null, c.title), body);
-      return li;
-    }));
-  }
+
   // ---------- Drift: el ratón o el stick se mueven solos (solo al pulsar Probar) ----------
   let drT = 0;
   $('dr-run').addEventListener('click', () => {
@@ -975,17 +977,6 @@
     }));
     $('dr-list').hidden = !r.items.length;
   }
-  function rigDone(r) {
-    const box = $('gm-rig-msg'); box.replaceChildren(el('span', null, r.message)); box.className = `result ${r.ok ? 'ok' : 'bad'}`;
-    clearInterval(rigKeepT);
-    if (r.pending) {
-      let n = 15; const b = el('button', 'btn primary', `Se ve bien (${n})`);
-      b.addEventListener('click', () => { clearInterval(rigKeepT); send({ cmd: 'rigKeep' }); });
-      box.append(' ', b);
-      rigKeepT = setInterval(() => { n -= 1; b.textContent = `Se ve bien (${n})`; if (n <= 0) clearInterval(rigKeepT); }, 1000);
-    }
-  }
-
   function renderFortnite(f) {
     const box = $('gm-fn');
     if (!f.found) { box.replaceChildren(el('p', 'empty', 'No encontré Fortnite en este PC. Si lo tienes, ábrelo una vez para que cree su configuración.')); return; }
@@ -1076,7 +1067,7 @@
     box.replaceChildren(body, b);
   }
   function renderBackups(all) {
-    busyBtn($('bk-reload'), false, 'Volver a leer');
+    busyBtn($('bk-reload'), false, 'Analizar');
     renderOriginal(all.find((c) => c.kind === 'original'));
     const list = all.filter((c) => c.kind !== 'original');
     $('bk-sub').textContent = list.length
@@ -1660,7 +1651,7 @@
 
   // ---------- mensajes del backend ----------
   // respuestas que significan que algo del sistema cambió
-  const DONE = new Set(['tweaksDone', 'simpleDone', 'bloatDone', 'startupAll', 'secDone', 'rigDone', 'gameDone', 'backupDone', 'optDone', 'autoStart', 'wallDone', 'memFreed', 'startupDone', 'displayDone', 'toolDone']);
+  const DONE = new Set(['tweaksDone', 'simpleDone', 'bloatDone', 'startupAll', 'secDone', 'sugDone', 'gameDone', 'backupDone', 'optDone', 'autoStart', 'wallDone', 'memFreed', 'startupDone', 'displayDone', 'toolDone']);
   if (host) host.addEventListener('message', (e) => {
     const { type, payload } = e.data;
     if (DONE.has(type)) changed();
@@ -1712,8 +1703,8 @@
     else if (type === 'startup') { renderStartup(payload); suAllShow(payload); }
     else if (type === 'startupAll') suAllDone(payload);
     else if (type === 'autoStart') bootDone(payload);
-    else if (type === 'games') { busyBtn($('gm-reload'), false, 'Recargar'); renderRig(payload.rig); renderFps(payload.fps); renderFortnite(payload.fortnite); }
-    else if (type === 'rigDone') rigDone(payload);
+    else if (type === 'games') { busyBtn($('gm-reload'), false, 'Analizar'); renderFps(payload.fps); renderFortnite(payload.fortnite); }
+    else if (type === 'sugDone') sugDone_(payload);
     else if (type === 'gameDone') $('gm-result').textContent = payload.message;
     else if (type === 'fpsState') renderFpsState(payload);
     else if (type === 'drift') renderDrift(payload);
@@ -1760,7 +1751,7 @@
       $('op-result').classList.toggle('bad', !payload.ok && !payload.cancelled);
     }
     else if (type === 'cleanScan') {
-      $('scan').classList.remove('busy'); $('scan').textContent = 'Volver a analizar';
+      $('scan').classList.remove('busy'); $('scan').textContent = 'Analizar';
       targets = payload; renderTargets();
       if (lastRun) { $('clean-total').textContent = lastRun; lastRun = null; }
     } else if (type === 'cleanRun') {

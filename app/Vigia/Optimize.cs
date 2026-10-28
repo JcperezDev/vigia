@@ -79,7 +79,7 @@ public static class Optimize
         return d.TotalHours < 1 ? "hace menos de 1 h" : d.TotalDays < 1 ? $"hace {d.TotalHours:0} h" : d.TotalDays < 2 ? "ayer" : $"hace {d.TotalDays:0} días";
     }
 
-    static bool ScheduledEnabled()
+    internal static bool ScheduledEnabled()
     {
         try
         {

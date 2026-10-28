@@ -558,7 +558,13 @@ sealed partial class MainForm : Form
     }
 
     bool _fpsHooked;
-    static object GamesPayload() => new { rig = Rig.Checks(), fortnite = Games.Fortnite(), fps = new { state = Fps.State, history = Fps.History() } };
+    static object GamesPayload() => new { fortnite = Games.Fortnite(), fps = new { state = Fps.State, history = Fps.History() } };
+
+    protected override void WndProc(ref Message m)
+    {
+        if (m.Msg == 0x00FF) Drift.Feed(m.LParam);   // WM_INPUT: solo llega mientras se miden los Hz del ratón
+        base.WndProc(ref m);
+    }
 
     void Send(string type, object payload) =>
         _web.CoreWebView2?.PostWebMessageAsJson(JsonSerializer.Serialize(new { type, payload }, Program.Json));
@@ -745,24 +751,32 @@ sealed partial class MainForm : Form
                 case "gamesGet":
                     Send("games", await Task.Run(GamesPayload));
                     break;
-                case "rigHz":
-                    var rdev = (string)msg["device"]!; var rhz = (int)msg["hz"]!;
-                    Send("rigDone", await Task.Run(() => Rig.SetHz(rdev, rhz, r => BeginInvoke(async () =>
-                    {
-                        Send("rigDone", r);
-                        Send("games", await Task.Run(GamesPayload));
-                    }))));
-                    Send("games", await Task.Run(GamesPayload));
-                    break;
                 case "rigKeep":
-                    Send("rigDone", Rig.Keep());
+                    Send("sugDone", Rig.Keep());
                     break;
-                case "rigTweak":
-                    var rid = (string)msg["id"]!;
-                    var rb = await Task.Run(() => Tweaks.Apply(new[] { rid }));
-                    var rr = rb.Results.FirstOrDefault();
-                    Send("rigDone", new Rig.HzDone(rb.Ok, rb.Ok ? (rb.NeedsReboot ? "Activado. Se nota después de reiniciar." : "Listo, activado.") : $"No se pudo: {rr?.Error}", false));
-                    Send("games", await Task.Run(GamesPayload));
+                case "sugFix":
+                    var sfix = (string?)msg["fix"] ?? "";
+                    if (sfix.StartsWith("hz:"))
+                    {
+                        var parts = sfix.Split(':'); var shz = int.Parse(parts[^1]); var sdev = string.Join(':', parts[1..^1]);
+                        Send("sugDone", await Task.Run(() => Rig.SetHz(sdev, shz, r => BeginInvoke(async () =>
+                        {
+                            Send("sugDone", r);
+                            Send("suggest", await Task.Run(() => Suggestions.Run(_tel)));
+                        }))));
+                    }
+                    else if (sfix.StartsWith("tweak:"))
+                    {
+                        var sb = await Task.Run(() => Tweaks.Apply(new[] { sfix[6..] }));
+                        var sr = sb.Results.FirstOrDefault();
+                        Send("sugDone", new Rig.HzDone(sb.Ok, sb.Ok ? (sb.NeedsReboot ? "Listo. Se nota después de reiniciar." : "Listo.") : $"No se pudo: {sr?.Error}", false));
+                    }
+                    else
+                    {
+                        var (sok, smsg) = await Task.Run(() => Suggestions.Fix(sfix));
+                        Send("sugDone", new Rig.HzDone(sok, smsg, false));
+                    }
+                    Send("suggest", await Task.Run(() => Suggestions.Run(_tel)));
                     break;
                 case "fortniteApply":
                     var fprof = (bool?)msg["profile"] == true; var fmode = (string?)msg["mode"];
@@ -780,7 +794,7 @@ sealed partial class MainForm : Form
                     Fps.Start(fsec, (string?)msg["label"] ?? "");
                     break;
                 case "rates":
-                    try { Send("rates", await Task.Run(() => Drift.Rates(5))); }
+                    try { Send("rates", await Task.Run(() => Drift.Rates(5, this))); }
                     catch { Send("rates", new Drift.RateReport(5, [])); }
                     break;
                 case "drift":
