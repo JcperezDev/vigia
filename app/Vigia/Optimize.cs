@@ -8,7 +8,7 @@ namespace Vigia;
 public sealed record OptVolume(string Letter, string Label, string Media, string Action, string? LastRun, string? LastOp, int? Fragmented);
 public sealed record OptStatus(IReadOnlyList<OptVolume> Volumes, bool Scheduled);
 public sealed record OptProgress(string Letter, string Line, int? Pct);
-public sealed record OptResult(string Letter, bool Ok, int ExitCode, double Seconds, string Summary);
+public sealed record OptResult(string Letter, bool Ok, int ExitCode, double Seconds, string Summary, bool Cancelled = false);
 
 /// <summary>
 /// Optimización con la herramienta de Windows (defrag.exe /O): TRIM en SSD, desfragmentación en HDD.
@@ -18,11 +18,12 @@ public static class Optimize
 {
     static readonly string Defrag = Path.Combine(Environment.SystemDirectory, "defrag.exe");
     static Process? _running;
+    static bool _cancelled;
     static readonly object _lock = new();
 
     static Optimize() => Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
 
-    public static OptStatus Status(bool analyzeHdd)
+    public static OptStatus Status(bool analyzeHdd, string? only = null)
     {
         var letters = Health.LettersByDisk();
         var media = Health.MediaByDisk();
@@ -34,7 +35,8 @@ public static class Optimize
             var disk = letters.FirstOrDefault(kv => kv.Value.Contains(l, StringComparer.OrdinalIgnoreCase)).Key;
             var m = media.GetValueOrDefault(disk, "Desconocido");
             last.TryGetValue(l, out var lr);
-            int? frag = analyzeHdd && m == "HDD" ? Analyze(l) : null;
+            // con una optimización en marcha no se analiza: defrag rechaza la segunda petición sobre el mismo disco
+            int? frag = analyzeHdd && m == "HDD" && !Busy && (only is null || only.Equals(l, StringComparison.OrdinalIgnoreCase)) ? Analyze(l) : null;
             vols.Add(new OptVolume(l, string.IsNullOrWhiteSpace(d.VolumeLabel) ? "Disco local" : d.VolumeLabel, m,
                 m == "SSD" ? "Recortar (TRIM)" : m == "HDD" ? "Desfragmentar" : "Optimizar",
                 lr.when, lr.op, frag));
@@ -107,22 +109,56 @@ public static class Optimize
         catch { return null; }
     }
 
-    public static bool Busy { get { lock (_lock) return _running is { HasExited: false }; } }
+    static int _active;
+    public static bool Busy { get { lock (_lock) return _active > 0 || _running is { HasExited: false }; } }
 
     /// <summary>Optimiza una unidad con defrag /O (TRIM o desfragmentación según el medio). Reporta progreso por línea.</summary>
     public static async Task<OptResult> RunAsync(string letter, Action<OptProgress> progress)
     {
         if (!Regex.IsMatch(letter, "^[A-Za-z]:$")) return new OptResult(letter, false, -1, 0, "Unidad no válida.");
+        lock (_lock) { if (_active > 0 || _running is { HasExited: false }) return new OptResult(letter, false, -1, 0, "Ya hay una optimización en curso."); _active++; _cancelled = false; }
+        try { return await Loop(letter, progress); }
+        finally { lock (_lock) _active--; }
+    }
+
+    static async Task<OptResult> Loop(string letter, Action<OptProgress> progress)
+    {
         var sw = Stopwatch.StartNew();
+        for (var attempt = 0; ; attempt++)
+        {
+            var (code, tail, errText, cancelled) = await RunOnce(letter, progress);
+            if (code is null) return new OptResult(letter, false, -1, 0, "Ya hay una optimización en curso.");
+            // defrag avisa de sus fallos con «(0x89xxxxxx)» en la salida, a veces con código de salida 0
+            var hr = tail.Concat(errText.Split('\n')).Select(l => Regex.Match(l, @"\(0x(89[0-9A-Fa-f]{6})\)")).LastOrDefault(m => m.Success);
+            var hres = hr is null ? (uint?)null : Convert.ToUInt32(hr.Groups[1].Value, 16);
+            // 0x89000000 = la unidad está ocupada (un análisis, la pasada semanal de Windows o una que se acaba de detener)
+            if (hres == 0x89000000 && !cancelled && attempt < 4 && sw.Elapsed.TotalSeconds < 30) { await Task.Delay(3000); continue; }
+            // 0x89000006 = cancelado
+            cancelled |= unchecked((uint)code.Value) == 0x89000006 || hres == 0x89000006;
+            var ok = code == 0 && hres is null && !cancelled;
+            var why = errText.Split('\n').Select(l => l.Trim()).LastOrDefault(l => l.Length > 0 && !l.Contains('%'))
+                ?? tail.LastOrDefault(l => !l.Contains('%') && !l.EndsWith("...", StringComparison.Ordinal));
+            var summary = ok ? "Listo."
+                : cancelled ? "Detenida."
+                : hres == 0x89000000 ? "Windows ya la está optimizando. Prueba en unos minutos."
+                : why ?? $"Windows no pudo optimizarla (código 0x{unchecked((uint)code.Value):X8}).";
+            return new OptResult(letter, ok, code.Value, Math.Round(sw.Elapsed.TotalSeconds, 1), summary, cancelled);
+        }
+    }
+
+    static async Task<(int? code, List<string> tail, string err, bool cancelled)> RunOnce(string letter, Action<OptProgress> progress)
+    {
         Process p;
         lock (_lock)
         {
-            if (_running is { HasExited: false }) return new OptResult(letter, false, -1, 0, "Ya hay una optimización en curso.");
+            if (_running is { HasExited: false }) return (null, [], "", false);   // no debería pasar: RunAsync ya lo impide
+            if (_cancelled) { _cancelled = false; return (-1, [], "", true); }   // se pidió detener mientras se esperaba para reintentar
             p = new Process { StartInfo = new ProcessStartInfo(Defrag, $"{letter} /O /U")
-                { RedirectStandardOutput = true, RedirectStandardError = true, StandardOutputEncoding = Oem(), CreateNoWindow = true, UseShellExecute = false } };
+                { RedirectStandardOutput = true, RedirectStandardError = true, StandardOutputEncoding = Oem(), StandardErrorEncoding = Oem(), CreateNoWindow = true, UseShellExecute = false } };
             p.Start();
             _running = p;
         }
+        var err = p.StandardError.ReadToEndAsync();   // leerlo a la vez: si se llena sin leer, defrag se queda colgado
         var tail = new List<string>();
         // defrag /U escribe el progreso con \r; leemos por caracteres para no esperar al salto de línea
         var buf = new StringBuilder();
@@ -144,15 +180,15 @@ public static class Optimize
                 else buf.Append(c);
             }
         await p.WaitForExitAsync();
-        lock (_lock) _running = null;
-        var ok = p.ExitCode == 0;
-        var summary = ok ? "Listo." : tail.LastOrDefault(l => !l.Contains('%')) ?? $"defrag terminó con código {p.ExitCode}.";
-        return new OptResult(letter, ok, p.ExitCode, Math.Round(sw.Elapsed.TotalSeconds, 1), summary);
+        var errText = (await err).Trim();
+        bool cancelled;
+        lock (_lock) { _running = null; cancelled = _cancelled; _cancelled = false; }
+        return (p.ExitCode, tail, errText, cancelled);
     }
 
     /// <summary>Detiene la optimización en curso (defrag se puede interrumpir sin riesgo).</summary>
     public static void Cancel()
     {
-        lock (_lock) { try { _running?.Kill(true); } catch { } }
+        lock (_lock) { if (_active > 0 || _running is { HasExited: false }) { _cancelled = true; try { if (_running is { HasExited: false }) _running.Kill(true); } catch { } } }
     }
 }

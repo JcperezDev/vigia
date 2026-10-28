@@ -2011,5 +2011,12 @@
  "El mando pasa primero por ese programa y luego llega al juego: es un paso más y suma retraso.": "O controle passa primeiro por esse programa e depois chega ao jogo: é um passo a mais e soma atraso.",
  "Si el juego reconoce tu mando sin él, ciérralo antes de jugar.": "Se o jogo reconhece seu controle sem ele, feche antes de jogar.",
  "Juegos mide los Hz reales del ratón y del mando, y Sugerencias avisa si un programa traduce tu mando.": "Jogos mede os Hz reais do mouse e do controle, e Sugestões avisa se um programa está traduzindo seu controle.",
- "Menos input lag": "Menos input lag"
+ "Menos input lag": "Menos input lag",
+ "Detuviste {0}. No pasa nada: el disco queda bien.": "Você parou {0}. Sem problema: o disco fica bem.",
+ "No se pudo optimizar {0}. {1}": "Não foi possível otimizar {0}. {1}",
+ "Detenida.": "Parada.",
+ "Windows no pudo optimizarla (código 0x{0}).": "O Windows não conseguiu otimizar (código 0x{0}).",
+ "Optimizar: «Detener» ya no sale como error, «Analizar» espera a que termine y, al acabar, el disco mecánico muestra su fragmentación al momento.": "Otimizar: «Parar» não aparece mais como erro, «Analisar» espera terminar e, ao acabar, o HD mostra a fragmentação na hora.",
+ "Windows ya la está optimizando. Prueba en unos minutos.": "O Windows já está otimizando. Tente em alguns minutos.",
+ "Si Windows ya estaba optimizando la unidad, Vigía espera y lo vuelve a intentar en vez de decir «Listo» sin hacer nada.": "Se o Windows já estava otimizando a unidade, o Vigía espera e tenta de novo em vez de dizer «Pronto» sem fazer nada."
 }

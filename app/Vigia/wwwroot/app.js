@@ -247,16 +247,18 @@
 
   // ---------- optimizar ----------
   let optBusy = false;
-  $('o-analyze').addEventListener('click', () => { busyBtn($('o-analyze'), true, 'Analizando…'); send({ cmd: 'optStatus', analyze: true }); });
+  $('o-analyze').addEventListener('click', () => { if (optBusy) return; busyBtn($('o-analyze'), true, 'Analizando…'); send({ cmd: 'optStatus', analyze: true }); });
   $('op-cancel').addEventListener('click', () => { $('op-cancel').disabled = true; send({ cmd: 'optCancel' }); });
   function renderOpt(s) {
     busyBtn($('o-analyze'), false, 'Analizar fragmentación');
+    $('o-analyze').disabled = optBusy;
     const ul = $('vols');
     ul.replaceChildren(...s.volumes.map((v) => {
       const li = el('li', 'vol');
       const who = el('div');
-      who.append(el('span', 'name', v.label), el('div', 'meta', `${v.media} · ${v.action}`));
-      const last = el('dl', 'col'); last.append(stat('Última vez', v.lastRun ? `${v.lastRun}${v.lastOp ? ` · ${v.lastOp}` : ''}` : 'Sin registro'));
+      const meta = el('div', 'meta'); meta.append(el('span', null, v.media), ' · ', el('span', null, v.action));   // por separado: así se traduce cada parte
+      who.append(el('span', 'name', v.label), meta);
+      const last = el('dl', 'col'); last.append(stat('Última vez', v.lastRun || 'Sin registro'));
       const frag = el('dl', 'col frag');
       frag.append(stat('Fragmentación', v.media === 'HDD' ? (v.fragmented != null ? `${v.fragmented} %` : 'Sin analizar') : 'No aplica (SSD)'));
       const b = el('button', 'btn primary', 'Optimizar');
@@ -272,6 +274,7 @@
   function startOpt(v) {
     optBusy = true;
     document.querySelectorAll('.vol .btn').forEach((b) => { b.disabled = true; });
+    $('o-analyze').disabled = true;
     $('oprun').hidden = false; $('op-cancel').disabled = false;
     $('op-title').textContent = `${v.action} en ${v.letter} ${v.label}`;
     $('op-bar').style.width = '0'; $('op-bar').parentElement.classList.add('indet');
@@ -1753,9 +1756,11 @@
       if (payload.pct != null) { $('op-bar').parentElement.classList.remove('indet'); $('op-bar').style.width = `${payload.pct}%`; }
     } else if (type === 'optDone') {
       optBusy = false; $('oprun').hidden = true;
-      $('op-result').textContent = payload.ok
-        ? `${payload.letter} optimizada en ${fmt(payload.seconds, 0)} s.`
-        : `${payload.letter}: ${payload.summary}`;
+      $('o-analyze').disabled = false;
+      $('op-result').textContent = payload.ok ? `${payload.letter} optimizada en ${fmt(payload.seconds, 0)} s.`
+        : payload.cancelled ? `Detuviste ${payload.letter}. No pasa nada: el disco queda bien.`
+        : `No se pudo optimizar ${payload.letter}. ${payload.summary}`;
+      $('op-result').classList.toggle('bad', !payload.ok && !payload.cancelled);
     }
     else if (type === 'cleanScan') {
       $('scan').classList.remove('busy'); $('scan').textContent = 'Volver a analizar';

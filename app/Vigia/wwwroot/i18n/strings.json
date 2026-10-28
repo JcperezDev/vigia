@@ -2216,5 +2216,12 @@
  "El mando pasa primero por ese programa y luego llega al juego: es un paso más y suma retraso.",
  "Si el juego reconoce tu mando sin él, ciérralo antes de jugar.",
  "Juegos mide los Hz reales del ratón y del mando, y Sugerencias avisa si un programa traduce tu mando.",
- "Menos input lag"
+ "Menos input lag",
+ "Detuviste {0}. No pasa nada: el disco queda bien.",
+ "No se pudo optimizar {0}. {1}",
+ "Detenida.",
+ "Windows no pudo optimizarla (código 0x{0}).",
+ "Optimizar: «Detener» ya no sale como error, «Analizar» espera a que termine y, al acabar, el disco mecánico muestra su fragmentación al momento.",
+ "Windows ya la está optimizando. Prueba en unos minutos.",
+ "Si Windows ya estaba optimizando la unidad, Vigía espera y lo vuelve a intentar en vez de decir «Listo» sin hacer nada."
 ]
