@@ -275,7 +275,7 @@ static class Program
             return 0;
         }
         ApplicationConfiguration.Initialize();
-        if (args.Length == 0 || args[0] == AutoStart.Arg) IconOnce();
+        if (args.Length == 0 || args[0] == AutoStart.Arg) { IconOnce(); _ = Task.Run(Wallpaper.Refresh); }
         // Verificación visual: Vigia.exe --snap salida.png [storage] -> captura la UI real tras ~8 s y sale
         // Consumo real: Vigia.exe --bench salida.json -> 30 s abierta, 60 s minimizada, y sale
         Application.Run(args.Length >= 2 && args[0] == "--snap" ? new MainForm(args[1], args.ElementAtOrDefault(2))
@@ -685,7 +685,8 @@ sealed partial class MainForm : Form
                     break;
                 case "displayStretch":
                     var dw = (int)msg["w"]!; var dh = (int)msg["h"]!;
-                    Send("displayDone", Display.Stretch(dw, dh));
+                    var dg = msg["games"]?.GetValue<bool>() ?? false;
+                    Send("displayDone", await Task.Run(() => Display.Stretch(dw, dh, dg)));
                     Send("display", Display.Status());
                     break;
                 case "displayRestore":

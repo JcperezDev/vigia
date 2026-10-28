@@ -98,8 +98,9 @@ out.append(f'<text x="{cx}" y="{ty}" text-anchor="middle" font-family="Segoe UI 
 TW = 471                              # ancho medido del título a 132 px
 L = cx - TW / 2
 gy = ty + 74
-x1, x2 = L - 0.25 * TW, L + 0.21 * TW
-tx, TL = L + 0.26 * TW, 1.1 * TW
+DX = 0.5 * TW                         # todo el bloque corrido medio título a la derecha
+x1, x2 = L - 0.25 * TW + DX, L + 0.21 * TW + DX
+tx, TL = L + 0.26 * TW + DX, 1.1 * TW
 out.append(f'<line x1="{x1:.0f}" y1="{gy - 12}" x2="{x2:.0f}" y2="{gy - 12}" stroke="#f1f4f9" stroke-opacity=".9" stroke-width="2.5"/>')
 out.append(f'<text x="{tx:.0f}" y="{gy}" textLength="{TL:.0f}" lengthAdjust="spacing" font-family="Segoe UI Variable Text, Segoe UI, sans-serif" font-size="35" font-weight="400" fill="#eef2f8">MAXIMUM PERFORMANCE</text>')
 out.append('</svg>')

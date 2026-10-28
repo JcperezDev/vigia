@@ -1010,28 +1010,58 @@
   }
   $('bk-reload').addEventListener('click', () => { busyBtn($('bk-reload'), true, 'Leyendo…'); send({ cmd: 'backupsList' }); });
 
-  // ---------- resolución estirada ----------
-  let dsTimer = null;
+  // ---------- resolución estirada (en Juegos) ----------
+  let dsTimer = null, dsNative = null;
+  const dsRes = (m) => `${m.width} × ${m.height}`;
+  // Menos píxeles = menos trabajo para la tarjeta gráfica. Los FPS no suben en la misma proporción: en juegos
+  // limitados por la gráfica suben más o menos entre la raíz y la potencia 0,7 de la reducción. Si limita el
+  // procesador, casi nada. Es una estimación; lo real se ve midiendo una partida antes y otra después.
+  function dsEstimate() {
+    const v = $('ds-mode').value;
+    const [w, h] = v === 'custom' ? [+$('ds-w').value, +$('ds-h').value] : v.split('x').map(Number);
+    if (!dsNative || !w || !h) { $('ds-est').textContent = ''; return; }
+    const ratio = (dsNative.width * dsNative.height) / (w * h);
+    if (ratio <= 1.02) { $('ds-est').textContent = 'Misma cantidad de píxeles que tu resolución normal: no cambia los FPS.'; return; }
+    const less = Math.round((1 - 1 / ratio) * 100), lo = Math.round((ratio ** 0.5 - 1) * 100), hi = Math.round((ratio ** 0.7 - 1) * 100);
+    $('ds-est').textContent = `${dsRes({ width: w, height: h })} tiene ${less} % menos píxeles que ${dsRes(dsNative)}: entre +${lo} % y +${hi} % FPS si la tarjeta gráfica va al límite; si el que limita es el procesador, casi nada. Mide una partida antes y otra después para ver lo tuyo.`;
+  }
   function renderDisplay(d) {
     const n = d.native, c = d.current;
-    const res = (m) => `${m.width} × ${m.height}`;
+    dsNative = d.saved || n;
     $('ds-restore').hidden = !d.saved;
     if (!n || !c) { $('ds-sub').textContent = 'No pude leer la pantalla principal.'; return; }
-    $('ds-sub').textContent = d.stretched
-      ? `Ahora: ${res(c)} estirada a ${c.hz} Hz. Tu resolución normal es ${res(d.saved)}.`
-      : c.width * c.height < n.width * n.height
-        ? `Ahora: ${res(c)} a ${c.hz} Hz; ya la tienes por debajo de la nativa de tu pantalla (${res(n)}). Menos píxeles dan más FPS solo si la tarjeta gráfica va al límite.`
-        : `Ahora: ${res(c)} a ${c.hz} Hz. Menos píxeles dan más FPS solo si la tarjeta gráfica va al límite; si el que limita es el procesador, casi no cambia. La imagen se ve más ancha.`;
-    $('ds-mode').replaceChildren(...d.options.map((m) => {
-      const o = el('option', null, `${res(m)}${m.width === 1440 && m.height === 1080 ? ' · la más usada' : ''}`); o.value = `${m.width}x${m.height}`;
-      if (m.width === c.width && m.height === c.height) o.selected = true;
+    $('ds-sub').textContent = c.hz > 1 ? (d.stretched ? `Ahora: ${dsRes(c)} estirada a ${c.hz} Hz. La normal es ${dsRes(d.saved)}.` : `Ahora: ${dsRes(c)} a ${c.hz} Hz.`)
+      : d.stretched ? `Ahora: ${dsRes(c)} estirada. La normal es ${dsRes(d.saved)}.` : `Ahora: ${dsRes(c)}.`;
+    // primero las que la tarjeta ya tiene; luego las de la lista de Vigía, que se crean en su panel al aplicarlas
+    const aspect = (m) => {
+      const r = m.width / m.height;
+      const k = [['1:1', 1], ['5:4', 1.25], ['4:3', 4 / 3], ['3:2', 1.5], ['16:10', 1.6]].find(([, v]) => Math.abs(r - v) < 0.012);
+      return k ? ` · ${k[0]}` : '';
+    };
+    const extra = d.extra || [];
+    const opt = (m, made) => {
+      const o = el('option', null, `${dsRes(m)}${aspect(m)}${m.width === 1440 && m.height === 1080 ? ' · la más usada' : ''}${made ? ' · se crea en la gráfica' : ''}`);
+      o.value = `${m.width}x${m.height}`;
       return o;
-    }));
-    if (!d.options.length) $('ds-sub').textContent += ' La pantalla no ofrece resoluciones más estrechas.';
-    const pick = d.options.find((m) => m.width === 1440 && m.height === 1080);
-    if (pick && !d.stretched) $('ds-mode').value = '1440x1080';
-    $('ds-apply').disabled = !d.options.length;
+    };
+    const opts = [...d.options.map((m) => opt(m, false)), ...extra.map((m) => opt(m, true))];
+    const all = [...d.options, ...extra];
+    const other = el('option', null, 'Otra…'); other.value = 'custom';
+    $('ds-mode').replaceChildren(...opts, other);
+    const cur = `${c.width}x${c.height}`;
+    $('ds-mode').value = d.stretched && all.some((m) => `${m.width}x${m.height}` === cur) ? cur
+      : all.some((m) => m.width === 1440 && m.height === 1080) ? '1440x1080' : all[0] ? `${all[0].width}x${all[0].height}` : 'custom';
+    $('ds-gpu').textContent = !extra.length ? ''
+      : d.gpu === 'nvidia' ? 'Las que dicen «se crea en la gráfica» las añado al Panel de control de NVIDIA (Cambiar resolución › Personalizar) cuando las aplicas.'
+      : d.gpu === 'amd' ? 'Las que dicen «se crea en la gráfica» las añado a AMD Software (Resoluciones personalizadas) cuando las aplicas.'
+      : 'Las que dicen «se crea en la gráfica» hay que crearlas antes en el panel de tu tarjeta; si eliges una te digo cómo.';
+    $('ds-games-row').hidden = !d.fortnite;
+    $('ds-w').max = dsNative.width; $('ds-h').max = dsNative.height;
+    if (!$('ds-w').value) { $('ds-w').value = Math.round(dsNative.height * 4 / 3 / 2) * 2; $('ds-h').value = dsNative.height; }
+    $('ds-custom').hidden = $('ds-mode').value !== 'custom';
+    $('ds-apply').disabled = false;
     $('ds-apply').textContent = d.stretched ? 'Cambiar' : 'Estirar';
+    dsEstimate();
   }
   function dsConfirm(show) {
     clearInterval(dsTimer);
@@ -1043,14 +1073,23 @@
       if (s <= 0) { dsConfirm(false); send({ cmd: 'displayRestore' }); }
     }, 1000);
   }
+  $('ds-mode').addEventListener('change', () => { $('ds-custom').hidden = $('ds-mode').value !== 'custom'; dsEstimate(); });
+  $('ds-w').addEventListener('input', dsEstimate);
+  $('ds-h').addEventListener('input', dsEstimate);
   $('ds-apply').addEventListener('click', () => {
-    const [w, h] = $('ds-mode').value.split('x').map(Number);
+    const v = $('ds-mode').value;
+    const [w, h] = v === 'custom' ? [Math.round(+$('ds-w').value), Math.round(+$('ds-h').value)] : v.split('x').map(Number);
+    if (!(w >= 640 && h >= 480) || (dsNative && (w > dsNative.width || h > dsNative.height))) {
+      $('ds-result').textContent = dsNative ? `Pon un tamaño entre 640 × 480 y ${dsRes(dsNative)}.` : 'Pon un tamaño válido.';
+      $('ds-result').classList.add('bad'); return;
+    }
+    $('ds-result').textContent = '';
     busyBtn($('ds-apply'), true, 'Cambiando…');
-    send({ cmd: 'displayStretch', w, h });
+    send({ cmd: 'displayStretch', w, h, games: !$('ds-games-row').hidden && $('ds-games').checked });
   });
   $('ds-restore').addEventListener('click', () => { dsConfirm(false); send({ cmd: 'displayRestore' }); });
   $('ds-undo').addEventListener('click', () => { dsConfirm(false); send({ cmd: 'displayRestore' }); });
-  $('ds-keep').addEventListener('click', () => { dsConfirm(false); $('tl-result').textContent = 'Resolución estirada guardada. «Volver a la normal» la deja como estaba.'; });
+  $('ds-keep').addEventListener('click', () => { dsConfirm(false); $('ds-result').textContent = 'Listo. «Volver a la normal» la deja como estaba.'; $('ds-result').classList.remove('bad'); });
 
   // Cada sección carga sus datos al abrirla. Si desde entonces se cambió algo (en otra sección, o fuera de Vigía
   // mientras la ventana estaba oculta), se vuelven a leer al volver a ella. Escanear discos o almacenamiento solo la primera vez.
@@ -1075,9 +1114,9 @@
     else if (v === 'apps' || v === 'simple') { if (v === 'simple' && bloat.length) smApps(); else send({ cmd: 'bloatList' }); }
     else if (v === 'bios') send({ cmd: 'biosGet' });
     else if (v === 'iso' && !usbBusy) send({ cmd: 'usbList' });
-    else if (v === 'tools') { send({ cmd: 'toolsList' }); send({ cmd: 'displayStatus' }); }
+    else if (v === 'tools') send({ cmd: 'toolsList' });
     else if (v === 'startup') send({ cmd: 'startupList' });
-    else if (v === 'games') send({ cmd: 'gamesGet' });
+    else if (v === 'games') { send({ cmd: 'gamesGet' }); send({ cmd: 'displayStatus' }); }
     else if (v === 'backups') send({ cmd: 'backupsList' });
     else if (v === 'support') send({ cmd: 'supportGet' });
   }));
@@ -1359,7 +1398,7 @@
       text: 'En Apps de Windows quitas lo que viene de fábrica y no usas. Aquí apagas lo que arranca solo al encender el PC, sin borrarlo.' },
     { view: 'backups', at: '#bk-original', title: 'Todo tiene vuelta atrás',
       text: 'Antes de cada cambio, Vigía guarda cómo estaba. «Volver a como estaba» deja tu PC como antes de instalar Vigía.' },
-    { view: 'tools', at: '#ds-box', title: 'Resolución estirada',
+    { view: 'games', at: '#ds-box', title: 'Resolución estirada',
       text: 'Estira la pantalla para jugar. Si se ve mal y no confirmas, vuelve sola en 15 segundos.' },
     { view: 'help', at: '.rail-end', title: 'Atajos junto al reloj',
       text: 'Si cierras la ventana, Vigía se queda junto al reloj, en «Mostrar iconos ocultos». Con clic derecho optimizas, liberas memoria o cambias la resolución sin abrirla. Este recorrido está siempre en Ayuda.' },
@@ -1531,8 +1570,10 @@
     }
     else if (type === 'display') { busyBtn($('ds-apply'), false); renderDisplay(payload); }
     else if (type === 'displayDone') {
-      $('tl-result').textContent = payload.message;
-      $('tl-result').classList.toggle('bad', !payload.ok);
+      // al estirar se enseña lo que hizo aparte del cambio (resolución creada en la gráfica, Fortnite)
+      const extraMsg = payload.ok && payload.pending ? payload.message.replace(/^Pantalla en [^.]+\. ?/, '') : payload.message;
+      $('ds-result').textContent = extraMsg;
+      $('ds-result').classList.toggle('bad', !payload.ok);
       dsConfirm(payload.ok && payload.pending);
     }
     else if (type === 'update') renderUpdate(payload);

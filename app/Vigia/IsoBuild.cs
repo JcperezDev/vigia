@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.ComTypes;
 using System.Security;
@@ -311,12 +311,18 @@ public static partial class IsoBuild
     [GeneratedRegex(@"(\d{1,3}\.\d)%")] private static partial Regex PctRx();
 
     // ---------- montar la ISO sin letra (no aparece en el Explorador ni salta la reproducción automática) ----------
+    // el volumen tarda un momento en aparecer tras montar (más si el PC está ocupado): se espera hasta 10 s
     static string Mount(string iso)
     {
         var q = iso.Replace("'", "''");
-        var (e, o) = Tweaks.Run("powershell.exe", $"-NoProfile -NonInteractive -Command \"$i = Mount-DiskImage -ImagePath '{q}' -Access ReadOnly -NoDriveLetter -PassThru -ErrorAction Stop; (Get-Volume -DiskImage $i).UniqueId\"");
+        var (e, o) = Tweaks.Run("powershell.exe", $"-NoProfile -NonInteractive -Command \"$i = Mount-DiskImage -ImagePath '{q}' -Access ReadOnly -NoDriveLetter -PassThru -ErrorAction Stop; $v = $null; for ($n = 0; $n -lt 20 -and -not $v; $n++) {{ $v = (Get-Volume -DiskImage $i -ErrorAction SilentlyContinue).UniqueId; if (-not $v) {{ Start-Sleep -Milliseconds 500 }} }}; $v\"");
         var root = o.Split('\n').Select(l => l.Trim()).FirstOrDefault(l => l.StartsWith(@"\\?\Volume", StringComparison.Ordinal));
-        if (e != 0 || root is null) throw new Exception($"No pude abrir la ISO: {o.Trim().Split('\n').FirstOrDefault()}");
+        if (e != 0 || root is null)
+        {
+            Unmount(iso);
+            var why = o.Trim().Split('\n').FirstOrDefault()?.Trim();
+            throw new Exception(string.IsNullOrEmpty(why) ? "No pude abrir la ISO: Windows la montó pero no le dio unidad. Prueba otra vez." : $"No pude abrir la ISO: {why}");
+        }
         return root;
     }
 

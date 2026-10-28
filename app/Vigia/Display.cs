@@ -4,7 +4,15 @@ using System.Text.Json;
 namespace Vigia;
 
 public record DisplayMode(int Width, int Height, int Hz);
-public record DisplayStatus(DisplayMode? Native, DisplayMode? Current, bool Stretched, List<DisplayMode> Options, DisplayMode? Saved);
+public record DisplayStatus(DisplayMode? Native, DisplayMode? Current, bool Stretched, List<DisplayMode> Options, DisplayMode? Saved)
+{
+    /// <summary>Las de la lista de Vigía que tu tarjeta aún no tiene: se crean en su panel al aplicarlas.</summary>
+    public List<DisplayMode> Extra { get; init; } = [];
+    /// <summary>«nvidia», «amd» u «other»: si es otra, las de Extra hay que crearlas a mano.</summary>
+    public string Gpu { get; init; } = "other";
+    /// <summary>Hay Fortnite en este usuario (para ofrecer dejarlo en ventana a pantalla completa).</summary>
+    public bool Fortnite { get; init; }
+}
 public record DisplayDone(bool Ok, string Message, bool Pending);
 
 /// <summary>
@@ -15,6 +23,26 @@ public record DisplayDone(bool Ok, string Message, bool Pending);
 public static class Display
 {
     static string BackupPath => Path.Combine(Settings.Dir, "display.json");
+
+    /// <summary>
+    /// Las estiradas que más se usan en juegos competitivos. Solo se ofrecen las que caben en tu pantalla
+    /// y son más estrechas que ella (si no, no se «estira» nada).
+    /// </summary>
+    static readonly (int W, int H)[] Presets =
+    [
+        // 4:3
+        (1920, 1440), (1856, 1392), (1792, 1344), (1600, 1200), (1440, 1080), (1400, 1050), (1280, 960),
+        (1152, 864), (1024, 768), (960, 720), (800, 600), (640, 480),
+        // 5:4
+        (1800, 1440), (1350, 1080), (1280, 1024), (1200, 960), (1080, 864),
+        // 16:10
+        (2304, 1440), (1920, 1200), (1728, 1080), (1680, 1050), (1440, 900), (1280, 800),
+        // 3:2
+        (2160, 1440), (1620, 1080), (1440, 960),
+        // a medida (de lo más usado en Fortnite y CS2)
+        (1750, 1080), (1700, 1080), (1650, 1080), (1600, 1080), (1568, 1080), (1500, 1080), (1280, 1080),
+        (1080, 1080), (2048, 1440), (1440, 1440), (1154, 864), (1280, 880), (1176, 664),
+    ];
 
     public static DisplayStatus Status()
     {
@@ -39,8 +67,34 @@ public static class Display
             }
         }
         opts = opts.OrderByDescending(m => m.Height).ThenByDescending(m => m.Width).ToList();
+        var extra = new List<DisplayMode>();
+        if (native is not null)
+        {
+            var ratio = (double)native.Width / native.Height;
+            var have = new HashSet<(int, int)>();
+            for (var i = 0; ; i++)
+            {
+                var dm = NewDevMode();
+                if (!EnumDisplaySettingsW(null, i, ref dm)) break;
+                if (dm.dmBitsPerPel >= 32 && dm.dmDisplayFrequency == native.Hz) have.Add((dm.dmPelsWidth, dm.dmPelsHeight));
+            }
+            foreach (var (w, h) in Presets)
+            {
+                if (w > native.Width || h > native.Height || (double)w / h > ratio - 0.05) continue;
+                if (opts.Any(o => o.Width == w && o.Height == h) || extra.Any(o => o.Width == w && o.Height == h)) continue;
+                // la tarjeta ya la tiene a tu frecuencia: va con las listas; si no, se crea al aplicarla
+                (have.Contains((w, h)) ? opts : extra).Add(new DisplayMode(w, h, native.Hz));
+            }
+            opts = opts.OrderByDescending(m => m.Height).ThenByDescending(m => m.Width).ToList();
+            extra = extra.OrderByDescending(m => m.Height).ThenByDescending(m => m.Width).ToList();
+        }
         var stretched = saved is not null && cur is not null && (cur.Width != saved.Width || cur.Height != saved.Height);
-        return new DisplayStatus(native, cur, stretched, opts, saved);
+        return new DisplayStatus(native, cur, stretched, opts, saved)
+        {
+            Extra = extra,
+            Fortnite = File.Exists(Games.FortnitePath),
+            Gpu = GpuModes.Detect() switch { GpuModes.Vendor.Nvidia => "nvidia", GpuModes.Vendor.Amd => "amd", _ => "other" },
+        };
     }
 
     /// <summary>La frecuencia más alta que ofrece la pantalla a esa resolución.</summary>
@@ -71,11 +125,25 @@ public static class Display
         return best;
     }
 
-    public static DisplayDone Stretch(int w, int h)
+    /// <param name="games">además deja Fortnite en «Ventana a pantalla completa» a esa resolución (con el juego cerrado)</param>
+    public static DisplayDone Stretch(int w, int h, bool games = false)
     {
         var st = Status();
-        var want = st.Options.FirstOrDefault(m => m.Width == w && m.Height == h);
-        if (want is null) return new(false, $"La pantalla no ofrece {w} × {h} a {st.Native?.Hz} Hz.", false);
+        var want = Want(st, w, h, out var why, out var missing);
+        var created = "";
+        if (want is null && missing && (st.Saved ?? st.Native) is { } normal)
+        {
+            // la tarjeta no la tiene: se crea en su panel (NVIDIA › Cambiar resolución › Personalizar, o AMD › Resoluciones personalizadas)
+            var err = GpuModes.Create(w, h, normal.Hz, normal.Width, normal.Height);
+            if (err is null)
+            {
+                st = Status();
+                want = Want(st, w, h, out why, out _);
+                created = st.Gpu == "amd" ? " La creé en AMD Software (Resoluciones personalizadas)." : " La creé en el Panel de control de NVIDIA (Cambiar resolución › Personalizar).";
+            }
+            else why = $"No pude crear {w} × {h} en tu tarjeta gráfica: {err}. {Manual(w, h, normal.Hz)}";
+        }
+        if (want is null) return new(false, why!, false);
         var cur = st.Current ?? throw new InvalidOperationException("No pude leer la resolución actual.");
         // se guarda la de antes solo la primera vez: si ya está estirada, la original sigue siendo la guardada
         if (st.Saved is null) Save(new DisplayMode(cur.Width, cur.Height, cur.Hz));
@@ -87,8 +155,15 @@ public static class Display
             if (st.Saved is null) File.Delete(BackupPath);
             return new(false, $"Windows no aceptó {w} × {h} ({Why(r)}).", false);
         }
-        return new(true, $"Pantalla en {w} × {h} estirada a {want.Hz} Hz.", true);
+        var game = games ? GameNote(Games.FortniteWindow(w, h)) : "";
+        return new(true, $"Pantalla en {w} × {h} estirada a {want.Hz} Hz.{created}{game}", true);
     }
+
+    static string GameNote(Games.Done? d) => d is null ? "" : d.Ok ? $" {d.Message}" : $" Fortnite: {d.Message}";
+
+    static string Manual(int w, int h, int hz) =>
+        $"Créala a mano: Panel de control de NVIDIA › Cambiar resolución › Personalizar › Crear resolución personalizada ({w} × {h}, {hz} Hz, sincronización Automática, Probar), " +
+        "o AMD Software › Pantalla › Resoluciones personalizadas, o el panel de Intel. Luego vuelve aquí.";
 
     public static DisplayDone Restore()
     {
@@ -98,7 +173,9 @@ public static class Display
         var r = Change(saved.Width, saved.Height, saved.Hz, DMDFO_DEFAULT);
         if (r != 0) return new(false, $"Windows no aceptó volver a {saved.Width} × {saved.Height} ({Why(r)}).", false);
         File.Delete(BackupPath);
-        return new(true, $"Pantalla de vuelta en {saved.Width} × {saved.Height} a {saved.Hz} Hz.", false);
+        // si Vigía dejó Fortnite en la estirada, vuelve a la normal también ahí (si no lo tocó, no hace nada)
+        var game = Games.FortniteWindow(saved.Width, saved.Height, onlyIfOurs: true);
+        return new(true, $"Pantalla de vuelta en {saved.Width} × {saved.Height} a {saved.Hz} Hz.{(game is { Ok: true } ? " " + game.Message : "")}", false);
     }
 
     /// <summary>Para restaurar una copia: pone ese modo (sin estirar si es la nativa). Devuelve null si salió bien.</summary>
@@ -112,12 +189,31 @@ public static class Display
         return null;
     }
 
-    /// <summary>Solo pregunta al driver (CDS_TEST); no cambia la pantalla.</summary>
+    /// <summary>
+    /// La de la lista, o una que escribe el usuario: entre 640 × 480 y la normal, a la frecuencia normal.
+    /// Si el driver no la tiene, Windows la rechaza y se explica cómo crearla en el panel de la tarjeta.
+    /// </summary>
+    static DisplayMode? Want(DisplayStatus st, int w, int h, out string? why, out bool missing)
+    {
+        why = null; missing = false;
+        var m = st.Options.FirstOrDefault(o => o.Width == w && o.Height == h);
+        if (m is not null) return m;
+        var normal = st.Saved ?? st.Native;
+        if (normal is null) { why = "No pude leer la pantalla principal."; return null; }
+        if (w < 640 || h < 480 || w > normal.Width || h > normal.Height)
+        { why = $"Pon un tamaño entre 640 × 480 y {normal.Width} × {normal.Height}."; return null; }
+        m = new DisplayMode(w, h, normal.Hz);
+        if (Change(w, h, normal.Hz, DMDFO_STRETCH, testOnly: true) == 0) return m;
+        missing = true;
+        why = $"Tu tarjeta gráfica no ofrece {w} × {h} a {normal.Hz} Hz. {Manual(w, h, normal.Hz)}";
+        return null;
+    }
+
     public static string Test(int w, int h)
     {
         var st = Status();
-        var m = st.Options.FirstOrDefault(o => o.Width == w && o.Height == h);
-        if (m is null) return $"NO: {w}x{h} no está en la lista";
+        var m = Want(st, w, h, out var why, out var missing);
+        if (m is null) return missing ? $"FALTA (se crearía en la gráfica: {GpuModes.Probe(w, h, (st.Saved ?? st.Native)!.Hz)})" : $"NO: {why}";
         var r = Change(m.Width, m.Height, m.Hz, DMDFO_STRETCH, testOnly: true);
         return r == 0 ? $"OK {w}x{h}@{m.Hz} estirado" : $"NO {Why(r)}";
     }

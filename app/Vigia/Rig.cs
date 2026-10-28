@@ -40,6 +40,7 @@ public static partial class Rig
         var tw = Tweaks.List().ToDictionary(t => t.Id);
         void Tw(string id, string title, string on, string off, string label)
         {
+            on = on.Replace("{plan}", Tweaks.PlanName() ?? "Alto rendimiento"); off = off.Replace("{plan}", Tweaks.PlanName() ?? "Equilibrado");
             if (!tw.TryGetValue(id, out var t) || t.State == "na") return;
             var applied = t.State == "applied";
             list.Add(new("tweak:" + id, applied ? "ok" : "warn", title, applied ? on : off,
@@ -50,8 +51,8 @@ public static partial class Rig
            "Apagado: Windows puede ponerse a actualizar o a trabajar en segundo plano en plena partida.", "Encender modo juego");
         Tw("hags", "Programación de GPU por hardware (HAGS)", "Encendida: la tarjeta gráfica ordena su propia memoria. Hace falta para la generación de fotogramas de DLSS.",
            "Apagada: Windows hace ese trabajo en la CPU y no puedes usar la generación de fotogramas de DLSS.", "Encender HAGS");
-        Tw("power-ultimate", "Plan de energía", "Máximo rendimiento: el procesador no se duerme entre fotograma y fotograma.",
-           "Equilibrado: el procesador baja de velocidad para ahorrar y tarda en volver a subir.", "Poner Máximo rendimiento");
+        Tw("power-ultimate", "Plan de energía", "{plan}: el procesador no se duerme entre fotograma y fotograma.",
+           "{plan}: el procesador baja de velocidad para ahorrar y tarda en volver a subir.", "Poner Máximo rendimiento");
         return list;
     }
 
