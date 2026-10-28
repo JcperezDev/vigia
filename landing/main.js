@@ -29,7 +29,7 @@
       whatH: 'What it changes on your PC', whatP: 'Every part explains what it changes in plain words. Anything risky comes off and flagged.',
       m1h: 'Simple mode', m1p: 'Answer a few questions (do you game? use a printer? Xbox?) and Vigía does the rest.',
       m2h: 'Memory', m2p: 'Frees RAM on its own when it hits 60%. In one test it gave back 11.2 GB.', m2r: '52% → 16%',
-      m3h: 'Windows startup', m3p: 'Turn off everything that starts with Windows in one click. Vigía stays: idle, it barely uses anything.', m3r: '0.1% CPU',
+      m3h: 'Windows startup', m3p: 'Turn off everything that starts with Windows in one click.',
       m4h: 'Games', m4p: 'Windows settings for gaming and a Fortnite profile. It only edits config files and never touches anti-cheat.',
       m5h: 'Monitor', m5p: 'Temperature, load and clock using the same counters as Task Manager, plus which program is using too much.',
       m6h: 'Windows ISO', m6p: 'Builds a clean ISO from the official one: local account, no ads, no TPM check, no automatic BitLocker. Then writes it to a USB drive.',
@@ -71,7 +71,7 @@
       whatH: 'O que ele mexe no seu PC', whatP: 'Cada parte explica o que muda em palavras simples. O que é arriscado vem desligado e marcado.',
       m1h: 'Modo simples', m1p: 'Você responde umas perguntas (joga? usa impressora? Xbox?) e o Vigía faz o resto.',
       m2h: 'Memória', m2p: 'Libera a RAM sozinho ao chegar a 60 %. Num teste devolveu 11,2 GB.', m2r: '52 % → 16 %',
-      m3h: 'Inicialização do Windows', m3p: 'Desliga com um clique tudo o que inicia com o Windows. O Vigía fica: parado, quase não gasta nada.', m3r: '0,1 % CPU',
+      m3h: 'Inicialização do Windows', m3p: 'Desliga com um clique tudo o que inicia com o Windows.',
       m4h: 'Jogos', m4p: 'Ajustes do Windows para jogar e perfil para Fortnite. Só edita arquivos de configuração; nunca mexe no anti-cheat.',
       m5h: 'Monitor', m5p: 'Temperatura, carga e clock com os mesmos contadores do Gerenciador de Tarefas, e qual programa gasta demais.',
       m6h: 'ISO do Windows', m6p: 'Cria uma ISO limpa a partir da oficial: conta local, sem anúncios, sem TPM nem BitLocker automático. E grava num pendrive.',
@@ -113,7 +113,7 @@
       whatH: 'Ce qu\u2019il touche sur votre PC', whatP: 'Chaque partie explique ce qu\u2019elle change avec des mots simples. Ce qui est risqué est désactivé et signalé.',
       m1h: 'Mode simple', m1p: 'Vous répondez à quelques questions (vous jouez ? imprimante ? Xbox ?) et Vigía fait le reste.',
       m2h: 'Mémoire', m2p: 'Libère la RAM tout seul à 60 %. Lors d\u2019un test, il a rendu 11,2 Go.', m2r: '52 % → 16 %',
-      m3h: 'Démarrage de Windows', m3p: 'Coupe en un clic tout ce qui démarre avec Windows. Vigía reste : au repos, il ne consomme presque rien.', m3r: '0,1 % CPU',
+      m3h: 'Démarrage de Windows', m3p: 'Coupe en un clic tout ce qui démarre avec Windows.',
       m4h: 'Jeux', m4p: 'Réglages Windows pour le jeu et profil Fortnite. Il ne modifie que des fichiers de configuration, jamais l\u2019anti-triche.',
       m5h: 'Moniteur', m5p: 'Température, charge et fréquence avec les mêmes compteurs que le Gestionnaire des tâches, et le programme qui consomme trop.',
       m6h: 'ISO de Windows', m6p: 'Crée une ISO propre à partir de l\u2019officielle : compte local, sans pub, sans TPM ni BitLocker automatique. Puis l\u2019écrit sur une clé USB.',
@@ -155,7 +155,7 @@
       whatH: 'Was es an deinem PC ändert', whatP: 'Jeder Bereich erklärt in einfachen Worten, was er ändert. Riskantes ist aus und markiert.',
       m1h: 'Einfacher Modus', m1p: 'Du beantwortest ein paar Fragen (spielst du? Drucker? Xbox?) und Vigía erledigt den Rest.',
       m2h: 'Arbeitsspeicher', m2p: 'Gibt RAM von selbst frei, sobald 60 % erreicht sind. In einem Test kamen 11,2 GB zurück.', m2r: '52 % → 16 %',
-      m3h: 'Windows-Autostart', m3p: 'Schaltet mit einem Klick alles ab, was mit Windows startet. Vigía bleibt: im Leerlauf braucht es fast nichts.', m3r: '0,1 % CPU',
+      m3h: 'Windows-Autostart', m3p: 'Schaltet mit einem Klick alles ab, was mit Windows startet.',
       m4h: 'Spiele', m4p: 'Windows-Einstellungen fürs Spielen und ein Fortnite-Profil. Es ändert nur Konfigurationsdateien, nie den Anti-Cheat.',
       m5h: 'Monitor', m5p: 'Temperatur, Last und Takt mit denselben Zählern wie der Task-Manager, und welches Programm zu viel verbraucht.',
       m6h: 'Windows-ISO', m6p: 'Erstellt aus der offiziellen eine saubere ISO: lokales Konto, ohne Werbung, ohne TPM-Prüfung und ohne automatisches BitLocker. Und schreibt sie auf einen USB-Stick.',
@@ -210,6 +210,7 @@
     document.documentElement.lang = lang;
     $$('[data-i]').forEach((e) => { e.innerHTML = t(e.dataset.i); });
     $$('[data-i-alt]').forEach((e) => { e.alt = t(e.dataset.iAlt); });
+    $$('img[data-shot]').forEach((e) => { const s = `img/${e.dataset.shot}-${lang}.webp`; if (!e.src.endsWith(s)) e.src = s; });   // capturas de la app en el idioma de la página
     $$('[data-i-aria]').forEach((e) => e.setAttribute('aria-label', t(e.dataset.iAria)));
     document.title = t('title');
     $('meta[name="description"]').content = t('desc');
