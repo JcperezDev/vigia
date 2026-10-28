@@ -3,17 +3,22 @@ using System.Text.Json.Nodes;
 
 namespace Vigia;
 
-public record BackupView(string Id, string At, string Kind, string Title, string[] Lines, string? RestorePoint, string? RestoredAt);
+public record BackupView(string Id, string At, string Kind, string Title, string[] Lines, string? RestorePoint, string? RestoredAt, Dictionary<string, int>? Counts = null);
 public record BackupDone(string Id, bool Ok, string Message, string[] Errors);
 
 /// <summary>
 /// Una copia de seguridad por cada cambio que hace Vigía (ajustes, inicio de Windows, resolución, apps).
 /// Cada copia guarda el estado de antes, completo, y se puede restaurar sola, aunque haya cambios después.
 /// Se guardan en %LOCALAPPDATA%\Vigia\copias\*.json (una por archivo, escritura atómica). Se conservan las últimas 300.
+/// Además hay una copia fija, «original» (copias\original.json): cómo estaba todo lo que Vigía puede tocar antes
+/// del primer cambio. Se crea una sola vez y no entra en el límite de 300.
 /// </summary>
 public static class Backups
 {
     static readonly object Gate = new();
+    static readonly object OrigGate = new();
+    public const string OriginalId = "original";
+    static bool _haveOriginal;
     static string Dir => Path.Combine(Settings.Dir, "copias");
     const int Keep = 300;
 
@@ -33,6 +38,8 @@ public static class Backups
     /// <summary>Guarda una copia y devuelve su id. Nunca lanza: si no se puede guardar, el cambio no debe seguir (devuelve null).</summary>
     public static string? Save(string kind, string title, IEnumerable<JsonObject> items, string? restorePoint = null)
     {
+        // antes del primer cambio, la foto completa de cómo estaba el sistema; sin ella no se cambia nada
+        if (!EnsureOriginal()) return null;
         lock (Gate)
         {
             try
@@ -48,10 +55,47 @@ public static class Backups
                     ["restorePoint"] = restorePoint, ["restoredAt"] = null, ["items"] = list,
                 };
                 Write(id, o);
-                foreach (var old in Directory.GetFiles(Dir, "*.json").OrderByDescending(f => f).Skip(Keep)) File.Delete(old);
+                foreach (var old in Directory.GetFiles(Dir, "*.json").Where(f => Path.GetFileNameWithoutExtension(f) != OriginalId)
+                                                .OrderByDescending(f => f).Skip(Keep)) File.Delete(old);
                 return id;
             }
             catch { return null; }
+        }
+    }
+
+    /// <summary>
+    /// Crea la copia «original» si todavía no existe: todos los ajustes del catálogo, todo lo que arranca con Windows,
+    /// la resolución y las apps que Vigía sabe quitar, tal como están ahora. Devuelve false solo si no se pudo guardar.
+    /// </summary>
+    public static bool EnsureOriginal(bool withRestorePoint = false)
+    {
+        if (_haveOriginal) return true;
+        lock (OrigGate)
+        {
+            if (_haveOriginal || File.Exists(PathOf(OriginalId))) return _haveOriginal = true;
+            try
+            {
+                var items = new List<JsonObject>();
+                items.AddRange(Tweaks.SnapshotAll());
+                items.AddRange(Startup.SnapshotAll());
+                // sin pantalla real (sesión de servicio, escritorio remoto) Windows da un modo virtual de 0 Hz: ese no se guarda
+                if (Display.Status().Current is { Hz: > 1 } c) items.Add(Item.Display(c.Width, c.Height, c.Hz));
+                foreach (var a in Debloat.List().Where(a => a.Installed)) items.Add(Item.Appx(a.Id, a.Name));
+
+                string? rp = null;
+                if (withRestorePoint && Telemetry.Elevated && RestorePoint.Create("Vigía: estado original") is { Ok: true }) rp = "Vigía: estado original";
+
+                Directory.CreateDirectory(Dir);
+                var o = new JsonObject
+                {
+                    ["id"] = OriginalId, ["at"] = DateTime.Now.ToString("s"), ["kind"] = OriginalId,
+                    ["title"] = "Cómo estaba tu PC antes de Vigía", ["version"] = Updates.Current.ToString(3),
+                    ["restorePoint"] = rp, ["restoredAt"] = null, ["items"] = new JsonArray(items.Cast<JsonNode>().ToArray()),
+                };
+                lock (Gate) Write(OriginalId, o);
+                return _haveOriginal = true;
+            }
+            catch { return false; }
         }
     }
 
@@ -66,9 +110,11 @@ public static class Backups
                 try
                 {
                     var o = JsonNode.Parse(File.ReadAllText(f))!.AsObject();
+                    var its = o["items"]!.AsArray();
+                    var counts = its.GroupBy(i => (string?)i!["t"] ?? "").ToDictionary(g => g.Key, g => g.Count());
                     res.Add(new((string)o["id"]!, (string)o["at"]!, (string)o["kind"]!, (string)o["title"]!,
-                        o["items"]!.AsArray().Select(i => (string?)i!["label"] ?? "").ToArray(),
-                        (string?)o["restorePoint"], (string?)o["restoredAt"]));
+                        its.Select(i => (string?)i!["label"] ?? "").ToArray(),
+                        (string?)o["restorePoint"], (string?)o["restoredAt"], counts));
                 }
                 catch { /* archivo dañado: se ignora */ }
             }
@@ -133,7 +179,8 @@ public static class Backups
                 // Vigía solo quita la app de tu usuario: el paquete de Windows sigue ahí y se vuelve a registrar
                 var name = (string)it["name"]!;
                 if (!System.Text.RegularExpressions.Regex.IsMatch(name, @"^[A-Za-z0-9.\-]+$")) throw new InvalidOperationException("Nombre de paquete no válido.");
-                var (exit, output) = Tweaks.Run("powershell.exe", "-NoProfile -NonInteractive -Command \"$p = Get-AppxPackage -AllUsers -Name '" + name +
+                // si sigue instalada para tu usuario no hay nada que hacer
+                var (exit, output) = Tweaks.Run("powershell.exe", "-NoProfile -NonInteractive -Command \"if (Get-AppxPackage -Name '" + name + "') { exit 0 }; $p = Get-AppxPackage -AllUsers -Name '" + name +
                     "' | Select-Object -First 1; if (-not $p) { exit 3 }; Add-AppxPackage -DisableDevelopmentMode -Register (Join-Path $p.InstallLocation 'AppxManifest.xml') -ErrorAction Stop\"");
                 if (exit == 3) throw new InvalidOperationException("ya no está en Windows; instálala desde Microsoft Store.");
                 if (exit != 0) throw new InvalidOperationException(output.Trim().Split('\n').FirstOrDefault() ?? $"código {exit}");

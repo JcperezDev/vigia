@@ -169,7 +169,7 @@ sealed partial class MainForm
 
     async Task QuickUndoAsync(string l)
     {
-        var last = (await Task.Run(Backups.List)).FirstOrDefault(b => b.RestoredAt is null);
+        var last = (await Task.Run(Backups.List)).FirstOrDefault(b => b.RestoredAt is null && b.Kind != Backups.OriginalId);
         if (last is null) { Notify(Tr.T("noBackup", l)); return; }
         var q = string.Format(Tr.T("undoQ", l), last.Title, last.At);
         if (MessageBox.Show(q, "Vigía", MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2) != DialogResult.Yes) return;

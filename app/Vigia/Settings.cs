@@ -18,7 +18,9 @@ public sealed class Settings
     /// <summary>El aviso «Vigía sigue aquí» solo sale la primera vez.</summary>
     public bool TrayHintShown { get; set; }
 
-    public static string Dir { get; } = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Vigia");
+    // VIGIA_DATA: carpeta de datos aparte, para pruebas sin tocar la del usuario
+    public static string Dir { get; } = Environment.GetEnvironmentVariable("VIGIA_DATA") is { Length: > 0 } d ? d
+        : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Vigia");
     static string FilePath => Path.Combine(Dir, "settings.json");
 
     public static Settings Load()

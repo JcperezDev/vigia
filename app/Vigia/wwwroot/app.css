@@ -119,6 +119,7 @@ dd { margin: 0; font: 500 14px "JBMono", monospace; font-variant-numeric: tabula
 .targets { list-style: none; margin: 0; padding: 6px 0; }
 .targets li { display: grid; grid-template-columns: 22px 1fr auto; align-items: center; gap: 12px; padding: 10px 20px; }
 .targets li.empty { display: block; color: var(--fg-3); font-size: 13px; padding: 18px 20px; }
+.rows li.empty { padding: 14px 16px; }
 .targets label { display: contents; cursor: pointer; }
 .targets input { accent-color: var(--violet); width: 16px; height: 16px; margin: 0; }
 .targets .path { display: block; font-size: 11px; color: var(--fg-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -271,6 +272,12 @@ dd { margin: 0; font: 500 14px "JBMono", monospace; font-variant-numeric: tabula
 .row.bk { grid-template-columns: 64px 1fr auto; align-items: center; }
 .row.bk > div { min-width: 0; }
 .row.bk .cmd { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* la copia fija del estado original: primero y aparte del historial */
+.bk-original { display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: center; margin: 0 0 22px; padding: 16px 18px; border: 1px solid var(--line); border-radius: var(--r); background: var(--ink-2); }
+.bk-original strong { font-weight: 600; font-size: 15px; }
+.bk-original p { margin: 2px 0 0; color: var(--fg-2); }
+.bk-original .src { color: var(--fg-3); font-size: 12.5px; }
+.bk-h { margin: 0 0 8px; font-size: 12px; font-weight: 500; letter-spacing: .06em; text-transform: uppercase; color: var(--fg-3); }
 .state { font-size: 12px; color: var(--fg-3); white-space: nowrap; padding-top: 2px; }
 .state.applied { color: var(--ok); }
 .state.partial { color: var(--amber); }

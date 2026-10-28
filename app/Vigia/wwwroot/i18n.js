@@ -47,7 +47,8 @@
         const parts = p.order.map((_, i) => m[i + 1]);
         const done = parts.map((x) => tr(x.trim(), depth + 1));
         // una parte larga que no se pudo traducir = el patrón agarró una frase que no es la suya
-        if (parts.some((x, i) => done[i] === x.trim() && x.trim().split(' ').length > 3)) continue;
+        // (las fechas y cifras no se traducen y pueden ser largas: «Oct 27, 10:17 PM»)
+        if (parts.some((x, i) => done[i] === x.trim() && x.trim().split(' ').length > 3 && !/\d/.test(x))) continue;
         const byIdx = {};
         p.order.forEach((n, i) => { byIdx[n] = done[i] === parts[i].trim() ? parts[i] : done[i]; });
         res = p.to.replace(/\{(\d+)\}/g, (_, n) => byIdx[n] ?? '');

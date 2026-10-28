@@ -247,6 +247,17 @@ public static class Startup
         catch (Exception e) { return new(id, false, e.Message); }
     }
 
+    /// <summary>Estado actual de todo lo que arranca con Windows (para la copia «original»).</summary>
+    internal static List<System.Text.Json.Nodes.JsonObject> SnapshotAll()
+    {
+        var res = new List<System.Text.Json.Nodes.JsonObject>();
+        foreach (var it in List().Where(x => !x.Missing))
+        {
+            try { res.AddRange(BackupItems(it.Id.Split(':', 3), it.Id)); } catch { }
+        }
+        return res;
+    }
+
     static IEnumerable<System.Text.Json.Nodes.JsonObject> BackupItems(string[] parts, string id)
     {
         switch (parts[0])

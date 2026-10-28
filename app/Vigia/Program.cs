@@ -33,6 +33,12 @@ static class Program
             File.WriteAllText(args[1], JsonSerializer.Serialize(new { startup = Startup.List(), display = Display.Status() }, new JsonSerializerOptions(Json) { WriteIndented = true }));
             return 0;
         }
+        if (args.Length >= 2 && args[0] == "--original")   // crea (si falta) la copia del estado original y lista las copias
+        {
+            var ok = Backups.EnsureOriginal(withRestorePoint: args.Contains("--rp"));
+            File.WriteAllText(args[1], JsonSerializer.Serialize(new { ok, list = Backups.List() }, new JsonSerializerOptions(Json) { WriteIndented = true }));
+            return ok ? 0 : 1;
+        }
         if (args.Length >= 2 && args[0] == "--backups")   // solo lectura: lista de copias
         {
             File.WriteAllText(args[1], JsonSerializer.Serialize(Backups.List(), new JsonSerializerOptions(Json) { WriteIndented = true }));
@@ -146,6 +152,8 @@ sealed partial class MainForm : Form
         _timer.Start();
         if (_snapPath is not null) _ = SnapAsync();
         else if (_benchPath is not null) _ = BenchAsync();
+        // primera vez: foto de cómo estaba el sistema antes de que Vigía toque nada (una sola vez, en segundo plano)
+        if (_snapPath is null && _benchPath is null) _ = Task.Run(() => Backups.EnsureOriginal(withRestorePoint: true));
         else if (_cfg.UpdateCheck) _ = UpdateLoopAsync();
     }
 

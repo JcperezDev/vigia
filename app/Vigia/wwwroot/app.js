@@ -504,12 +504,44 @@
     const d = new Date(s);
     return d.toLocaleDateString(window.vigiaI18n.locale(), { day: 'numeric', month: 'short' }) + ', ' + d.toLocaleTimeString(window.vigiaI18n.locale(), { hour: '2-digit', minute: '2-digit' });
   }
-  function renderBackups(list) {
+  function bkArm(b, idle, armedText, onGo) {
+    let armed = false;
+    b.addEventListener('click', () => {
+      if (!armed) { armed = true; b.textContent = armedText; b.classList.add('primary'); setTimeout(() => { if (armed) { armed = false; b.textContent = idle; b.classList.remove('primary'); } }, 4000); return; }
+      armed = false; onGo();
+    });
+  }
+  // la copia fija de cómo estaba todo antes de Vigía
+  function renderOriginal(o) {
+    const box = $('bk-original');
+    if (!o) { box.replaceChildren(el('p', 'src', 'Guardando cómo está tu PC ahora, antes de cualquier cambio…')); return; }
+    const n = o.counts || {};
+    const parts = [];
+    if (n.tweak) parts.push(plural(n.tweak, 'ajuste de Windows', 'ajustes de Windows'));
+    const st = (n.reg || 0) + (n.task || 0);
+    if (st) parts.push(plural(st, 'valor de inicio de Windows', 'valores de inicio de Windows'));
+    if (n.display) parts.push('la resolución');
+    if (n.appx) parts.push(plural(n.appx, 'app instalada', 'apps instaladas'));
+    const body = el('div');
+    body.append(el('strong', null, 'Cómo estaba tu PC antes de Vigía'),
+      el('p', null, `Guardada el ${bkWhen(o.at)}, antes del primer cambio. Esta copia nunca se borra.`),
+      el('p', 'src'));
+    // cada parte en su nodo: así se traduce sola («35» + «ajustes de Windows»)
+    parts.forEach((x, i) => { if (i) body.lastChild.append(' · '); body.lastChild.append(el('span', null, x)); });
+    if (o.restorePoint) body.append(el('p', 'src', 'Con punto de restauración de Windows del mismo momento.'));
+    if (o.restoredAt) body.append(el('p', 'src', `Usada el ${bkWhen(o.restoredAt)}.`));
+    const b = el('button', 'btn', 'Volver a como estaba');
+    bkArm(b, 'Volver a como estaba', '¿Seguro? Deshace todo lo de Vigía', () => { busyBtn(b, true, 'Restaurando…'); send({ cmd: 'backupRestore', id: o.id }); });
+    box.replaceChildren(body, b);
+  }
+  function renderBackups(all) {
     busyBtn($('bk-reload'), false, 'Volver a leer');
+    renderOriginal(all.find((c) => c.kind === 'original'));
+    const list = all.filter((c) => c.kind !== 'original');
     $('bk-sub').textContent = list.length
       ? `${plural(list.length, 'copia guardada', 'copias guardadas')}. Antes de cada cambio, Vigía guarda cómo estaba todo; restaurar también guarda una copia, por si quieres deshacerlo.`
-      : 'Todavía no hay copias. Se crea una sola antes de cada ajuste, apagado de inicio, cambio de pantalla o app quitada.';
-    if (!list.length) { $('bk-list').replaceChildren(el('li', 'empty', 'Sin copias todavía.')); return; }
+      : 'Todavía no hay copias de cambios. Se crea una antes de cada ajuste, apagado de inicio, cambio de pantalla o app quitada.';
+    if (!list.length) { $('bk-list').replaceChildren(el('li', 'empty', 'Aún no has cambiado nada con Vigía.')); return; }
     $('bk-list').replaceChildren(...list.map((c) => {
       const li = el('li', 'row bk');
       const body = el('div');
@@ -519,11 +551,7 @@
       if (c.restorePoint) body.append(el('p', 'src', 'Con punto de restauración de Windows.'));
       if (c.restoredAt) body.append(el('p', 'src', `Restaurada el ${bkWhen(c.restoredAt)}.`));
       const b = el('button', 'btn', 'Restaurar');
-      let armed = false;
-      b.addEventListener('click', () => {
-        if (!armed) { armed = true; b.textContent = '¿Seguro? Restaurar'; b.classList.add('primary'); setTimeout(() => { if (armed) { armed = false; b.textContent = 'Restaurar'; b.classList.remove('primary'); } }, 4000); return; }
-        armed = false; busyBtn(b, true, 'Restaurando…'); send({ cmd: 'backupRestore', id: c.id });
-      });
+      bkArm(b, 'Restaurar', '¿Seguro? Restaurar', () => { busyBtn(b, true, 'Restaurando…'); send({ cmd: 'backupRestore', id: c.id }); });
       li.append(el('span', `state${c.restoredAt ? '' : ' applied'}`, c.restoredAt ? 'Usada' : 'Guardada'), body, b);
       return li;
     }));

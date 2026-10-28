@@ -14,6 +14,10 @@ public sealed class Telemetry : IDisposable
 {
     readonly Computer _pc = new() { IsCpuEnabled = true, IsGpuEnabled = true, IsMemoryEnabled = true, IsStorageEnabled = true };
     readonly object _lock = new();
+    // Tras Close() LHM ya liberó sus librerías nativas (ADL de AMD, NVAPI): tocarlas tumba el proceso
+    // con una AccessViolation que .NET no deja atrapar. Todo acceso al hardware pasa por _lock y mira _closed.
+    bool _closed;
+    Snapshot? _last;
     readonly string _cpuName; readonly int _cores, _threads;
     readonly int? _ramSpeed; readonly string? _ramType;
     readonly List<string> _notes = new();
@@ -79,6 +83,8 @@ public sealed class Telemetry : IDisposable
     {
         lock (_lock)
         {
+            if (_closed) return _last ?? new Snapshot(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), Elevated,
+                new CpuInfo(_cpuName, _cores, _threads, null, null, null), null, new RamInfo(0, 0, 0, null, null, null, null), Array.Empty<DiskInfo>(), _notes);
             var hw = _pc.Hardware.SelectMany(All).ToList();
             foreach (var h in hw) { try { h.Update(); } catch { } }
 
@@ -150,7 +156,7 @@ public sealed class Telemetry : IDisposable
                     model);
             }).ToList();
 
-            return new Snapshot(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), Elevated, cpu, gpu, ram, drives, _notes);
+            return _last = new Snapshot(DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), Elevated, cpu, gpu, ram, drives, _notes);
         }
     }
 
@@ -162,6 +168,7 @@ public sealed class Telemetry : IDisposable
         lock (_lock)
         {
             var res = new Dictionary<string, Dictionary<string, double>>();
+            if (_closed) return res;
             foreach (var h in _pc.Hardware.SelectMany(All).Where(h => h.HardwareType == HardwareType.Storage))
             {
                 try { h.Update(); } catch { }
@@ -179,12 +186,13 @@ public sealed class Telemetry : IDisposable
     public IEnumerable<string> Dump()
     {
         lock (_lock)
-            foreach (var h in _pc.Hardware.SelectMany(All))
+            foreach (var h in _closed ? Enumerable.Empty<IHardware>() : _pc.Hardware.SelectMany(All))
             {
                 h.Update();
                 foreach (var s in h.Sensors) yield return $"{h.HardwareType}|{h.Name}|{s.SensorType}|{s.Name}|{s.Value}";
             }
     }
 
-    public void Dispose() { try { _pc.Close(); } catch { } }
+    // Espera a que termine la lectura en curso antes de liberar las librerías nativas.
+    public void Dispose() { lock (_lock) { if (_closed) return; _closed = true; try { _pc.Close(); } catch { } } }
 }

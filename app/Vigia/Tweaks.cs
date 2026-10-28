@@ -180,6 +180,12 @@ public static class Tweaks
         lock (Gate) return Catalog().FirstOrDefault(d => d.Id == id) is { } d ? SnapshotOf(d) : null;
     }
 
+    /// <summary>Estado actual de todos los ajustes del catálogo (para la copia «original»).</summary>
+    internal static List<JsonObject> SnapshotAll()
+    {
+        lock (Gate) return Catalog().Select(SnapshotOf).ToList();
+    }
+
     static JsonObject SnapshotOf(Def d) => new()
     {
         ["t"] = "tweak", ["id"] = d.Id, ["label"] = d.Title, ["saved"] = Capture(d),
@@ -360,6 +366,8 @@ public static class Tweaks
 
     static void Restore(string path, string name, JsonObject s)
     {
+        // si ya está como estaba no se escribe: algunas claves (p. ej. servicios protegidos) niegan la escritura aunque no cambie nada
+        if (JsonNode.DeepEquals(Snap(path, name), s)) return;
         if ((bool?)s["existed"] != true) { RegDelete(path, name); return; }
         var type = (string)s["type"]!; var val = (string)s["value"]!;
         if (type is "ExpandString" or "MultiString")
