@@ -1201,8 +1201,8 @@
   function smApps() {
     const list = bloat.filter((a) => a.installed && !a.blocked && !SM_XBOX.includes(a.id));
     const box = $('sm-applist'); box.textContent = '';
-    $('view-simple').querySelector('.sm-apps .note').hidden = !list.length;
-    if (!list.length) { const e = document.createElement('p'); e.className = 'empty'; e.textContent = 'Ya no quedan apps de Windows de más: no hay nada que quitar.'; box.append(e); smAskPlan(); return; }
+    $('view-simple').querySelector('.sm-apps').hidden = !list.length;   // sin apps de más: ni se muestra
+    if (!list.length) { smAskPlan(); return; }
     if (!smAppsDrawn) { list.filter((a) => a.risk !== 'bajo').forEach((a) => smKeep.add(a.id)); smAppsDrawn = true; }
     for (const a of list) {
       const l = document.createElement('label'); l.className = 'chk';
