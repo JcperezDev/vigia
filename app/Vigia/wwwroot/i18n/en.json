@@ -1986,5 +1986,7 @@
  "Abre «Símbolo del sistema» como administrador y escribe: bcdedit /deletevalue useplatformclock": "Open “Command Prompt” as administrator and type: bcdedit /deletevalue useplatformclock",
  "Reinicia cuando termines de jugar.": "Restart when you're done playing.",
  "useplatformclock: sí": "useplatformclock: yes",
- "Ajustes y Sugerencias más simples: «Aplicar todo» de un toque y detector de input lag y tirones.": "Simpler Tweaks and Suggestions: one-tap “Apply all” and an input lag and stutter detector."
+ "Ajustes y Sugerencias más simples: «Aplicar todo» de un toque y detector de input lag y tirones.": "Simpler Tweaks and Suggestions: one-tap “Apply all” and an input lag and stutter detector.",
+ "Diagnóstico ya no cuenta como «errores de disco» los avisos de ISOs o discos virtuales que se montaron y se quitaron.": "Diagnostics no longer counts warnings from ISOs or virtual disks that were mounted and removed as “disk errors”.",
+ "Arreglos de estabilidad: deshacer el ratón se nota al momento, la Papelera nunca viene marcada y el modo simple ya no fuerza el cierre de programas al apagar.": "Stability fixes: undoing mouse changes takes effect right away, the Recycle Bin is never pre-checked and simple mode no longer force-closes programs at shutdown."
 }

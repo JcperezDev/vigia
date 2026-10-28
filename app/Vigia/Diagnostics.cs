@@ -105,7 +105,17 @@ public static partial class Diagnostics
 
         // --- Errores de disco y sistema de archivos ---
         var disk = Query("System", $"*[System[(Provider[@Name='disk'] or Provider[@Name='Ntfs'] or Provider[@Name='stornvme'] or Provider[@Name='storahci'] or Provider[@Name='Microsoft-Windows-Ntfs']) and (Level=1 or Level=2 or Level=3) and {Since(days)}]]");
-        var diskReal = disk.Where(e => !(e.Provider.Contains("Ntfs") && e.Id == 98)).ToList(); // 98 = volumen revisado y OK
+        // Solo discos físicos que siguen conectados: una ISO o un disco virtual montado (y luego quitado)
+        // deja avisos de «Harddisk N» que no son fallos del PC.
+        var phys = Wmi(@"root\cimv2", "SELECT Index, Model FROM Win32_DiskDrive")
+            .Where(o => !((o["Model"] as string ?? "").Contains("Virtual", StringComparison.OrdinalIgnoreCase)))
+            .Select(o => Convert.ToInt32(o["Index"])).ToHashSet();
+        bool OnRealDisk(string msg)
+        {
+            var m = System.Text.RegularExpressions.Regex.Match(msg ?? "", @"Harddisk(\d+)");
+            return !m.Success || phys.Count == 0 || phys.Contains(int.Parse(m.Groups[1].Value));
+        }
+        var diskReal = disk.Where(e => !(e.Provider.Contains("Ntfs") && e.Id == 98) && OnRealDisk(e.Message)).ToList(); // 98 = volumen revisado y OK
         items.Add(diskReal.Count == 0
             ? new DiagItem("ok", "Errores de disco", "Sin errores de lectura/escritura ni del sistema de archivos.", Array.Empty<string>())
             : new DiagItem(diskReal.Any(e => e.Provider == "disk" && e.Id is 7 or 11 or 51) ? "warn" : "info", "Errores de disco",

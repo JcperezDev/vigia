@@ -1986,5 +1986,7 @@
  "Abre «Símbolo del sistema» como administrador y escribe: bcdedit /deletevalue useplatformclock": "Abra o «Prompt de Comando» como administrador e digite: bcdedit /deletevalue useplatformclock",
  "Reinicia cuando termines de jugar.": "Reinicie quando terminar de jogar.",
  "useplatformclock: sí": "useplatformclock: sim",
- "Ajustes y Sugerencias más simples: «Aplicar todo» de un toque y detector de input lag y tirones.": "Ajustes e Sugestões mais simples: «Aplicar tudo» num toque e detector de input lag e engasgos."
+ "Ajustes y Sugerencias más simples: «Aplicar todo» de un toque y detector de input lag y tirones.": "Ajustes e Sugestões mais simples: «Aplicar tudo» num toque e detector de input lag e engasgos.",
+ "Diagnóstico ya no cuenta como «errores de disco» los avisos de ISOs o discos virtuales que se montaron y se quitaron.": "O Diagnóstico não conta mais como «erros de disco» os avisos de ISOs ou discos virtuais montados e removidos.",
+ "Arreglos de estabilidad: deshacer el ratón se nota al momento, la Papelera nunca viene marcada y el modo simple ya no fuerza el cierre de programas al apagar.": "Correções de estabilidade: desfazer o mouse vale na hora, a Lixeira nunca vem marcada e o modo simples não força mais o fechamento de programas ao desligar."
 }

@@ -664,7 +664,7 @@ sealed partial class MainForm : Form
                     {
                         var ra = msg["answers"].Deserialize<Simple.Answers>(Program.Json) ?? new();
                         var rep = await Task.Run(() => Simple.Run(Simple.Build(ra), st => BeginInvoke(() => Send("simpleStep", st)),
-                            on => BeginInvoke(() => { _cfg.MemAuto = on; if (on) _cfg.MemAutoThreshold = 60; _cfg.Save(); Send("settings", _cfg); })));
+                            on => BeginInvoke(() => { _cfg.MemAuto = on; if (on) _cfg.MemAutoThreshold = 60; _cfg.Save(); Send("settings", new { cfg = _cfg, lab = Tweaks.Lab, autoStart = AutoStart.Enabled() }); })));
                         Send("simpleDone", rep);
                     }
                     finally { _simpleBusy = false; }

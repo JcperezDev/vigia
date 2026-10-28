@@ -118,6 +118,7 @@ public static class Tweaks
     // ---------- aplicar / revertir ----------
     public static TweakBatch Apply(IEnumerable<string> ids, bool restorePoint = true)
     {
+        Backups.EnsureOriginal();   // antes del bloqueo: la copia original también lee los ajustes (mismo orden siempre)
         lock (Gate)
         {
             var defs = Catalog().Where(d => ids.Contains(d.Id)).ToList();
@@ -157,6 +158,7 @@ public static class Tweaks
 
     public static TweakBatch Revert(IEnumerable<string> ids)
     {
+        Backups.EnsureOriginal();
         lock (Gate)
         {
             var bk = LoadBackup();
@@ -176,7 +178,8 @@ public static class Tweaks
                 try
                 {
                     var ops = d.Ops.Select(x => x!.AsObject()).ToList();
-                    for (int i = ops.Count - 1; i >= 0; i--) RevertOp(ops[i], saved, i);
+                    for (int i = ops.Count - 1; i >= 0; i--) if ((bool?)ops[i]["post"] != true) RevertOp(ops[i], saved, i);
+                    for (int i = 0; i < ops.Count; i++) if ((bool?)ops[i]["post"] == true) RevertOp(ops[i], saved, i);
                     bk.Remove(d.Id); SaveBackup(bk);
                     Log($"revertir {d.Id}: {StateOf(d)}");
                     results.Add(new(d.Id, true, StateOf(d), null));
@@ -525,9 +528,10 @@ public static class Tweaks
     {
         var psi = new ProcessStartInfo(file, args) { RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false, CreateNoWindow = true };
         using var p = Process.Start(psi)!;
-        var o = p.StandardOutput.ReadToEnd() + p.StandardError.ReadToEnd();
-        p.WaitForExit(60000);
-        return (p.ExitCode, o);
+        var so = p.StandardOutput.ReadToEndAsync(); var se = p.StandardError.ReadToEndAsync();
+        if (!p.WaitForExit(60000)) { try { p.Kill(true); } catch { } return (-1, "tardó más de 60 s"); }
+        System.Threading.Tasks.Task.WaitAll([so, se], 5000);
+        return (p.ExitCode, (so.IsCompleted ? so.Result : "") + (se.IsCompleted ? se.Result : ""));
     }
 
     static void Must((int exit, string output) r, string what)

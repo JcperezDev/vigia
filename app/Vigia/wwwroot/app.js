@@ -172,7 +172,7 @@
       li.innerHTML = `<label><input type="checkbox"><span><span class="tname"></span><span class="path"></span></span><span class="size"></span></label>`;
       const cb = li.querySelector('input');
       const has = t.id === 'startup_left' ? t.files > 0 : t.bytes > 0;
-      cb.checked = has; cb.disabled = !has; cb.dataset.id = t.id;
+      cb.checked = has && t.id !== 'recycle'; cb.disabled = !has; cb.dataset.id = t.id;
       cb.addEventListener('change', updateTotal);
       li.querySelector('.tname').textContent = t.name;
       li.querySelector('.path').textContent = t.id === 'startup_left' ? `${t.path} · ${t.files} entradas` : `${t.path} · ${t.files} archivos`;

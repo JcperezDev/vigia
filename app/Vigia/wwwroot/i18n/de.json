@@ -1986,5 +1986,7 @@
  "Abre «Símbolo del sistema» como administrador y escribe: bcdedit /deletevalue useplatformclock": "Öffne die „Eingabeaufforderung“ als Administrator und gib ein: bcdedit /deletevalue useplatformclock",
  "Reinicia cuando termines de jugar.": "Starte neu, wenn du fertig gespielt hast.",
  "useplatformclock: sí": "useplatformclock: ja",
- "Ajustes y Sugerencias más simples: «Aplicar todo» de un toque y detector de input lag y tirones.": "Einfachere Optimierungen und Vorschläge: „Alles anwenden“ mit einem Klick und ein Input-Lag- und Ruckler-Detektor."
+ "Ajustes y Sugerencias más simples: «Aplicar todo» de un toque y detector de input lag y tirones.": "Einfachere Optimierungen und Vorschläge: „Alles anwenden“ mit einem Klick und ein Input-Lag- und Ruckler-Detektor.",
+ "Diagnóstico ya no cuenta como «errores de disco» los avisos de ISOs o discos virtuales que se montaron y se quitaron.": "Die Diagnose zählt Warnungen von eingebundenen und entfernten ISOs oder virtuellen Laufwerken nicht mehr als „Laufwerksfehler“.",
+ "Arreglos de estabilidad: deshacer el ratón se nota al momento, la Papelera nunca viene marcada y el modo simple ya no fuerza el cierre de programas al apagar.": "Stabilitätskorrekturen: Maus-Rückgängig wirkt sofort, der Papierkorb ist nie vorausgewählt und der einfache Modus erzwingt beim Herunterfahren kein Schließen von Programmen mehr."
 }
