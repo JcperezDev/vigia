@@ -97,6 +97,28 @@ static class Program
             File.WriteAllText(args[1], JsonSerializer.Serialize(Simple.Build(ans), new JsonSerializerOptions(Json) { WriteIndented = true }));
             return 0;
         }
+        if (args.Length >= 2 && args[0] == "--msdl-probe" && Environment.GetEnvironmentVariable("VIGIA_LAB") == "1")
+        {
+            ApplicationConfiguration.Initialize();
+            return IsoDownloadProbe.Run(args[1]);
+        }
+        if (args.Length >= 2 && args[0] == "--simple-run" && Environment.GetEnvironmentVariable("VIGIA_LAB") == "1")   // solo en la VM de pruebas
+        {
+            var tr = args[1] + ".trace.txt";
+            void T(string m) { try { File.AppendAllText(tr, $"{DateTime.Now:HH:mm:ss.fff} {m}\r\n"); } catch { } }
+            T("inicio");
+            T("tweaks " + Tweaks.SnapshotAll().Count());
+            T("startup " + Startup.SnapshotAll().Count());
+            T("display " + Display.Status().Current?.Hz);
+            T("debloat " + Debloat.List().Count);
+            var ans = args.Length >= 3 ? JsonSerializer.Deserialize<Simple.Answers>(File.ReadAllText(args[2]), Json)! : new Simple.Answers();
+            T("respuestas leídas");
+            var steps = new List<Simple.Step>();
+            var plan = Simple.Build(ans); T("plan " + plan.Stages.Count);
+            var rep = Simple.Run(plan, st => { lock (steps) steps.Add(st); T($"etapa {st.Index} {st.Id} {st.State} {st.Detail}"); }, _ => { });
+            File.WriteAllText(args[1], JsonSerializer.Serialize(new { rep, steps }, new JsonSerializerOptions(Json) { WriteIndented = true }));
+            return rep.Ok ? 0 : 1;
+        }
         if (args.Length >= 2 && args[0] == "--procs")   // solo lectura: Vigia --procs <salida.json> [segundos]
         {
             Procs.Reset(); Procs.Sample();

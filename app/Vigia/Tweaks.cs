@@ -612,7 +612,20 @@ public static class RestorePoint
         catch { return false; }
     }
 
-    public static Result Create(string description)
+    /// <summary>
+    /// Crea el punto con un límite de tiempo: en algunos equipos (VSS ocupado, disco lento) Windows se queda
+    /// minutos sin responder. Pasado el límite seguimos: la copia propia de Vigía ya cubre «Volver a como estaba».
+    /// </summary>
+    public static Result Create(string description) => Create(description, TimeSpan.FromMinutes(3));
+
+    public static Result Create(string description, TimeSpan limit)
+    {
+        var t = Task.Run(() => CreateNow(description));
+        return t.Wait(limit) ? t.Result
+            : new(false, "Windows tardó demasiado en crear el punto de restauración; seguimos con la copia de Vigía.");
+    }
+
+    static Result CreateNow(string description)
     {
         const string K = @"SOFTWARE\Microsoft\Windows NT\CurrentVersion\SystemRestore";
         object? prevFreq = null;
