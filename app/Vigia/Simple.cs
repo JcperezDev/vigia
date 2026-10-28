@@ -54,7 +54,9 @@ public static class Simple
             new("apps", "Apps de Windows", [], apps),
             new("clean", "Limpieza", [], []),
             new("memory", "Memoria", [], []),
+            new("wallpaper", "Fondo de VigíaOS", [], []),
         };
+        try { if (Wallpaper.Status().Ours) stages.RemoveAll(s => s.Id == "wallpaper"); } catch { }
         if (!a.Clean) stages.RemoveAll(s => s.Id == "clean");
         return new(stages, a.Clean, a.MemAuto, stages.Sum(s => s.Tweaks.Count + s.Apps.Count));
     }
@@ -98,6 +100,11 @@ public static class Simple
                         var mr = Memory.Free(new MemOptions());
                         freed = mr.FreedMb;
                         detail = (plan.MemAuto ? "Se liberará sola al llegar al 60 %. " : "") + $"{mr.FreedMb:0} MB liberados ahora.";
+                        break;
+                    case "wallpaper":
+                        var wd = Wallpaper.Apply();
+                        detail = wd.Ok ? "Puesto. El de antes vuelve desde Apps de Windows." : wd.Message;
+                        if (!wd.Ok) state = "warn";
                         break;
                     default:
                         if (s.Tweaks.Count == 0) { detail = "Ya estaba todo puesto."; break; }

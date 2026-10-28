@@ -223,18 +223,13 @@ public static class Drift
     public sealed record RateItem(string Kind, string Name, int Hz, string Level, string Title, string? Fix);
     public sealed record RateReport(int Seconds, IReadOnlyList<RateItem> Items);
 
-    sealed class RateSink : NativeWindow
+    sealed class RateCount
     {
         public readonly Dictionary<IntPtr, int[]> Buckets = new();   // informes por tramo de 50 ms, por ratón
         public readonly System.Diagnostics.Stopwatch Clock = System.Diagnostics.Stopwatch.StartNew();
         public int Slots;
-        public RateSink(int slots) { Slots = slots; CreateHandle(new CreateParams { Parent = new IntPtr(-3) }); }
-        protected override void WndProc(ref Message m)
-        {
-            if (m.Msg == WM_INPUT) Read(m.LParam);
-            base.WndProc(ref m);
-        }
-        void Read(IntPtr h)
+        public RateCount(int slots) => Slots = slots;
+        public void Read(IntPtr h)
         {
             int hdr = 8 + 2 * IntPtr.Size, size = 0;
             GetRawInputData(h, RID_INPUT, IntPtr.Zero, ref size, hdr);
@@ -253,6 +248,25 @@ public static class Drift
         }
     }
 
+    /// <summary>Ventana invisible: solo para la línea de comandos (sin ventana de Vigía).</summary>
+    sealed class RateSink : NativeWindow
+    {
+        readonly RateCount _c;
+        public RateSink(RateCount c) { _c = c; CreateHandle(new CreateParams { Parent = new IntPtr(-3) }); }
+        protected override void WndProc(ref Message m)
+        {
+            if (m.Msg == WM_INPUT) _c.Read(m.LParam);
+            base.WndProc(ref m);
+        }
+    }
+
+    // Windows 11 (24H2 en adelante) solo pasa ~125 Hz del ratón a las ventanas que no están al frente.
+    // Por eso, con Vigía abierta, se mide en su propia ventana: si no, cualquier ratón saldría a 125 Hz.
+    static volatile RateCount? _feed;
+    /// <summary>La ventana de Vigía pasa aquí cada WM_INPUT mientras se mide.</summary>
+    public static void Feed(IntPtr lParam) => _feed?.Read(lParam);
+    [DllImport("user32.dll")] static extern IntPtr GetForegroundWindow();
+
     static readonly int[] Steps = [125, 250, 500, 1000, 2000, 4000, 8000];
     static int Snap(double hz) => hz < 90 ? (int)Math.Round(hz) : Steps.OrderBy(s => Math.Abs(Math.Log(hz / s))).First();
 
@@ -265,23 +279,28 @@ public static class Drift
     }
 
     /// <summary>Solo cuando el usuario pulsa «Medir»: unos segundos moviendo el ratón y el stick. No escribe nada.</summary>
-    public static RateReport Rates(int seconds)
+    public static RateReport Rates(int seconds, Control? host = null)
     {
         seconds = Math.Clamp(seconds, 3, 15);
         RateReport? rep = null; Exception? err = null;
-        var t = new Thread(() => { try { rep = MeasureRates(seconds); } catch (Exception e) { err = e; } }) { IsBackground = true };
+        var t = new Thread(() => { try { rep = MeasureRates(seconds, host); } catch (Exception e) { err = e; } }) { IsBackground = true };
         t.SetApartmentState(ApartmentState.STA);
         t.Start(); t.Join();
         if (err is not null) throw err;
         return rep!;
     }
 
-    static RateReport MeasureRates(int seconds)
+    static RateReport MeasureRates(int seconds, Control? host)
     {
         int slots = seconds * 20;
-        var sink = new RateSink(slots);
-        var reg = new[] { new RAWINPUTDEVICE { UsagePage = 1, Usage = 2, Flags = RIDEV_INPUTSINK, Target = sink.Handle } };
-        RegisterRawInputDevices(reg, 1, Marshal.SizeOf<RAWINPUTDEVICE>());
+        var count = new RateCount(slots);
+        RateSink? sink = null; IntPtr target;
+        if (host is not null) { target = host.Handle; _feed = count; }
+        else { sink = new RateSink(count); target = sink.Handle; }
+        var reg = new[] { new RAWINPUTDEVICE { UsagePage = 1, Usage = 2, Flags = RIDEV_INPUTSINK, Target = target } };
+        void Reg() => RegisterRawInputDevices(reg, 1, Marshal.SizeOf<RAWINPUTDEVICE>());
+        if (host is not null) host.Invoke(Reg); else Reg();
+        int front = 0, looks = 0;
         var xi = new List<int>();
         for (int i = 0; i < 4; i++) { try { if (XInputGetState(i, out _) == 0) xi.Add(i); } catch (DllNotFoundException) { break; } }
         var pads = xi.ToDictionary(i => i, _ => new int[slots]);
@@ -290,10 +309,11 @@ public static class Drift
         try
         {
             var end = seconds * 1000L;
-            while (sink.Clock.ElapsedMilliseconds < end)
+            while (count.Clock.ElapsedMilliseconds < end)
             {
-                while (PeekMessage(out var m, IntPtr.Zero, 0, 0, 1)) { TranslateMessage(ref m); DispatchMessage(ref m); }
-                var slot = (int)(sink.Clock.ElapsedMilliseconds / 50);
+                if (sink is not null) while (PeekMessage(out var m, IntPtr.Zero, 0, 0, 1)) { TranslateMessage(ref m); DispatchMessage(ref m); }
+                else if (++looks % 20 == 0 && GetForegroundWindow() == target) front++;
+                var slot = (int)(count.Clock.ElapsedMilliseconds / 50);
                 foreach (var i in xi)
                     if (XInputGetState(i, out var s) == 0 && s.Packet != last[i])
                     {
@@ -308,16 +328,19 @@ public static class Drift
         {
             timeEndPeriod(1);
             reg[0].Flags = RIDEV_REMOVE; reg[0].Target = IntPtr.Zero;
-            RegisterRawInputDevices(reg, 1, Marshal.SizeOf<RAWINPUTDEVICE>());
+            if (host is not null) { host.Invoke(Reg); _feed = null; } else Reg();
         }
-        var mice = sink.Buckets.ToList();
-        sink.DestroyHandle();
+        var mice = count.Buckets.ToList();
+        sink?.DestroyHandle();
+        // ¿se cambió de ventana durante la medida? entonces Windows recortó el ratón y el número no vale
+        var away = host is not null && looks >= 20 && front < looks / 20 * 0.8;
 
         var items = new List<RateItem>();
         foreach (var (dev, b) in mice)
         {
             var raw = Rate(b); if (raw == 0) continue;
             var hz = Snap(raw); var name = MouseName(dev);
+            if (away && hz <= 125) { items.Add(new("mouse", name, 0, "touched", "Cambiaste de ventana durante la medida.", "Vuelve a medir con Vigía al frente.")); continue; }
             items.Add(hz >= 900 ? new("mouse", name, hz, "ok", $"{hz} Hz: responde rápido.", null)
                 : hz >= 450 ? new("mouse", name, hz, "ok", $"{hz} Hz: bien.", "Si tu ratón llega a 1000 Hz, súbelo en su programa o con su botón.")
                 : new("mouse", name, hz, "warn", $"{hz} Hz: cada movimiento llega hasta {1000 / Math.Max(hz, 1)} ms tarde.", "Súbelo a 1000 Hz en el programa del ratón o con su botón de abajo."));

@@ -80,7 +80,7 @@ sealed partial class MainForm
         if (r.Undone.Count > 0)
             parts.Add(r.Undone.Count == 1 ? $"Se deshizo un ajuste de Vigía: {r.Undone[0].Title}." : $"Se deshicieron {r.Undone.Count} ajustes de Vigía (quizá una actualización de Windows).");
         if (parts.Count == 0) return;
-        _balloonView = r.NewItems.Count > 0 ? "startup" : "opt";
+        _balloonView = r.NewItems.Count > 0 ? "startup" : "tweaks";
         _tray.ShowBalloonTip(8000, "Vigía", string.Join(" ", parts) + " Toca para verlo.", ToolTipIcon.Info);
     }
     string? _balloonView;

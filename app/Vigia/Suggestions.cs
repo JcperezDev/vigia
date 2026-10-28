@@ -8,7 +8,8 @@ namespace Vigia;
 
 /// <summary>Una sugerencia: qué pasa (con lo medido), por qué importa y qué hacer. Go = sección de Vigía que ayuda.</summary>
 /// Why y Do van frase a frase: la interfaz traduce cada frase por separado.
-public sealed record Suggestion(string Id, string Level, string Title, IReadOnlyList<string> Why, IReadOnlyList<string> Do, string? Go, IReadOnlyList<string> Facts);
+/// <summary>Fix: lo que Vigía puede arreglar con un botón ("tweak:id", "hz:pantalla:hz", "trim", "sched"). Null si no se puede desde Windows.</summary>
+public sealed record Suggestion(string Id, string Level, string Title, IReadOnlyList<string> Why, IReadOnlyList<string> Do, string? Go, IReadOnlyList<string> Facts, string? Fix = null, string? FixLabel = null);
 public sealed record PingStats(string Target, int Sent, int Lost, double? Avg, double? Min, double? Max, double? Jitter);
 public sealed record WifiFacts(string Ssid, int Quality, int? Rssi, double? FreqGhz, string Band, string Phy, double RxMbps, int SameChannel);
 public sealed record NetFacts(string Kind, string Adapter, long LinkMbps, WifiFacts? Wifi, PingStats? Gateway, PingStats? Internet, IReadOnlyList<string> SpareEthernet);
@@ -28,10 +29,11 @@ public static class Suggestions
         var items = new List<Suggestion>();
         NetFacts? net = null;
         try { net = Environment.GetEnvironmentVariable("VIGIA_FAKE_NET") == "wifi" ? FakeWifi() : ReadNet(); items.AddRange(Network(net)); } catch { }
-        try { items.AddRange(Screen()); } catch { }
         try { items.AddRange(RamSpeed()); } catch { }
         try { items.AddRange(Disks(tel)); } catch { }
+        try { items.AddRange(DiskUpkeep()); } catch { }
         try { items.AddRange(Power()); } catch { }
+        try { items.AddRange(ForGames(items)); } catch { }
         try { items.AddRange(Battery()); } catch { }
         try { items.AddRange(Usage(tel.Read())); } catch { }
         try { items.AddRange(InputLag()); } catch { }
@@ -239,20 +241,6 @@ public static class Suggestions
         }
     }
 
-    // ======================= pantalla =======================
-
-    static IEnumerable<Suggestion> Screen()
-    {
-        var cur = Display.Status().Current;
-        if (cur is null || cur.Hz <= 1) yield break;   // fuera del escritorio real no hay pantalla de verdad
-        var max = Display.MaxHz(cur.Width, cur.Height);
-        if (max > cur.Hz + 1)
-            yield return new("screen-hz", "warn", $"Tu pantalla va a {cur.Hz} Hz y puede ir a {max} Hz",
-                [$"Windows la tiene en {cur.Hz} Hz, así que aunque el juego dé más FPS solo ves {cur.Hz} imágenes por segundo.", $"A {max} Hz todo se ve más fluido y responde antes."],
-                [$"Configuración de Windows › Sistema › Pantalla › Pantalla avanzada › Elegir frecuencia de actualización: {max} Hz.", "Si no aparece, usa cable DisplayPort o HDMI 2.1."],
-                null, [$"Resolución: {cur.Width} × {cur.Height}", $"Frecuencia ahora: {cur.Hz} Hz", $"Frecuencia máxima: {max} Hz"]);
-    }
-
     // ======================= RAM =======================
 
     static IEnumerable<Suggestion> RamSpeed()
@@ -307,6 +295,56 @@ public static class Suggestions
         return res;
     }
 
+    // ======================= mantenimiento de discos =======================
+
+    const string FsKey = @"HKLM\SYSTEM\CurrentControlSet\Control\FileSystem";
+    const string DefragTask = @"\Microsoft\Windows\Defrag\ScheduledDefrag";
+
+    /// <summary>Windows ya hace TRIM y desfragmenta solo cada semana; aquí solo se avisa si alguien lo apagó.</summary>
+    static IEnumerable<Suggestion> DiskUpkeep()
+    {
+        using (var k = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(@"SYSTEM\CurrentControlSet\Control\FileSystem"))
+            if (k?.GetValue("DisableDeleteNotification") is int v && v == 1)
+                yield return new("disk-trim", "warn", "TRIM está apagado",
+                    ["Sin TRIM, los SSD se van poniendo lentos al escribir."], [], null, ["DisableDeleteNotification: 1"], "trim", "Encender TRIM");
+        if (!Optimize.ScheduledEnabled())
+            yield return new("disk-sched", "warn", "Windows no está cuidando tus discos",
+                ["Alguien apagó la tarea semanal que hace TRIM en los SSD y desfragmenta los discos mecánicos."], [], null, ["Tarea ScheduledDefrag: apagada"], "sched", "Encenderla");
+    }
+
+    /// <summary>Lo de «Tu PC para jugar» que antes estaba en Juegos: solo lo que falta, con su botón.</summary>
+    static IEnumerable<Suggestion> ForGames(List<Suggestion> have)
+    {
+        var res = new List<Suggestion>();
+        foreach (var c in Rig.Checks().Where(c => c.Level == "warn"))
+        {
+            if (c.Key == "ram" && have.Any(h => h.Id == "ram-expo")) continue;
+            if (c.Key == "tweak:power-ultimate" && (have.Any(h => h.Id == "power-saver") || HasBattery())) continue;
+            res.Add(new(c.Key.Replace(':', '-'), "warn", c.Title, [c.Detail], c.How is null ? [] : [c.How], null, [], c.Fix, c.FixLabel));
+        }
+        return res;
+    }
+
+    /// <summary>Lo que se arregla con el botón de una sugerencia. Guarda copia antes de tocar.</summary>
+    public static (bool Ok, string Message) Fix(string fix)
+    {
+        switch (fix)
+        {
+            case "trim":
+                if (Backups.Save("ajustes", "Encender TRIM", [Backups.Item.Reg(FsKey, "DisableDeleteNotification", "TRIM")]) is null)
+                    return (false, "No pude guardar la copia de seguridad; no cambié nada.");
+                using (var k = Microsoft.Win32.Registry.LocalMachine.CreateSubKey(@"SYSTEM\CurrentControlSet\Control\FileSystem"))
+                    k.SetValue("DisableDeleteNotification", 0, Microsoft.Win32.RegistryValueKind.DWord);
+                return (true, "TRIM encendido.");
+            case "sched":
+                if (Backups.Save("ajustes", "Encender el cuidado semanal de los discos", [Backups.Item.Task(DefragTask, false, "Optimización semanal de discos")]) is null)
+                    return (false, "No pude guardar la copia de seguridad; no cambié nada.");
+                Startup.SetTask(DefragTask, true);
+                return Optimize.ScheduledEnabled() ? (true, "Listo: Windows vuelve a cuidar tus discos cada semana.") : (false, "Windows no dejó encender la tarea.");
+        }
+        return (false, "No sé arreglar eso.");
+    }
+
     // ======================= energía y uso =======================
 
     static IEnumerable<Suggestion> Power()
@@ -316,7 +354,7 @@ public static class Suggestions
         if (active == "a1841308-3541-4fab-bc81-f71556f20b4a")
             yield return new("power-saver", "warn", "El PC está en modo Ahorro de energía",
                 ["En ese modo Windows baja la velocidad de la CPU para gastar menos.", "En un PC de escritorio solo te quita rendimiento."],
-                ["Panel de control › Opciones de energía › Equilibrado o Alto rendimiento."], null, ["Plan de energía: Ahorro de energía"]);
+                [], null, ["Plan de energía: Ahorro de energía"], HasBattery() ? null : "tweak:power-ultimate", HasBattery() ? null : "Poner Máximo rendimiento");
     }
 
     [StructLayout(LayoutKind.Sequential)]
@@ -399,7 +437,7 @@ public static class Suggestions
             if ((m?.GetValue("MouseSpeed") as string) is { } sp && sp != "0")
                 res.Add(new("lag-accel", "info", "El ratón tiene aceleración",
                     ["Con aceleración, el puntero se mueve distinto según lo rápido que muevas la mano.", "Apuntar se siente raro y cuesta repetir el mismo movimiento."],
-                    ["Ajustes › Ratón sin aceleración."], "tweaks", ["«Mejorar la precisión del puntero»: encendido"]));
+                    [], null, ["«Mejorar la precisión del puntero»: encendido"], "tweak:mouse-raw", "Quitar la aceleración"));
 
         var bcd = Bcd();
         // Programas que leen el mando y lo vuelven a enviar como otro: cada paso extra suma retraso
