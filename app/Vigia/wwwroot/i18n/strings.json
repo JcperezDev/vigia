@@ -1843,5 +1843,19 @@
  "Ya se está creando una ISO.",
  "Your display offers none",
  "Zurück",
- "Zurück zur normalen"
+ "Zurück zur normalen",
+ "Ya no está instalado. Quitar borra esta entrada que quedó (con copia).",
+ "Desinstalado",
+ "Quitar",
+ "Solo se quitan programas que ya no están en el disco.",
+ "Windows no deja quitar esta entrada (protegida).",
+ "Papelera de reciclaje",
+ "Todas las unidades",
+ "Temporales de Windows",
+ "Descargas de Windows Update ya instaladas",
+ "Informes de errores de Windows",
+ "Se quitan solo de tu usuario. Si extrañas alguna, vuelve desde Microsoft Store.",
+ "Opcional. Pone nuestro fondo en todas tus pantallas. Antes guarda el que tienes.",
+ "No queda ninguna por quitar.",
+ "Windows puede reinstalar algunas por su cuenta."
 ]

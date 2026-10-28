@@ -1638,5 +1638,19 @@
  "Enlace copiado.": "Link copied.",
  "Se abre en el navegador. Vigía no ve el pago.": "Opens in your browser. Vigía never sees the payment.",
  "Actualizar a {0}": "Update to {0}",
- "Se cierra un momento y vuelve a abrir ya actualizada.": "It closes for a moment and reopens updated."
+ "Se cierra un momento y vuelve a abrir ya actualizada.": "It closes for a moment and reopens updated.",
+ "Ya no está instalado. Quitar borra esta entrada que quedó (con copia).": "It's no longer installed. Remove deletes the leftover entry (with a backup).",
+ "Desinstalado": "Uninstalled",
+ "Quitar": "Remove",
+ "Solo se quitan programas que ya no están en el disco.": "Only programs that are no longer on disk can be removed.",
+ "Windows no deja quitar esta entrada (protegida).": "Windows won't let this entry be removed (protected).",
+ "Papelera de reciclaje": "Recycle Bin",
+ "Todas las unidades": "All drives",
+ "Temporales de Windows": "Windows temporary files",
+ "Descargas de Windows Update ya instaladas": "Windows Update downloads already installed",
+ "Informes de errores de Windows": "Windows error reports",
+ "Se quitan solo de tu usuario. Si extrañas alguna, vuelve desde Microsoft Store.": "They are removed only for your user. If you miss one, get it back from the Microsoft Store.",
+ "Opcional. Pone nuestro fondo en todas tus pantallas. Antes guarda el que tienes.": "Optional. Puts our wallpaper on all your screens. It saves yours first.",
+ "No queda ninguna por quitar.": "Nothing left to remove.",
+ "Windows puede reinstalar algunas por su cuenta.": "Windows may reinstall some on its own."
 }

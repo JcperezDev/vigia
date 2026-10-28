@@ -1638,5 +1638,19 @@
  "Enlace copiado.": "Link copiado.",
  "Se abre en el navegador. Vigía no ve el pago.": "Abre no navegador. O Vigía não vê o pagamento.",
  "Actualizar a {0}": "Atualizar para {0}",
- "Se cierra un momento y vuelve a abrir ya actualizada.": "Fecha por um momento e abre de novo já atualizado."
+ "Se cierra un momento y vuelve a abrir ya actualizada.": "Fecha por um momento e abre de novo já atualizado.",
+ "Ya no está instalado. Quitar borra esta entrada que quedó (con copia).": "Já não está instalado. Remover apaga a entrada que sobrou (com cópia).",
+ "Desinstalado": "Desinstalado",
+ "Quitar": "Remover",
+ "Solo se quitan programas que ya no están en el disco.": "Só dá para remover programas que já não estão no disco.",
+ "Windows no deja quitar esta entrada (protegida).": "O Windows não deixa remover esta entrada (protegida).",
+ "Papelera de reciclaje": "Lixeira",
+ "Todas las unidades": "Todas as unidades",
+ "Temporales de Windows": "Temporários do Windows",
+ "Descargas de Windows Update ya instaladas": "Downloads do Windows Update já instalados",
+ "Informes de errores de Windows": "Relatórios de erros do Windows",
+ "Se quitan solo de tu usuario. Si extrañas alguna, vuelve desde Microsoft Store.": "São removidos só do seu usuário. Se sentir falta de algum, volta pela Microsoft Store.",
+ "Opcional. Pone nuestro fondo en todas tus pantallas. Antes guarda el que tienes.": "Opcional. Coloca nosso fundo em todas as suas telas. Antes guarda o que você tem.",
+ "No queda ninguna por quitar.": "Não sobrou nenhum para remover.",
+ "Windows puede reinstalar algunas por su cuenta.": "O Windows pode reinstalar alguns por conta própria."
 }

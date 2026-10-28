@@ -498,7 +498,7 @@
     $('ap-remove').disabled = true;
     $('ap-rec').hidden = $('ap-remove').hidden = !shown.length;
     if (!shown.length) {
-      $('ap-list').replaceChildren(el('li', 'empty', `No queda instalada ninguna de las ${list.length} apps de la lista. No hay nada que quitar.`));
+      $('ap-list').replaceChildren(el('li', 'empty', 'No queda ninguna por quitar.'));
       return;
     }
     $('ap-list').replaceChildren(...shown.map((a) => {
@@ -523,8 +523,8 @@
     if (!t || t.state === 'applied') { n.hidden = true; return; }
     const b = el('button', 'btn', 'Evitarlo');
     b.addEventListener('click', () => { busyBtn(b, true, 'Aplicando…'); send({ cmd: 'tweaksApply', ids: ['suggestions-off'] }); });
-    const row = el('div', 'ap-note-act'); row.append(b, el('span', 'sub', '(activa «Sin anuncios ni apps sugeridas», con copia).'));
-    n.hidden = false; n.replaceChildren(el('p', null, 'Windows puede volver a instalar algunas por su cuenta.'), row);
+    const row = el('div', 'ap-note-act'); row.append(el('span', null, 'Windows puede reinstalar algunas por su cuenta.'), b);
+    n.hidden = false; n.replaceChildren(row);
   }
 
   // ---------- fondo de VigíaOS ----------
@@ -532,6 +532,7 @@
   function renderWall(w) {
     busyBtn($('wall-set'), false, w.ours ? 'Ya lo tienes puesto' : 'Poner el fondo');
     $('wall-set').disabled = w.ours;
+    $('wall-set').hidden = $('wall-sub').hidden = w.ours;   // ya puesto: solo queda la opción de volver
     wallBk = w.backupId;
     $('wall-back').hidden = !(w.ours && w.backupId);
   }
@@ -713,7 +714,6 @@
           send({ cmd: 'toolOpen', id: t.id });
         });
         card.append(el('strong', null, t.name), b, el('p', null, t.found || install ? t.detail + (install ? ' No está instalado: se instala desde winget.' : '') : 'No está en la carpeta.'));
-        if (t.warning) card.append(el('p', 'warn', t.warning));
         grid.append(card);
       });
       sec.append(grid);
@@ -741,11 +741,16 @@
         const body = el('div');
         const title = el('strong', null, s.name);
         body.append(title, el('p', null, [s.publisher, s.where].filter(Boolean).join(' · ')), Object.assign(el('p', 'src cmd', s.command), { title: s.command }));
-        if (s.missing) body.append(el('p', 'src why', 'El programa ya no está en el disco: es seguro apagarlo.'));
-        if (s.warning) body.append(el('p', 'src why', s.warning));
-        const b = el('button', `btn${s.enabled ? '' : ' primary'}`, s.enabled ? 'Apagar' : 'Encender');
-        b.addEventListener('click', () => { busyBtn(b, true, s.enabled ? 'Apagando…' : 'Encendiendo…'); send({ cmd: 'startupSet', id: s.id, on: !s.enabled }); });
-        li.append(el('span', `state ${s.enabled ? 'applied' : ''}`, s.enabled ? 'Arranca' : 'Apagado'), body, b);
+        const gone = s.missing && g === 'Programas';   // ya se desinstaló: solo queda la entrada
+        if (gone) body.append(el('p', 'src why', 'Ya no está instalado. Quitar borra esta entrada que quedó (con copia).'));
+        else if (s.missing) body.append(el('p', 'src why', 'El programa ya no está en el disco: es seguro apagarlo.'));
+        if (s.warning && !gone) body.append(el('p', 'src why', s.warning));
+        const b = gone ? el('button', 'btn primary', 'Quitar') : el('button', `btn${s.enabled ? '' : ' primary'}`, s.enabled ? 'Apagar' : 'Encender');
+        b.addEventListener('click', () => {
+          if (gone) { busyBtn(b, true, 'Quitando…'); send({ cmd: 'startupRemove', id: s.id }); return; }
+          busyBtn(b, true, s.enabled ? 'Apagando…' : 'Encendiendo…'); send({ cmd: 'startupSet', id: s.id, on: !s.enabled });
+        });
+        li.append(el('span', `state ${s.enabled && !gone ? 'applied' : ''}`, gone ? 'Desinstalado' : s.enabled ? 'Arranca' : 'Apagado'), body, b);
         ul.append(li);
       });
       sec.append(ul);

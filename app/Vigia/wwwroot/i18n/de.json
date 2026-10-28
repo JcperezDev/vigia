@@ -1638,5 +1638,19 @@
  "Enlace copiado.": "Link kopiert.",
  "Se abre en el navegador. Vigía no ve el pago.": "Öffnet sich im Browser. Vigía sieht die Zahlung nicht.",
  "Actualizar a {0}": "Auf {0} aktualisieren",
- "Se cierra un momento y vuelve a abrir ya actualizada.": "Schließt sich kurz und öffnet sich aktualisiert wieder."
+ "Se cierra un momento y vuelve a abrir ya actualizada.": "Schließt sich kurz und öffnet sich aktualisiert wieder.",
+ "Ya no está instalado. Quitar borra esta entrada que quedó (con copia).": "Nicht mehr installiert. Entfernen löscht den übrig gebliebenen Eintrag (mit Sicherung).",
+ "Desinstalado": "Deinstalliert",
+ "Quitar": "Entfernen",
+ "Solo se quitan programas que ya no están en el disco.": "Nur Programme, die nicht mehr auf der Festplatte sind, lassen sich entfernen.",
+ "Windows no deja quitar esta entrada (protegida).": "Windows lässt diesen Eintrag nicht entfernen (geschützt).",
+ "Papelera de reciclaje": "Papierkorb",
+ "Todas las unidades": "Alle Laufwerke",
+ "Temporales de Windows": "Temporäre Dateien von Windows",
+ "Descargas de Windows Update ya instaladas": "Bereits installierte Windows-Update-Downloads",
+ "Informes de errores de Windows": "Windows-Fehlerberichte",
+ "Se quitan solo de tu usuario. Si extrañas alguna, vuelve desde Microsoft Store.": "Sie werden nur für deinen Benutzer entfernt. Fehlt dir eine, holst du sie im Microsoft Store zurück.",
+ "Opcional. Pone nuestro fondo en todas tus pantallas. Antes guarda el que tienes.": "Optional. Setzt unser Hintergrundbild auf alle Bildschirme. Vorher wird deins gesichert.",
+ "No queda ninguna por quitar.": "Nichts mehr zu entfernen.",
+ "Windows puede reinstalar algunas por su cuenta.": "Windows kann einige von selbst neu installieren."
 }

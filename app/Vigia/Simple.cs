@@ -89,8 +89,7 @@ public static class Simple
                         if (bad.Count > 0) { state = "warn"; problems.AddRange(bad.Select(b => $"{b.Id}: {b.Error}")); }
                         break;
                     case "clean":
-                        var targets = Cleanup.Scan();
-                        var cr = Cleanup.Run(targets.Select(t => t.Id));
+                        var cr = Cleanup.Run(Cleanup.TempIds);   // la Papelera no: eso lo decide cada uno en Almacenamiento
                         cleaned = Math.Round(cr.FreedBytes / 1048576.0, 1);
                         detail = cleaned >= 1024 ? $"{cleaned / 1024:0.0} GB liberados." : $"{cleaned:0} MB liberados.";
                         break;
