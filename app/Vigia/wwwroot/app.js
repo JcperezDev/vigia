@@ -62,10 +62,9 @@
     $('ram-lat').title = 'Calculado con la velocidad actual y los datos de fábrica del módulo. Windows no deja leer el CL exacto; míralo en la BIOS.';
     $('ram-temp').textContent = fmt(r.temp, 0, ' °C');
 
-    const [pTitle, pText] = s.elevated
-      ? ['Modo administrador', 'Sensores completos.']
-      : ['Modo estándar', 'Ejecuta como administrador para ver temperaturas.'];
-    if ($('privilege').dataset.k !== pTitle) { $('privilege').replaceChildren(el('strong', null, pTitle), pText); $('privilege').dataset.k = pTitle; }
+    // solo se avisa cuando falta algo; con todo bien no hace falta decirlo
+    $('privilege').hidden = !!s.elevated;
+    if (!s.elevated && !$('privilege').dataset.k) { $('privilege').replaceChildren(el('strong', null, 'Modo estándar'), 'Ejecuta como administrador para ver temperaturas.'); $('privilege').dataset.k = '1'; }
     const notes = (s.notes || []).filter((n) => !n.startsWith('Sin privilegios'));
     $('notes').hidden = notes.length === 0;
     $('notes').textContent = notes.join(' ');
