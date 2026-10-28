@@ -663,6 +663,10 @@ sealed partial class MainForm : Form
                     var rexe = (string)msg["exe"]!;
                     await Task.Run(() => Procs.Reveal(rexe));
                     break;
+                case "startupRemove":
+                    Send("startupDone", await Task.Run(() => Startup.Remove((string)msg["id"]!)));
+                    Send("startup", await Task.Run(Startup.List));
+                    break;
                 case "startupSet":
                     var sid = (string)msg["id"]!; var son = (bool)msg["on"]!;
                     Send("startupDone", await Task.Run(() => Startup.Set(sid, son)));

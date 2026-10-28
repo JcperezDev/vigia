@@ -1,9 +1,15 @@
+using System.Runtime.InteropServices;
+
 namespace Vigia;
 
 public sealed record CleanTarget(string Id, string Name, string Path, long Bytes, int Files);
 public sealed record CleanResult(long FreedBytes, int Deleted, int Skipped);
 
-/// <summary>Limpieza conservadora: solo carpetas temporales del usuario, archivos con más de 24 h, nunca sigue enlaces.</summary>
+/// <summary>
+/// Limpieza conservadora: carpetas temporales (de tu usuario y de Windows), descargas viejas de Windows Update,
+/// informes de errores y la Papelera. En carpetas solo borra archivos con más de 24 h y nunca sigue enlaces;
+/// lo que esté en uso se salta.
+/// </summary>
 public static class Cleanup
 {
     static readonly TimeSpan MinAge = TimeSpan.FromHours(24);
@@ -14,6 +20,23 @@ public static class Cleanup
         yield return ("user_temp", "Temporales de usuario", Path.GetTempPath());
         yield return ("d3d_cache", "Caché de shaders DirectX", Path.Combine(local, "D3DSCache"));
         yield return ("crash_dumps", "Volcados de errores", Path.Combine(local, "CrashDumps"));
+        var win = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
+        var data = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
+        // de Windows: hace falta Vigía como administrador; si no, se ven en 0 y se saltan
+        yield return ("win_temp", "Temporales de Windows", Path.Combine(win, "Temp"));
+        yield return ("wu_download", "Descargas de Windows Update ya instaladas", Path.Combine(win, "SoftwareDistribution", "Download"));
+        yield return ("wer", "Informes de errores de Windows", Path.Combine(data, "Microsoft", "Windows", "WER"));
+    }
+
+    // ---------- Papelera: la de todas las unidades, con la API de Windows (sin ventana ni sonido) ----------
+    const string RecycleId = "recycle";
+    [StructLayout(LayoutKind.Sequential, Pack = 4)] struct SHQUERYRBINFO { public int cbSize; public long i64Size; public long i64NumItems; }
+    [DllImport("shell32.dll", CharSet = CharSet.Unicode)] static extern int SHQueryRecycleBinW(string? root, ref SHQUERYRBINFO info);
+    [DllImport("shell32.dll", CharSet = CharSet.Unicode)] static extern int SHEmptyRecycleBinW(IntPtr hwnd, string? root, uint flags);
+    static (long bytes, long items) Recycle()
+    {
+        var q = new SHQUERYRBINFO { cbSize = Marshal.SizeOf<SHQUERYRBINFO>() };
+        return SHQueryRecycleBinW(null, ref q) == 0 ? (q.i64Size, q.i64NumItems) : (0, 0);
     }
 
     static IEnumerable<FileInfo> Files(string root)
@@ -35,18 +58,33 @@ public static class Cleanup
         }
     }
 
-    public static List<CleanTarget> Scan() =>
-        Roots().Select(r =>
+    public static List<CleanTarget> Scan()
+    {
+        var list = Roots().Select(r =>
         {
             long b = 0; int n = 0;
             foreach (var f in Files(r.path)) { try { b += f.Length; n++; } catch { } }
             return new CleanTarget(r.id, r.name, r.path, b, n);
         }).ToList();
+        var (rb, ri) = Recycle();
+        list.Insert(0, new CleanTarget(RecycleId, "Papelera de reciclaje", "Todas las unidades", rb, (int)Math.Min(ri, int.MaxValue)));
+        return list;
+    }
+
+    /// <summary>Temporales, sin la Papelera: lo que borra el modo simple («¿Borrar archivos temporales?»).</summary>
+    public static IEnumerable<string> TempIds => Roots().Select(r => r.id);
 
     public static CleanResult Run(IEnumerable<string> ids)
     {
         var set = ids.ToHashSet();
-        return RunPaths(Roots().Where(r => set.Contains(r.id)).Select(r => r.path));
+        var r = RunPaths(Roots().Where(x => set.Contains(x.id)).Select(x => x.path));
+        if (!set.Contains(RecycleId)) return r;
+        var (rb, ri) = Recycle();
+        if (ri == 0) return r;
+        var ok = SHEmptyRecycleBinW(IntPtr.Zero, null, 0x7) == 0;   // sin confirmar, sin barra, sin sonido
+        var (lb, li) = Recycle();
+        var freed = ok ? rb : Math.Max(0, rb - lb);
+        return new CleanResult(r.FreedBytes + freed, r.Deleted + (int)Math.Min(ri - li, int.MaxValue), r.Skipped + (int)Math.Min(li, int.MaxValue));
     }
 
     /// <summary>Borra solo archivos (nunca carpetas ni enlaces) con más de 24 h bajo las rutas dadas.</summary>

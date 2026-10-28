@@ -7,7 +7,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AssemblyName>Vigia</AssemblyName>
-    <Version>0.20.1</Version>
+    <Version>0.20.2</Version>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
     <ApplicationIcon>vigia.ico</ApplicationIcon>

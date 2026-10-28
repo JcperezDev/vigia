@@ -277,6 +277,45 @@ public static class Startup
         catch (Exception e) { return new(id, false, e.Message); }
     }
 
+    /// <summary>
+    /// Quita la entrada de un programa que ya se desinstaló (su .exe no está en el disco). Solo Programas: claves Run
+    /// y accesos de la carpeta Inicio. Con copia de la entrada, así se puede volver a poner desde Copias.
+    /// </summary>
+    public static StartDone Remove(string id)
+    {
+        try
+        {
+            var it = List().FirstOrDefault(x => x.Id == id);
+            if (it is null) return new(id, true, null);   // ya no está
+            if (!it.Missing || it.Group != "Programas") return new(id, false, "Solo se quitan programas que ya no están en el disco.");
+            var parts = id.Split(':', 3);
+            var items = BackupItems(parts, id).ToList();
+            string? file = null;
+            if (parts[0] == "run")
+            {
+                var (root, key) = parts[1] switch { "HKCU" => ("HKCU", RunKey), "HKLM" => ("HKLM", RunKey), _ => ("HKLM", RunKey32) };
+                items.Add(Backups.Item.Reg($@"{root}\{key}", parts[2], it.Name));
+            }
+            else
+            {
+                file = Path.Combine(Environment.GetFolderPath(parts[1] == "user" ? Environment.SpecialFolder.Startup : Environment.SpecialFolder.CommonStartup), parts[2]);
+                items.Add(Backups.Item.File(file, it.Name));
+            }
+            if (Backups.Save("inicio", $"Quitar del inicio: {it.Name}", items) is null)
+                return new(id, false, "No pude guardar la copia de seguridad; no cambié nada.");
+            if (file is not null) File.Delete(file);
+            else
+            {
+                var hive = parts[1] == "HKCU" ? Registry.CurrentUser : Registry.LocalMachine;
+                using (var k = hive.OpenSubKey(parts[1] == "HKLM32" ? RunKey32 : RunKey, true)) k?.DeleteValue(parts[2], false);
+                using (var a = hive.OpenSubKey(Approved + (parts[1] == "HKLM32" ? "Run32" : "Run"), true)) a?.DeleteValue(parts[2], false);
+            }
+            return new(id, true, null);
+        }
+        catch (UnauthorizedAccessException) { return new(id, false, "Windows no deja quitar esta entrada (protegida)."); }
+        catch (Exception e) { return new(id, false, e.Message); }
+    }
+
     /// <summary>Estado actual de todo lo que arranca con Windows (para la copia «original»).</summary>
     internal static List<System.Text.Json.Nodes.JsonObject> SnapshotAll()
     {
