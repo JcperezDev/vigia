@@ -403,6 +403,27 @@
         <p class="result" id="gm-rig-msg" aria-live="polite"></p>
         <ul class="findings" id="gm-rig"><li class="empty">Revisando…</li></ul>
       </section>
+      <section class="box stretch" id="ds-box">
+        <div>
+          <h2>Resolución estirada</h2>
+          <p class="sub" id="ds-sub">Leyendo la pantalla…</p>
+          <p class="sub ds-est" id="ds-est"></p>
+        </div>
+        <div class="ds-act">
+          <select id="ds-mode" aria-label="Resolución"></select>
+          <span class="ds-custom" id="ds-custom" hidden><input type="number" id="ds-w" min="640" step="2" aria-label="Ancho"> × <input type="number" id="ds-h" min="480" step="2" aria-label="Altura"></span>
+          <button class="btn primary" id="ds-apply" disabled>Estirar</button>
+          <button class="btn" id="ds-restore" hidden>Volver a la normal</button>
+        </div>
+        <label class="chk ds-games" id="ds-games-row" hidden><input type="checkbox" id="ds-games" checked><span><b>Fortnite en ventana a pantalla completa</b>Lo deja a la misma resolución, así abre estirado sin pelear con la pantalla. Con el juego cerrado y copia antes.</span></label>
+        <p class="sub ds-gpu" id="ds-gpu"></p>
+        <div class="ds-confirm" id="ds-confirm" hidden>
+          <p>¿Se ve bien? Si no confirmas, vuelve sola en <b id="ds-count">15</b> s.</p>
+          <button class="btn primary" id="ds-keep">Dejarla</button>
+          <button class="btn" id="ds-undo">Volver ya</button>
+        </div>
+        <p class="result ds-result" id="ds-result" aria-live="polite"></p>
+      </section>
       <section class="tw-group">
         <h2>FPS: antes y después</h2>
         <p class="sub gm-note">Vigía cuenta los fotogramas que tu juego entrega de verdad, no una estimación. Pulsa el botón, entra a jugar y Vigía mide solo mientras el juego está delante; al terminar se apaga sola. No se mete en el juego ni toca el antitrampas.</p>
@@ -502,7 +523,7 @@
           <div><dt><button class="hp-go" data-go="opt">Optimizar discos</button></dt><dd>TRIM en los SSD y desfragmentación en los discos mecánicos, con la herramienta de Windows.</dd></div>
           <div><dt><button class="hp-go" data-go="health">Salud de discos</button></dt><dd>Vida útil, horas de uso y errores de cada disco. Solo lee.</dd></div>
           <div><dt><button class="hp-go" data-go="diag">Diagnóstico</button></dt><dd>Errores de Windows de los últimos 7 días, explicados. Solo lee.</dd></div>
-          <div><dt><button class="hp-go" data-go="tools">Herramientas</button></dt><dd>Resolución estirada, control de ventiladores y accesos a programas y paneles útiles.</dd></div>
+          <div><dt><button class="hp-go" data-go="tools">Herramientas</button></dt><dd>Control de ventiladores y accesos a programas y paneles útiles.</dd></div>
           <div><dt><button class="hp-go" data-go="backups">Copias de seguridad</button></dt><dd>Una copia por cada cambio, más la del estado de tu PC antes de instalar Vigía.</dd></div>
         </dl>
       </section>
@@ -560,22 +581,6 @@
         <div><h1>Herramientas</h1><p class="sub" id="tl-sub">Programas de tu carpeta. Vigía solo los abre.</p></div>
       </header>
       <p class="result" id="tl-result" aria-live="polite"></p>
-      <section class="box stretch" id="ds-box">
-        <div>
-          <h2>Resolución estirada</h2>
-          <p class="sub" id="ds-sub">Leyendo la pantalla…</p>
-        </div>
-        <div class="ds-act">
-          <select id="ds-mode" aria-label="Resolución"></select>
-          <button class="btn primary" id="ds-apply" disabled>Estirar</button>
-          <button class="btn" id="ds-restore" hidden>Volver a la normal</button>
-        </div>
-        <div class="ds-confirm" id="ds-confirm" hidden>
-          <p>¿Se ve bien? Si no confirmas, vuelve sola en <b id="ds-count">15</b> s.</p>
-          <button class="btn primary" id="ds-keep">Dejarla</button>
-          <button class="btn" id="ds-undo">Volver ya</button>
-        </div>
-      </section>
       <div id="tl-groups"></div>
     </section>
 

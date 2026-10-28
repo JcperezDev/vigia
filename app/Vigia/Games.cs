@@ -191,6 +191,52 @@ public static class Games
         return new(true, what);
     }
 
+    static string WindowMark => System.IO.Path.Combine(Settings.Dir, "fortnite-ventana.txt");
+
+    /// <summary>
+    /// Deja Fortnite en «Ventana a pantalla completa» a w × h (la de la pantalla estirada), para que abra igual que el
+    /// escritorio y no pelee con la resolución. Solo el archivo de configuración, con el juego cerrado y copia antes.
+    /// Devuelve null si no hay Fortnite. Con onlyIfOurs solo actúa si fue Vigía quien lo dejó así.
+    /// </summary>
+    public static Done? FortniteWindow(int w, int h, bool onlyIfOurs = false)
+    {
+        try
+        {
+            if (onlyIfOurs && !File.Exists(WindowMark)) return null;
+            var path = FortnitePath;
+            if (!File.Exists(path)) return null;
+            if (FortniteRunning()) return new(false, "estaba abierto y no lo toqué; ciérralo y vuelve a aplicar para dejarlo en ventana a pantalla completa.");
+            var ini = new Ini(File.ReadAllBytes(path));
+            var changed = false;
+            foreach (var (k, v) in new[]
+            {
+                ("FullscreenMode", "1"), ("LastConfirmedFullscreenMode", "1"), ("PreferredFullscreenMode", "1"),
+                ("ResolutionSizeX", $"{w}"), ("ResolutionSizeY", $"{h}"),
+                ("LastUserConfirmedResolutionSizeX", $"{w}"), ("LastUserConfirmedResolutionSizeY", $"{h}"),
+                ("DesiredScreenWidth", $"{w}"), ("DesiredScreenHeight", $"{h}"),
+                ("LastUserConfirmedDesiredScreenWidth", $"{w}"), ("LastUserConfirmedDesiredScreenHeight", $"{h}"),
+            })
+                if (ini.Get(k) is { } cur && cur != v && ini.Set(k, v)) changed = true;
+            if (!changed)
+            {
+                if (onlyIfOurs) File.Delete(WindowMark);
+                return new(true, $"Fortnite ya estaba en ventana a pantalla completa a {w} × {h}.");
+            }
+            if (Backups.Save("juegos", $"Fortnite: ventana a pantalla completa {w} × {h}", [Backups.Item.File(path, "Configuración de Fortnite")]) is null)
+                return new(false, "no pude guardar la copia de seguridad; no lo toqué.");
+            var ro = (File.GetAttributes(path) & FileAttributes.ReadOnly) != 0;
+            if (ro) File.SetAttributes(path, File.GetAttributes(path) & ~FileAttributes.ReadOnly);
+            var tmp = path + ".vigia.tmp";
+            File.WriteAllBytes(tmp, ini.Bytes());
+            File.Move(tmp, path, true);
+            if (ro) File.SetAttributes(path, File.GetAttributes(path) | FileAttributes.ReadOnly);   // se deja como estaba
+            if (onlyIfOurs) File.Delete(WindowMark);
+            else { Directory.CreateDirectory(Settings.Dir); File.WriteAllText(WindowMark, $"{w}x{h}"); }
+            return new(true, onlyIfOurs ? $"Fortnite también vuelve a {w} × {h}." : $"Fortnite queda en ventana a pantalla completa a {w} × {h}.");
+        }
+        catch (Exception e) { return new(false, $"no pude cambiar su configuración ({e.Message})."); }
+    }
+
     // ---------- pruebas (sobre una copia, nunca el archivo real) ----------
     public static string SelfTest()
     {

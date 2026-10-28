@@ -45,6 +45,22 @@ public static class Wallpaper
                    Backups.List().FirstOrDefault(b => b.Kind == "fondo" && b.RestoredAt is null)?.Id);
     }
 
+    /// <summary>
+    /// Si el fondo puesto es el de VigíaOS y la versión nueva trae otro diseño, lo cambia por el nuevo.
+    /// Solo toca nuestra copia; si el usuario tiene otro fondo no hace nada.
+    /// </summary>
+    public static void Refresh()
+    {
+        try
+        {
+            if (!File.Exists(Asset) || !File.Exists(Ours) || !Status().Ours) return;
+            if (new FileInfo(Asset).Length == new FileInfo(Ours).Length && File.ReadAllBytes(Asset).AsSpan().SequenceEqual(File.ReadAllBytes(Ours))) return;
+            File.Copy(Asset, Ours, true);
+            Set(Ours);
+        }
+        catch { }
+    }
+
     public static WallDone Apply()
     {
         if (!File.Exists(Asset)) return new(false, "Falta la imagen del fondo en la carpeta de Vigía; reinstala Vigía.");

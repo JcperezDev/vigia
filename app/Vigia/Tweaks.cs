@@ -89,7 +89,7 @@ public static class Tweaks
         }
         return (string?)op["special"] switch
         {
-            "power-ultimate" => UltimateActive(),
+            "power-ultimate" => CpuAwake(),
             "hibernate-off" => RegRead(@"HKLM\SYSTEM\CurrentControlSet\Control\Power", "HibernateEnabled").value is int h ? h == 0 : null,
             "dynamictick" => Regex.IsMatch(Run("bcdedit.exe", "/enum {current}").output, @"disabledynamictick\s+(Yes|S[ií])", RegexOptions.IgnoreCase),
             _ => null,
@@ -283,7 +283,7 @@ public static class Tweaks
         else switch ((string?)op["special"])
         {
             case "power-ultimate":
-                if (UltimateActive()) break;
+                if (CpuAwake() == true) break;
                 var guid = FindUltimate();
                 if (guid is null)
                 {
@@ -470,12 +470,37 @@ public static class Tweaks
         catch { return null; }
     }
 
-    static readonly Regex Guid = new(@"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", RegexOptions.IgnoreCase);
+    static readonly Regex GuidRx = new(@"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", RegexOptions.IgnoreCase);
     static readonly Regex UltimateName = new(@"M.ximo rendimiento|Ultimate Performance", RegexOptions.IgnoreCase);
-    static string ActiveScheme() => Guid.Match(Run("powercfg.exe", "/getactivescheme").output).Value;
-    static bool UltimateActive() => UltimateName.IsMatch(Run("powercfg.exe", "/getactivescheme").output);
+    static string ActiveScheme() => GuidRx.Match(Run("powercfg.exe", "/getactivescheme").output).Value;
+    // Lo que importa del plan no es el nombre: es que el procesador no baje del 100 % enchufado.
+    // Así cuentan Alto rendimiento, Máximo rendimiento y los planes propios (de la placa o de otro programa).
+    [DllImport("powrprof.dll")] static extern uint PowerGetActiveScheme(IntPtr root, out IntPtr guid);
+    [DllImport("powrprof.dll")] static extern uint PowerReadACValueIndex(IntPtr root, ref Guid scheme, ref Guid sub, ref Guid setting, out uint value);
+    [DllImport("powrprof.dll", CharSet = CharSet.Unicode)] static extern uint PowerReadFriendlyName(IntPtr root, ref Guid scheme, IntPtr sub, IntPtr setting, byte[]? buf, ref uint size);
+    [DllImport("kernel32.dll")] static extern IntPtr LocalFree(IntPtr p);
+    static Guid? Active()
+    {
+        if (PowerGetActiveScheme(IntPtr.Zero, out var p) != 0) return null;
+        try { return Marshal.PtrToStructure<Guid>(p); } finally { LocalFree(p); }
+    }
+    static bool? CpuAwake()
+    {
+        if (Active() is not { } g) return null;
+        Guid sub = new("54533251-82be-4824-96c1-47b60b740d00"), min = new("893dee8e-2bef-41e0-89c6-b55d0929964c");
+        return PowerReadACValueIndex(IntPtr.Zero, ref g, ref sub, ref min, out var v) == 0 ? v >= 100 : null;
+    }
+    /// <summary>Nombre del plan activo tal como lo muestra Windows («Equilibrado», «Alto rendimiento», …).</summary>
+    public static string? PlanName()
+    {
+        if (Active() is not { } g) return null;
+        uint n = 0; PowerReadFriendlyName(IntPtr.Zero, ref g, IntPtr.Zero, IntPtr.Zero, null, ref n);
+        if (n == 0) return null;
+        var b = new byte[n];
+        return PowerReadFriendlyName(IntPtr.Zero, ref g, IntPtr.Zero, IntPtr.Zero, b, ref n) == 0 ? System.Text.Encoding.Unicode.GetString(b).TrimEnd('\0') : null;
+    }
     static string? FindUltimate() => Run("powercfg.exe", "/list").output.Split('\n').Where(l => UltimateName.IsMatch(l))
-        .Select(l => Guid.Match(l).Value).FirstOrDefault(g => g.Length > 0);
+        .Select(l => GuidRx.Match(l).Value).FirstOrDefault(g => g.Length > 0);
 
     static bool BitLockerOn()
     {
