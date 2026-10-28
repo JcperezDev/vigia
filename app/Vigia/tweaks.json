@@ -206,6 +206,13 @@
     ]
   },
   {
+    "id": "print-off", "group": "Servicios", "risk": "bajo", "reboot": true,
+    "title": "Apagar la impresión",
+    "detail": "Para la cola de impresión si no tienes impresora. También deja de funcionar «Imprimir a PDF». Cierra la puerta a fallos tipo PrintNightmare.",
+    "source": "Servicio de Windows (Spooler); escrito para Vigía",
+    "ops": [{ "svc": "Spooler", "start": 4 }]
+  },
+  {
     "id": "services-xbox", "tested": true, "group": "Servicios", "risk": "medio", "reboot": true,
     "title": "Servicios de Xbox",
     "detail": "Fortnite y Steam no los usan. Rompe Xbox Game Pass, los logros de Xbox y Minecraft de la Tienda.",

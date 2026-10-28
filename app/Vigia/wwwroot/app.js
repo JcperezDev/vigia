@@ -493,6 +493,7 @@
   function renderBloat(list) {
     bloat = list;
     isoApps();
+    smApps();
     if (!$('view-apps').hidden) send({ cmd: 'tweaksList' });
     const shown = list.filter((a) => a.installed);
     $('ap-remove').disabled = true;
@@ -575,6 +576,24 @@
   ['iso-local', 'iso-user'].forEach((id) => $(id).addEventListener('input', isoReady));
   $('iso-pick').addEventListener('click', () => send({ cmd: 'isoPick' }));
   $('iso-ms').addEventListener('click', () => send({ cmd: 'isoGetWindows' }));
+  $('iso-dl-cancel').addEventListener('click', () => { busyBtn($('iso-dl-cancel'), true, 'Cancelando…'); send({ cmd: 'isoDlCancel' }); });
+  function isoDl(d) {
+    const box = $('iso-dl'), src = $('iso-src');
+    if (d.state === 'busy') return;
+    if (d.state === 'start') {
+      box.hidden = false; $('iso-pick').disabled = $('iso-ms').disabled = true; busyBtn($('iso-dl-cancel'), false, 'Cancelar');
+      $('iso-dl-step').textContent = 'Bajando Windows 11 de Microsoft'; $('iso-dl-bar').style.width = '0'; $('iso-dl-line').textContent = d.path;
+      return;
+    }
+    if (d.state === 'progress') {
+      $('iso-dl-bar').style.width = d.pct >= 0 ? `${d.pct}%` : '0';
+      $('iso-dl-step').textContent = d.pct >= 0 ? `Bajando Windows 11 de Microsoft · ${d.pct} %` : 'Bajando Windows 11 de Microsoft';
+      if (d.total > 0) $('iso-dl-line').textContent = `${gb(d.received)} de ${gb(d.total)}`;
+      return;
+    }
+    box.hidden = true; $('iso-pick').disabled = $('iso-ms').disabled = false;
+    if (d.state === 'error') { src.textContent = d.message; src.classList.add('bad'); }
+  }
   $('iso-saveas').addEventListener('click', () => isoSrc && send({ cmd: 'isoSaveAs', source: isoSrc.path }));
   $('iso-cancel').addEventListener('click', () => { busyBtn($('iso-cancel'), true, 'Cancelando…'); send({ cmd: 'isoCancel' }); });
   function renderIsoSource(s) {
@@ -961,7 +980,7 @@
     else if (v === 'storage' && !targets.length) $('scan').click();
     else if (v === 'mem') send({ cmd: 'settingsGet' });
     else if (v === 'tweaks') send({ cmd: 'tweaksList' });
-    else if (v === 'apps') send({ cmd: 'bloatList' });
+    else if (v === 'apps' || v === 'simple') { if (v === 'simple' && bloat.length) smApps(); else send({ cmd: 'bloatList' }); }
     else if (v === 'bios') send({ cmd: 'biosGet' });
     else if (v === 'tools') { send({ cmd: 'toolsList' }); send({ cmd: 'displayStatus' }); }
     else if (v === 'startup') send({ cmd: 'startupList' });
@@ -969,6 +988,150 @@
     else if (v === 'backups') send({ cmd: 'backupsList' });
     else if (v === 'support') send({ cmd: 'supportGet' });
   }));
+  // ---------- modo simple ----------
+  const SM_Q = [
+    { k: 'games', q: '¿Juegas en esta PC?', h: 'Prioridad para juegos, GPU potente, modo juego y ratón sin aceleración.', def: true },
+    { k: 'printer', q: '¿Usas impresora o «Imprimir a PDF»?', h: 'Si dices que no, se apaga la cola de impresión.', def: true },
+    { k: 'xbox', q: '¿Usas Xbox, Game Pass o la barra Win+G?', h: 'Si no, se quitan las apps y servicios de Xbox.', def: false },
+    { k: 'search', q: '¿Buscas archivos desde el menú Inicio?', h: 'Si no, se apaga el indexador y deja de leer el disco por detrás.', def: true },
+    { k: 'laptop', q: '¿Es una laptop que usas con batería?', h: 'Si es laptop, no se pone el plan Máximo rendimiento ni se apaga la hibernación.', def: false },
+    { k: 'visual', q: '¿Quitar transparencias y animaciones?', h: 'Windows se ve más simple y responde más rápido.', def: true },
+    { k: 'privacy', q: '¿Apagar telemetría y anuncios de Windows?', h: 'Menos datos a Microsoft y nada de apps sugeridas.', def: true },
+    { k: 'clean', q: '¿Borrar archivos temporales?', h: 'Solo temporales de más de 24 horas. Lo que esté en uso se salta.', def: true },
+    { k: 'memAuto', q: '¿Liberar la memoria sola al llegar al 60 %?', h: 'Vigía la libera sin que hagas nada.', def: true },
+  ];
+  const smAns = Object.fromEntries(SM_Q.map((x) => [x.k, x.def]));
+  const smKeep = new Set();
+  let smAppsDrawn = false, smTimer = 0, smStages = [];
+  const smAnswers = () => ({ ...smAns, keepApps: [...smKeep] });
+  const smAskPlan = () => { clearTimeout(smTimer); smTimer = setTimeout(() => send({ cmd: 'simplePlan', answers: smAnswers() }), 150); };
+  (function smDraw() {
+    const box = $('sm-qs');
+    for (const x of SM_Q) {
+      const d = document.createElement('div'); d.className = 'sm-q';
+      const b = document.createElement('b'); b.textContent = x.q;
+      const h = document.createElement('span'); h.textContent = x.h;
+      const seg = document.createElement('div'); seg.className = 'seg'; seg.setAttribute('role', 'radiogroup'); seg.setAttribute('aria-label', x.q);
+      for (const [label, val] of [['Sí', true], ['No', false]]) {
+        const o = document.createElement('button'); o.type = 'button'; o.setAttribute('role', 'radio'); o.textContent = label;
+        o.setAttribute('aria-checked', String(smAns[x.k] === val));
+        o.addEventListener('click', () => { smAns[x.k] = val; seg.querySelectorAll('button').forEach((n) => n.setAttribute('aria-checked', String(n === o))); smAskPlan(); });
+        seg.append(o);
+      }
+      d.append(b, h, seg); box.append(d);
+    }
+  })();
+  const SM_XBOX = ['Microsoft.GamingApp', 'Microsoft.XboxGamingOverlay', 'Microsoft.XboxApp'];
+  function smApps() {
+    const list = bloat.filter((a) => a.installed && !a.blocked && !SM_XBOX.includes(a.id));
+    const box = $('sm-applist'); box.textContent = '';
+    $('view-simple').querySelector('.sm-apps .note').hidden = !list.length;
+    if (!list.length) { const e = document.createElement('p'); e.className = 'empty'; e.textContent = 'Ya no quedan apps de Windows de más: no hay nada que quitar.'; box.append(e); smAskPlan(); return; }
+    if (!smAppsDrawn) { list.filter((a) => a.risk !== 'bajo').forEach((a) => smKeep.add(a.id)); smAppsDrawn = true; }
+    for (const a of list) {
+      const l = document.createElement('label'); l.className = 'chk';
+      const c = document.createElement('input'); c.type = 'checkbox'; c.checked = smKeep.has(a.id);
+      c.addEventListener('change', () => { if (c.checked) smKeep.add(a.id); else smKeep.delete(a.id); smAskPlan(); });
+      const t = document.createElement('div'); const b = document.createElement('b'); b.textContent = a.name; t.append(b);
+      l.append(c, t); box.append(l);
+    }
+    smAskPlan();
+  }
+  function smPlan(p) {
+    const n = p.changes;
+    $('sm-count').textContent = n ? `Se harán ${plural(n, 'cambio', 'cambios')}, con copia de seguridad antes.` : 'Ya está todo optimizado según tus respuestas. Igual puedes limpiar y liberar memoria.';
+    $('sm-go').disabled = false;
+    smStages = p.stages;
+  }
+  const SM_CHECK = '<svg viewBox="0 0 12 12"><path d="M2.5 6.2 5 8.6 9.6 3.6"/></svg>';
+  const SM_HALF = '<svg viewBox="0 0 12 12"><path d="M6 2.6v4.2M6 9.2v.1"/></svg>';
+  $('sm-go').addEventListener('click', () => {
+    $('sm-go').disabled = true;
+    $('sm-ask').hidden = true; $('sm-done').hidden = true; $('sm-run').hidden = false;
+    $('sm-ring').classList.remove('done'); $('sm-title').textContent = 'Optimizando…'; $('sm-now').textContent = 'No apagues el PC. Puedes seguir usándolo.';
+    smSetPct(0);
+    const ol = $('sm-stages'); ol.textContent = '';
+    for (const st of smStages) {
+      const li = document.createElement('li'); li.dataset.id = st.id;
+      const i = document.createElement('i'); i.innerHTML = SM_CHECK;
+      const t = document.createElement('div'); const b = document.createElement('b'); b.textContent = st.title; const sm = document.createElement('small');
+      const n = st.tweaks.length + st.apps.length; if (n) sm.textContent = plural(n, 'cambio', 'cambios');
+      t.append(b, sm); li.append(i, t); ol.append(li);
+    }
+    send({ cmd: 'simpleRun', answers: smAnswers() });
+  });
+  let smPctNow = 0, smRaf = 0;
+  function smSetPct(v) {
+    $('sm-arc').style.strokeDashoffset = String(326.7 * (1 - v / 100));
+    cancelAnimationFrame(smRaf);
+    const from = smPctNow, t0 = performance.now();
+    const tick = (t) => { const k = Math.min(1, (t - t0) / 600); smPctNow = Math.round(from + (v - from) * (1 - (1 - k) ** 3)); $('sm-pct').textContent = smPctNow; if (k < 1) smRaf = requestAnimationFrame(tick); };
+    smRaf = requestAnimationFrame(tick);
+  }
+  function smStep(st) {
+    const li = $('sm-stages').children[st.index]; if (!li) return;
+    li.className = st.state;
+    if (st.state === 'warn') li.querySelector('i').innerHTML = SM_HALF;
+    if (st.detail) li.querySelector('small').textContent = st.detail;
+    if (st.state === 'run') $('sm-now').textContent = `${li.querySelector('b').textContent}…`;
+    const total = $('sm-stages').children.length;
+    smSetPct(Math.round(((st.state === 'run' ? st.index + 0.3 : st.index + 1) / total) * 100));
+  }
+  function smDone(r) {
+    smSetPct(100); $('sm-ring').classList.add('done');
+    const half = r.failed || $('sm-stages').querySelector('li.warn');
+    $('sm-title').textContent = half ? 'Listo, con avisos' : 'Listo';
+    $('sm-now').textContent = r.needsReboot ? 'Reinicia cuando te convenga para que todo haga efecto.' : 'Todo hizo efecto ya.';
+    const parts = [];
+    if (r.applied) parts.push(plural(r.applied, 'ajuste puesto', 'ajustes puestos'));
+    if (r.appsRemoved) parts.push(plural(r.appsRemoved, 'app quitada', 'apps quitadas'));
+    if (r.cleanedMb >= 1) parts.push(r.cleanedMb >= 1024 ? `${(r.cleanedMb / 1024).toFixed(1)} GB de temporales borrados` : `${Math.round(r.cleanedMb)} MB de temporales borrados`);
+    if (r.freedMb >= 1) parts.push(r.freedMb >= 1024 ? `${(r.freedMb / 1024).toFixed(1)} GB de memoria liberados` : `${Math.round(r.freedMb)} MB de memoria liberados`);
+    $('sm-done-title').textContent = r.failed ? `${plural(r.failed, 'cosa no se pudo', 'cosas no se pudieron')} hacer` : 'Tu PC quedó optimizada';
+    $('sm-done-line').textContent = (parts.length ? parts.join(' · ') + '. ' : '') + 'Si algo no te gusta, en Copias tienes «Volver a como estaba».';
+    const ul = $('sm-problems'); ul.textContent = ''; ul.hidden = !r.problems.length;
+    for (const p of r.problems.slice(0, 8)) { const li = document.createElement('li'); li.textContent = p; ul.append(li); }
+    $('sm-done').hidden = false;
+    loaded.delete('tweaks'); loaded.delete('apps'); loaded.delete('backups');
+  }
+  $('sm-again').addEventListener('click', () => { $('sm-run').hidden = true; $('sm-done').hidden = true; $('sm-ask').hidden = false; send({ cmd: 'bloatList' }); });
+  $('sm-backups').addEventListener('click', () => document.querySelector('.nav[data-view="backups"]').click());
+
+  // ---------- lo que más consume ----------
+  const prKind = { game: 'juego', windows: 'Windows', background: 'sin ventana' };
+  function renderProcs(v) {
+    const tb = $('pr-rows');
+    if (!v.top.length) return;
+    $('pr-sub').textContent = v.game ? `Jugando ${v.game}: el consumo alto ahí es normal, no se marca.` : (v.seconds < 30 ? `Midiendo… el promedio se completa en ${30 - v.seconds} s. Solo con esta pantalla abierta.` : 'Solo se mide con esta pantalla abierta. Los juegos cuentan como consumo normal.');
+    const warn = v.top.filter((r) => r.level === 'warn');
+    $('pr-alert').hidden = !warn.length;
+    if (warn.length) $('pr-alert').textContent = warn.length === 1 ? `${warn[0].name} está consumiendo más de lo normal.` : `${warn.length} programas están consumiendo más de lo normal.`;
+    tb.textContent = '';
+    for (const r of v.top) {
+      const tr = document.createElement('tr'); if (r.level === 'warn') tr.className = 'warn';
+      const n = document.createElement('td'); const b = document.createElement('b'); b.textContent = r.name; n.append(b);
+      if (r.count > 1) n.append(` ×${r.count}`);
+      if (prKind[r.kind]) { const g = document.createElement('span'); g.className = 'pr-tag'; g.textContent = prKind[r.kind]; n.append(g); }
+      if (r.why && (r.level === 'warn' || r.kind !== 'app')) { const w = document.createElement('small'); w.textContent = r.why; n.append(w); }
+      const c = document.createElement('td'); c.className = 'num'; c.textContent = `${fmt(r.cpu, 1)} %`;
+      const a = document.createElement('td'); a.className = 'num'; a.textContent = v.seconds >= 10 ? `${fmt(r.cpuAvg, 1)} %` : '…';
+      const m = document.createElement('td'); m.className = 'num'; m.textContent = r.ramGb >= 1 ? `${fmt(r.ramGb, 1)} GB` : `${Math.round(r.ramGb * 1024)} MB`;
+      const act = document.createElement('td'); act.className = 'pr-acts';
+      if (r.path) { const o = document.createElement('button'); o.className = 'btn'; o.textContent = 'Ubicación'; o.title = r.path; o.addEventListener('click', () => send({ cmd: 'procReveal', exe: r.exe })); act.append(o); }
+      if (r.canClose && r.level === 'warn') { const k = document.createElement('button'); k.className = 'btn'; k.textContent = 'Cerrar'; bkArm(k, 'Cerrar', '¿Seguro? Pulsa otra vez', () => { busyBtn(k, true, 'Cerrando…'); send({ cmd: 'procClose', exe: r.exe }); }); act.append(k); }
+      tr.append(n, c, a, m, act); tb.append(tr);
+    }
+  }
+  const prWatch = () => send({ cmd: 'procWatch', on: !$('view-monitor').hidden });
+  document.querySelectorAll('.nav').forEach((b) => b.addEventListener('click', prWatch));
+  prWatch();
+
+  // cualquier «Leyendo…», «Escaneando…» lleva el anillo de carga
+  const markLoading = (root) => root.querySelectorAll?.('.empty').forEach((e) => e.classList.toggle('loading', /…\s*$/.test(e.textContent)));
+  markLoading(document);
+  new MutationObserver((ms) => { for (const m of ms) for (const n of m.addedNodes) if (n.nodeType === 1) { if (n.classList.contains('empty')) markLoading(n.parentNode); else markLoading(n); } })
+    .observe(document.body, { childList: true, subtree: true });
+
   // para --snap: abrir una sección
   // 'opt-run' = abrir Optimizar y lanzar la primera unidad (prueba de extremo a extremo)
   window.vigiaSnap = (spec) => {
@@ -991,6 +1154,16 @@
     if (act === 'run' && view === 'opt') setTimeout(() => document.querySelector('.vol .btn')?.click(), 2500);
     if (act === 'run' && view === 'mem') setTimeout(() => $('m-free').click(), 2500);
     if (act === 'excl') setTimeout(() => { document.querySelector('.excluded').open = true; }, 500);
+    // 'simple-demo' / 'simple-done': solo para capturas; pinta el progreso sin mandar nada al backend
+    if (view === 'simple' && (act === 'demo' || act === 'done')) setTimeout(() => {
+      $('sm-ask').hidden = true; $('sm-run').hidden = false;
+      const ol = $('sm-stages'); ol.textContent = '';
+      for (const st of smStages) { const li = document.createElement('li'); const i = document.createElement('i'); i.innerHTML = SM_CHECK; const t = document.createElement('div'); const b = document.createElement('b'); b.textContent = st.title; t.append(b, document.createElement('small')); li.append(i, t); ol.append(li); }
+      const upto = act === 'done' ? smStages.length : 4;
+      for (let k = 0; k < upto; k++) smStep({ index: k, state: k === 2 ? 'warn' : 'ok', detail: k === 2 ? '5 de 6 listos.' : 'Hecho.' });
+      if (act === 'demo') smStep({ index: 4, state: 'run' });
+      else smDone({ failed: 0, applied: 18, appsRemoved: 3, cleanedMb: 1450, freedMb: 2200, needsReboot: true, problems: [] });
+    }, 2500);
   };
 
   // ---------- actualizaciones (las instala Puente) ----------
@@ -1193,6 +1366,7 @@
     else if (type === 'isoOutput') { isoOut = payload.path; $('iso-out').textContent = `Se guarda como ${isoOut}`; isoReady(); }
     else if (type === 'isoProgress') isoProgress(payload);
     else if (type === 'isoDone') isoDone(payload);
+    else if (type === 'isoDl') isoDl(payload);
     else if (type === 'tweaksDone') renderTweaksDone(payload);
     else if (type === 'utilidad-externaRp') {
       busyBtn($('tw-utilidad-externa'), false, 'Abrir utilidad externa');
@@ -1211,6 +1385,11 @@
       }
     }
     else if (type === 'bloat') renderBloat(payload);
+    else if (type === 'simplePlan') smPlan(payload);
+    else if (type === 'simpleStep') smStep(payload);
+    else if (type === 'simpleDone') smDone(payload);
+    else if (type === 'procs') renderProcs(payload);
+    else if (type === 'procDone') { $('pr-alert').hidden = false; $('pr-alert').textContent = payload.message; }
     else if (type === 'bloatDone') {
       busyBtn($('ap-remove'), false, 'Quitar seleccionadas');
       const bad = payload.filter((r) => !r.ok);
