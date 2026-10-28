@@ -7,7 +7,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AssemblyName>Vigia</AssemblyName>
-    <Version>0.19.0</Version>
+    <Version>0.19.1</Version>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
     <ApplicationIcon>vigia.ico</ApplicationIcon>
@@ -16,6 +16,7 @@
   <ItemGroup>
     <Content Include="vigia.ico" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="tweaks.json" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="assets\vigiaos.jpg" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="LibreHardwareMonitorLib" Version="0.9.6" />

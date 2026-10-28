@@ -546,3 +546,11 @@ td.empty.loading::before { display: inline-block; vertical-align: -2px; margin-r
 .sm-run[hidden], .sm-done[hidden], .pr-alert[hidden], #sm-ask[hidden], .sm-problems[hidden] { display: none; }
 .sm-run { margin-top: 4px; }
 .sm-apps .empty { margin: 4px 0 0; font-size: 13px; color: var(--fg-3); }
+
+/* fondo de VigíaOS (Apps de Windows) */
+.wall { display: flex; gap: 18px; align-items: center; margin: 22px 2px 0; padding-top: 18px; border-top: 1px solid var(--line, rgba(255,255,255,.08)); }
+.wall-img { width: 240px; height: auto; aspect-ratio: 16 / 9; border-radius: 6px; flex: none; box-shadow: 0 0 0 1px rgba(255,255,255,.08); }
+.wall-body h2 { font-size: 15px; margin: 0 0 4px; }
+.wall-body .sub { margin: 0 0 10px; max-width: 56ch; }
+.wall-body .result { margin: 8px 0 0; }
+@media (max-width: 760px) { .wall { flex-direction: column; align-items: flex-start; } }

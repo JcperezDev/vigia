@@ -86,6 +86,7 @@ public static class Backups
                 // sin pantalla real (sesión de servicio, escritorio remoto) Windows da un modo virtual de 0 Hz: ese no se guarda
                 if (Display.Status().Current is { Hz: > 1 } c) items.Add(Item.Display(c.Width, c.Height, c.Hz));
                 foreach (var a in Debloat.List().Where(a => a.Installed)) items.Add(Item.Appx(a.Id, a.Name));
+                items.Add(Wallpaper.Capture(new JsonObject()));
 
                 string? rp = null;
                 if (withRestorePoint && Telemetry.Elevated && RestorePoint.Create("Vigía: estado original") is { Ok: true }) rp = "Vigía: estado original";
@@ -167,6 +168,7 @@ public static class Backups
         "task" => Startup.TaskEnabled((string)it["path"]!) is bool on ? Item.Task((string)it["path"]!, on, (string)it["label"]!) : null,
         "display" => Display.Status().Current is { } c ? Item.Display(c.Width, c.Height, c.Hz) : null,
         "file" => Item.File((string)it["path"]!, (string)it["label"]!),
+        "wallpaper" => Wallpaper.Capture(it),
         _ => null,   // apps quitadas: el estado actual es «quitada»; no hay nada que copiar
     };
 
@@ -194,6 +196,7 @@ public static class Backups
                 System.IO.File.WriteAllBytes(fp, Convert.FromBase64String(data));
                 if ((bool?)it["readonly"] == true) System.IO.File.SetAttributes(fp, System.IO.File.GetAttributes(fp) | FileAttributes.ReadOnly);
                 break;
+            case "wallpaper": Wallpaper.Restore(it); break;
             case "appx":
                 // Vigía solo quita la app de tu usuario: el paquete de Windows sigue ahí y se vuelve a registrar
                 var name = (string)it["name"]!;

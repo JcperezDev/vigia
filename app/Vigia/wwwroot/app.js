@@ -528,6 +528,17 @@
     n.hidden = false; n.replaceChildren(el('p', null, 'Windows puede volver a instalar algunas por su cuenta.'), row);
   }
 
+  // ---------- fondo de VigíaOS ----------
+  let wallBk = null;
+  function renderWall(w) {
+    busyBtn($('wall-set'), false, w.ours ? 'Ya lo tienes puesto' : 'Poner el fondo');
+    $('wall-set').disabled = w.ours;
+    wallBk = w.backupId;
+    $('wall-back').hidden = !(w.ours && w.backupId);
+  }
+  $('wall-set').addEventListener('click', () => { busyBtn($('wall-set'), true, 'Poniendo…'); send({ cmd: 'wallSet' }); });
+  $('wall-back').addEventListener('click', () => { if (!wallBk) return; busyBtn($('wall-back'), true, 'Volviendo…'); send({ cmd: 'backupRestore', id: wallBk }); });
+
   // ---------- BIOS ----------
   function renderBios(b) {
     busyBtn($('bi-reload'), false, 'Volver a leer');
@@ -866,7 +877,7 @@
   $('gm-cancel').addEventListener('click', () => send({ cmd: 'fpsCancel' }));
 
   // ---------- copias de seguridad ----------
-  const bkKind = { juegos: 'Juegos', ajustes: 'Ajustes', inicio: 'Inicio de Windows', pantalla: 'Pantalla', apps: 'Apps', restauracion: 'Restauración' };
+  const bkKind = { juegos: 'Juegos', ajustes: 'Ajustes', inicio: 'Inicio de Windows', pantalla: 'Pantalla', apps: 'Apps', fondo: 'Fondo de pantalla', restauracion: 'Restauración' };
   function bkWhen(s) {
     const d = new Date(s);
     return d.toLocaleDateString(window.vigiaI18n.locale(), { day: 'numeric', month: 'short' }) + ', ' + d.toLocaleTimeString(window.vigiaI18n.locale(), { hour: '2-digit', minute: '2-digit' });
@@ -889,6 +900,7 @@
     if (st) parts.push(plural(st, 'valor de inicio de Windows', 'valores de inicio de Windows'));
     if (n.display) parts.push('la resolución');
     if (n.appx) parts.push(plural(n.appx, 'app instalada', 'apps instaladas'));
+    if (n.wallpaper) parts.push('el fondo de pantalla');
     const body = el('div');
     body.append(el('strong', null, 'Cómo estaba tu PC antes de Vigía'),
       el('p', null, `Guardada el ${bkWhen(o.at)}, antes del primer cambio. Esta copia nunca se borra.`),
@@ -1384,7 +1396,9 @@
         r.append(go);
       }
     }
-    else if (type === 'bloat') renderBloat(payload);
+    else if (type === 'bloat') { renderBloat(payload); send({ cmd: 'wallGet' }); }
+    else if (type === 'wall') renderWall(payload);
+    else if (type === 'wallDone') { $('wall-result').textContent = payload.message; $('wall-result').classList.toggle('bad', !payload.ok); }
     else if (type === 'simplePlan') smPlan(payload);
     else if (type === 'simpleStep') smStep(payload);
     else if (type === 'simpleDone') smDone(payload);
@@ -1405,6 +1419,12 @@
     else if (type === 'backupDone') {
       $('bk-result').textContent = payload.message + (payload.errors.length ? ` ${payload.errors.join('; ')}` : '');
       $('bk-result').classList.toggle('bad', !payload.ok);
+      if (payload.id === wallBk) {
+        busyBtn($('wall-back'), false, 'Volver al fondo de antes');
+        $('wall-result').textContent = payload.ok ? 'Listo, tienes otra vez tu fondo de antes.' : payload.message + (payload.errors.length ? ` ${payload.errors.join('; ')}` : '');
+        $('wall-result').classList.toggle('bad', !payload.ok);
+      }
+      send({ cmd: 'wallGet' });
     }
     else if (type === 'startupDone') {
       $('su-result').textContent = payload.ok ? '' : `No se pudo cambiar: ${payload.message}`;
