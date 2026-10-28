@@ -494,42 +494,38 @@
 
     <section class="view" id="view-support" hidden>
       <header class="head">
-        <div><h1>Apoya Vigía</h1><p class="sub">Vigía es gratis, sin cuenta y sin anuncios. Si te sirvió, así puedes ayudar a que siga.</p></div>
+        <div><h1>Apoya Vigía</h1><p class="sub">Vigía es gratis y sin anuncios. Si te sirve, puedes ayudar así.</p></div>
       </header>
 
-      <section class="sp-main">
-        <div class="sp-why">
-          <h2>Por qué ayuda</h2>
-          <p>Cada ajuste se prueba en una máquina virtual con Windows limpio antes de llegar a tu PC: se aplica, se reinicia y se deshace. Eso lleva horas. Una donación paga ese tiempo.</p>
-          <p class="sp-note">Donar es opcional y no desbloquea nada. Todo lo que tiene Vigía sigue siendo gratis.</p>
-        </div>
-        <div class="sp-give">
-          <h2>Donar</h2>
-          <div class="sp-links" id="sp-links"><p class="empty">Cargando…</p></div>
-        </div>
+      <section class="sp-give sp-solo">
+        <h2>Donar</h2>
+        <p class="sp-note">Es opcional y no desbloquea nada.</p>
+        <div class="sp-links" id="sp-links"><p class="empty">Cargando…</p></div>
       </section>
 
-      <section class="tw-group">
-        <h2>Sin gastar nada</h2>
-        <ul class="sp-free">
-          <li>
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9L12 3Z"/></svg>
-            <div><strong>Dale una estrella en GitHub</strong><span>Hace que más gente la encuentre.</span></div>
-            <button class="btn" id="sp-star">Abrir GitHub</button>
-          </li>
-          <li>
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 12h8M12 8l4 4-4 4"/><rect x="3" y="3" width="18" height="18" rx="3"/></svg>
-            <div><strong>Pásasela a alguien que juegue</strong><span>Copia el enlace de descarga.</span></div>
-            <button class="btn" id="sp-share">Copiar enlace</button>
-          </li>
-          <li>
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H8l-4 4V5Z"/><path d="M12 8v3M12 13.5h.01"/></svg>
-            <div><strong>Cuéntanos qué falla</strong><span>Un error bien contado vale tanto como una donación.</span></div>
-            <button class="btn" id="sp-issue">Reportar</button>
-          </li>
-        </ul>
-        <p class="result" id="sp-result" aria-live="polite"></p>
-      </section>
+      <ul class="sp-free">
+        <li>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9L12 3Z"/></svg>
+          <strong>Dale una estrella en GitHub</strong>
+          <button class="btn" id="sp-star">Abrir GitHub</button>
+        </li>
+        <li>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="17.5" cy="5.5" r="2.5"/><circle cx="6.5" cy="12" r="2.5"/><circle cx="17.5" cy="18.5" r="2.5"/><path d="m8.7 10.8 6.6-4M8.7 13.2l6.6 4"/></svg>
+          <strong>Compártela</strong>
+          <button class="btn" id="sp-share">Copiar enlace</button>
+        </li>
+        <li>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.5 10.9V16h7v-2.1A6 6 0 0 0 12 3Z"/></svg>
+          <strong>Cuéntanos qué podría mejorar</strong>
+          <button class="btn" id="sp-idea">Dar una idea</button>
+        </li>
+        <li>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H8l-4 4V5Z"/><path d="M12 8v3M12 13.5h.01"/></svg>
+          <strong>Cuéntanos qué falla</strong>
+          <button class="btn" id="sp-issue">Reportar</button>
+        </li>
+      </ul>
+      <p class="result" id="sp-result" aria-live="polite"></p>
     </section>
 
     <section class="view" id="view-tools" hidden>

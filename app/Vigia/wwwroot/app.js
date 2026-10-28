@@ -1233,9 +1233,10 @@
   document.querySelectorAll('.hp-go').forEach((b) => b.addEventListener('click', () => goView(b.dataset.go)));
   const DOWNLOAD = 'https://jcperezdev.github.io/vigia-releases/';
   $('sp-star').addEventListener('click', () => send({ cmd: 'openUrl', url: 'repo' }));
-  $('sp-issue').addEventListener('click', () => send({ cmd: 'openUrl', url: 'https://github.com/JcperezDev/vigia-releases/issues' }));
+  $('sp-issue').addEventListener('click', () => send({ cmd: 'openUrl', url: 'https://github.com/JcperezDev/vigia-releases/issues/new?title=Falla%3A%20' }));
+  $('sp-idea').addEventListener('click', () => send({ cmd: 'openUrl', url: 'https://github.com/JcperezDev/vigia-releases/issues/new?title=Idea%3A%20' }));
   $('sp-share').addEventListener('click', async () => {
-    try { await navigator.clipboard.writeText(DOWNLOAD); $('sp-result').textContent = 'Enlace copiado. Pégalo donde quieras.'; }
+    try { await navigator.clipboard.writeText(DOWNLOAD); $('sp-result').textContent = 'Enlace copiado.'; }
     catch { $('sp-result').textContent = `No pude copiar. El enlace es ${DOWNLOAD}`; }
   });
   function renderSupport(p) {
@@ -1250,7 +1251,7 @@
       b.addEventListener('click', () => send({ cmd: 'openUrl', url: l.url }));
       box.append(b);
     });
-    box.append(el('p', 'sp-safe', 'Se abre en tu navegador. Vigía no ve ni guarda nada del pago.'));
+    box.append(el('p', 'sp-safe', 'Se abre en el navegador. Vigía no ve el pago.'));
   }
 
   // ---------- recorrido ----------

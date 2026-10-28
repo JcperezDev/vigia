@@ -1629,5 +1629,12 @@
  "Ya estaba": "Déjà fait",
  "Ya estaba todo puesto.": "Tout était déjà en place.",
  "Ya no estaba abierto.": "Il n'était plus ouvert.",
- "Ya no quedan apps de Windows de más: no hay nada que quitar.": "Il ne reste plus d'applis Windows en trop : rien à supprimer."
+ "Ya no quedan apps de Windows de más: no hay nada que quitar.": "Il ne reste plus d'applis Windows en trop : rien à supprimer.",
+ "Vigía es gratis y sin anuncios. Si te sirve, puedes ayudar así.": "Vigía est gratuit et sans publicité. S’il vous est utile, voici comment aider.",
+ "Es opcional y no desbloquea nada.": "C’est facultatif et ne débloque rien.",
+ "Compártela": "Partagez-le",
+ "Cuéntanos qué podría mejorar": "Dites-nous ce qui pourrait être mieux",
+ "Dar una idea": "Proposer une idée",
+ "Enlace copiado.": "Lien copié.",
+ "Se abre en el navegador. Vigía no ve el pago.": "S’ouvre dans le navigateur. Vigía ne voit pas le paiement."
 }
