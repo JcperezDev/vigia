@@ -1299,19 +1299,13 @@
   };
 
   // ---------- actualizaciones (las instala Puente) ----------
-  let upAsked = false;
+  let upAsked = false, upBusy = false, upInfo = null;
   function renderUpdate(u) {
-    $('up-check').textContent = `Versión ${u.current}`;
-    $('up-check').disabled = false;
+    upInfo = u; upBusy = false;
     $('st-ver').textContent = `Tienes la versión ${u.current}`;
     busyBtn($('st-check'), false, 'Buscar actualizaciones');
     busyBtn($('st-run'), false, 'Actualizar ahora');
-    busyBtn($('up-run'), false, 'Actualizar');
-    const box = $('update');
-    box.hidden = !u.available;
     if (u.available) {
-      box.hidden = false; $('up-run').hidden = false;
-      busyBtn($('up-run'), false, `Actualizar a ${u.latest}`);
       $('st-new').hidden = false;
       $('st-new-title').textContent = `Versión nueva: ${u.latest}`;
       $('st-notes').textContent = (u.notes || '').trim();
@@ -1325,13 +1319,116 @@
       }
     }
     upAsked = false;
+    renderNews();
   }
-  const goSettings = () => document.querySelector('.nav[data-view="settings"]').click();
-  $('up-check').addEventListener('click', () => { goSettings(); $('st-check').click(); });
   $('st-check').addEventListener('click', () => { upAsked = true; busyBtn($('st-check'), true, 'Buscando…'); send({ cmd: 'updateCheck' }); });
-  const runUpdate = () => { busyBtn($('st-run'), true, 'Preparando…'); busyBtn($('up-run'), true, 'Preparando…'); send({ cmd: 'updateRun' }); };
+  const runUpdate = () => { upBusy = true; busyBtn($('st-run'), true, 'Preparando…'); renderNews(); send({ cmd: 'updateRun' }); };
   $('st-run').addEventListener('click', runUpdate);
-  $('up-run').addEventListener('click', runUpdate);
+
+  // ---------- novedades ----------
+  // Cada versión es una fila, como un chat: las que no has leído van en negrita con su contador. Al abrirla
+  // se marca como leída y muestra sus cambios con la etiqueta Nuevo, Mejora o Arreglo. El historial viene con
+  // la app (changelog.json); si hay una versión nueva, va arriba con sus notas y el botón para actualizar.
+  const NEWS_TAG = { nuevo: 'Nuevo', mejora: 'Mejora', arreglo: 'Arreglo' };
+  let newsList = [], newsOpen = new Set(), newsRead = null;
+  const vnum = (v) => String(v || '0').split('.').map(Number);
+  const newer = (a, b) => { const x = vnum(a), y = vnum(b); for (let k = 0; k < 3; k++) if ((x[k] || 0) !== (y[k] || 0)) return (x[k] || 0) > (y[k] || 0); return false; };
+  const curVer = () => upInfo?.current || '';
+  function parseNotes(md) {
+    let lines = String(md || '').split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+    const bullets = lines.filter((l) => /^[-*] /.test(l));
+    lines = bullets.length ? bullets : lines.filter((l) => !/:$/.test(l)).flatMap((l) => l.split(/(?<=\.)\s+(?=[A-ZÁÉÍÓÚÑ«])/));
+    return lines.map((l) => {
+      let t = l.replace(/^[-*]\s+/, '').replace(/\*\*/g, '').replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
+      let type;
+      const m = t.match(/^(nuevo|nueva|mejora|arreglo|arreglado|fix|new)\s*[:·-]\s*/i);
+      if (m) { type = /^mejora/i.test(m[1]) ? 'mejora' : /^(arregl|fix)/i.test(m[1]) ? 'arreglo' : 'nuevo'; t = t.slice(m[0].length); }
+      else type = /ya no|arregl|corrig|fallaba|no avisaba/i.test(t) ? 'arreglo' : /^(nuev|ahora puedes)/i.test(t) ? 'nuevo' : 'mejora';
+      return { type, text: t.charAt(0).toUpperCase() + t.slice(1) };
+    }).filter((i) => i.text).slice(0, 12);
+  }
+  function newsAll() {
+    const cur = curVer();
+    let list = cur ? newsList.filter((e) => !newer(e.version, cur)) : newsList.slice();
+    if (upInfo?.available && upInfo.latest && !list.some((e) => e.version === upInfo.latest))
+      list = [{ version: upInfo.latest, date: '', title: 'Versión nueva disponible', items: parseNotes(upInfo.notes), available: true }, ...list];
+    return list;
+  }
+  function loadRead(list) {
+    if (newsRead) return;
+    try { newsRead = JSON.parse(localStorage.getItem('vigia-news-read') || 'null'); } catch { newsRead = null; }
+    if (!Array.isArray(newsRead)) {   // primera vez: lo viejo cuenta como leído; solo la versión instalada queda nueva
+      newsRead = list.filter((e) => e.version !== curVer() && !e.available).map((e) => e.version);
+      saveRead();
+    }
+  }
+  function saveRead() { try { localStorage.setItem('vigia-news-read', JSON.stringify(newsRead.slice(-40))); } catch { /* sin almacenamiento */ } }
+  function newsWhen(e) {
+    if (e.available) return 'Disponible';
+    if (e.version === curVer()) return 'Instalada';
+    if (!e.date) return '';
+    const [, m, d] = e.date.split('-').map(Number);   // a mano: así no depende de los idiomas que traiga WebView2
+    const MON = { es: 'ene feb mar abr may jun jul ago sept oct nov dic', en: 'Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec', pt: 'jan fev mar abr mai jun jul ago set out nov dez', fr: 'janv févr mars avr mai juin juil août sept oct nov déc', de: 'Jan. Feb. März Apr. Mai Juni Juli Aug. Sept. Okt. Nov. Dez.' };
+    const lg = window.vigiaI18n.lang, mm = (MON[lg] || MON.es).split(' ')[m - 1];
+    return lg === 'en' ? `${mm} ${d}` : lg === 'de' ? `${d}. ${mm}` : `${d} ${mm}`;
+  }
+  function renderNews() {
+    if (!curVer()) return;
+    const list = newsAll(); loadRead(list);
+    const unread = (e) => !newsRead.includes(e.version);
+    const n = list.filter(unread).length;
+    $('news-count').hidden = !n; $('news-count').textContent = n > 9 ? '9+' : String(n);
+    const avail = list.find((e) => e.available);
+    $('news-btn').classList.toggle('has-update', !!avail);
+    $('news-sub').textContent = avail ? `Versión ${avail.version} lista` : `Versión ${curVer()}`;
+    $('news-upd').hidden = !avail;
+    if (avail) {
+      $('news-upd-t').textContent = `Versión ${avail.version} disponible`;
+      $('news-upd-s').textContent = upInfo?.error ? upInfo.error : upBusy ? 'Se cierra un momento y vuelve a abrir ya actualizada.' : (upInfo?.size ? `Tienes la ${curVer()} · ${Math.round(upInfo.size / 1048576)} MB` : `Tienes la ${curVer()}`);
+      $('news-upd-s').classList.toggle('bad', !!upInfo?.error && !upBusy);
+      busyBtn($('news-upd-btn'), upBusy, upBusy ? 'Preparando…' : 'Actualizar');
+      $('news-upd-bar').hidden = !upBusy;
+    }
+    const L = $('news-list');
+    if (!list.length) { L.replaceChildren(el('li', 'news-empty', 'Sin novedades por ahora')); return; }
+    L.replaceChildren(...list.map((e) => {
+      const open = newsOpen.has(e.version), un = unread(e);
+      const li = el('li', 'news-row' + (un ? ' unread' : '') + (open ? ' open' : '')); li.dataset.v = e.version;
+      const b = el('button', 'news-row-btn'); b.setAttribute('aria-expanded', String(open));
+      const main = el('span', 'news-main');
+      main.append(el('span', 't', e.title || `Versión ${e.version}`), el('span', 's', open ? `Versión ${e.version}` : (e.items?.[0]?.text || '')));
+      const meta = el('span', 'news-meta'); meta.append(el('span', 'when', newsWhen(e)));
+      if (un) meta.append(el('span', 'news-count', String(e.items?.length || 1)));
+      const av = el('span', 'news-av', e.version.split('.').slice(0, 2).join('.')); av.translate = false;
+      b.append(av, main, meta); li.append(b);
+      if (open) {
+        const ul = el('ul', 'news-items');
+        (e.items || []).forEach((it) => { const r = el('li'); r.append(el('span', 'news-tag ' + (NEWS_TAG[it.type] ? it.type : 'mejora'), NEWS_TAG[it.type] || 'Mejora'), el('span', null, it.text)); ul.append(r); });
+        li.append(ul);
+      }
+      return li;
+    }));
+  }
+  function markRead(v) { if (!v || !newsRead || newsRead.includes(v)) return; newsRead.push(v); saveRead(); }
+  function setNewsOpen(on) {
+    const pop = $('news-pop'); pop.hidden = !on; $('news-btn').setAttribute('aria-expanded', String(on));
+    if (!on) return;
+    if (!newsOpen.size) { const f = newsAll()[0]; if (f) newsOpen.add(f.version); }
+    pop.style.left = Math.round(document.querySelector('.rail').getBoundingClientRect().right + 8) + 'px';
+    newsOpen.forEach(markRead); renderNews(); pop.focus();
+  }
+  $('news-btn').addEventListener('click', (e) => { e.stopPropagation(); setNewsOpen($('news-pop').hidden); });
+  $('news-close').addEventListener('click', () => setNewsOpen(false));
+  $('news-list').addEventListener('click', (e) => {
+    const row = e.target.closest('.news-row'); if (!row) return;
+    const v = row.dataset.v;
+    if (newsOpen.has(v)) newsOpen.delete(v); else newsOpen.add(v);
+    markRead(v); renderNews();
+  });
+  $('news-upd-btn').addEventListener('click', runUpdate);
+  document.addEventListener('mousedown', (e) => { const pop = $('news-pop'); if (!pop.hidden && !pop.contains(e.target) && !e.target.closest('#news-btn')) setNewsOpen(false); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('news-pop').hidden) setNewsOpen(false); });
+  fetch('changelog.json').then((r) => r.json()).then((l) => { newsList = Array.isArray(l) ? l : []; renderNews(); }).catch(() => { /* sin historial */ });
   send({ cmd: 'version' });
 
   // ---------- configuración: idioma y búsqueda automática ----------

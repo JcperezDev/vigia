@@ -3,7 +3,7 @@ using System.Text.Json;
 
 namespace Vigia;
 
-public record UpdateInfo(string Current, string? Latest, bool Available, string? Notes, bool PuenteFound, string? Error);
+public record UpdateInfo(string Current, string? Latest, bool Available, string? Notes, bool PuenteFound, string? Error, long? Size = null);
 
 /// <summary>
 /// Mira si hay una versión nueva en JcperezDev/vigia-releases. Vigía solo pregunta; quien descarga, comprueba la firma
@@ -39,7 +39,12 @@ public static class Updates
             var notes = doc.RootElement.TryGetProperty("body", out var b) ? b.GetString() : null;
             var latest = Version.Parse(tag);
             latest = new Version(latest.Major, latest.Minor, Math.Max(latest.Build, 0));
-            return new(cur, latest.ToString(), latest > Current, notes, File.Exists(PuentePath), null);
+            long? size = null;   // lo que baja Puente: el zip de la app
+            if (doc.RootElement.TryGetProperty("assets", out var assets) && assets.ValueKind == JsonValueKind.Array)
+                foreach (var a in assets.EnumerateArray())
+                    if (a.TryGetProperty("name", out var n) && n.GetString() is string nm && nm.EndsWith("-win-x64.zip", StringComparison.OrdinalIgnoreCase)
+                        && a.TryGetProperty("size", out var sz) && sz.TryGetInt64(out var bytes)) { size = bytes; break; }
+            return new(cur, latest.ToString(), latest > Current, notes, File.Exists(PuentePath), null, size);
         }
         catch (Exception e) { return new(cur, null, false, null, File.Exists(PuentePath), e.Message); }
     }

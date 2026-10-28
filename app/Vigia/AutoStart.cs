@@ -128,7 +128,31 @@ public static class AutoStart
     [System.Runtime.InteropServices.DllImport("shell32.dll")] static extern int SHQueryUserNotificationState(out int state);
     public static bool Busy()
     {
-        if (SHQueryUserNotificationState(out var s) != 0) return false;
-        return s is 2 /* busy: pantalla completa */ or 3 /* D3D a pantalla completa */ or 4 /* presentación */ or 7 /* app UWP a pantalla completa */;
+        if (SHQueryUserNotificationState(out var s) == 0 && s is 2 /* busy: pantalla completa */ or 3 /* D3D a pantalla completa */ or 4 /* presentación */ or 7 /* app UWP a pantalla completa */)
+            return true;
+        return Borderless();
+    }
+
+    // «Ventana a pantalla completa» (Fortnite, Valorant, CS2…): Windows no la cuenta como pantalla completa,
+    // así que se mira si la ventana de delante tapa su monitor entero y no es el escritorio ni Vigía.
+    [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)] struct RECT { public int L, T, R, B; }
+    [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)] struct MONITORINFO { public int Size; public RECT Monitor, Work; public uint Flags; }
+    [System.Runtime.InteropServices.DllImport("user32.dll")] static extern IntPtr GetForegroundWindow();
+    [System.Runtime.InteropServices.DllImport("user32.dll")] static extern bool GetWindowRect(IntPtr h, out RECT r);
+    [System.Runtime.InteropServices.DllImport("user32.dll")] static extern IntPtr MonitorFromWindow(IntPtr h, uint flags);
+    [System.Runtime.InteropServices.DllImport("user32.dll")] static extern bool GetMonitorInfoW(IntPtr m, ref MONITORINFO mi);
+    [System.Runtime.InteropServices.DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid);
+    [System.Runtime.InteropServices.DllImport("user32.dll", CharSet = System.Runtime.InteropServices.CharSet.Unicode)] static extern int GetClassNameW(IntPtr h, System.Text.StringBuilder sb, int n);
+    static bool Borderless()
+    {
+        var h = GetForegroundWindow();
+        if (h == IntPtr.Zero || !GetWindowRect(h, out var r)) return false;
+        GetWindowThreadProcessId(h, out var pid);
+        if (pid == Environment.ProcessId) return false;
+        var cls = new System.Text.StringBuilder(64); GetClassNameW(h, cls, 64);
+        if (cls.ToString() is "Progman" or "WorkerW" or "Shell_TrayWnd" or "Shell_SecondaryTrayWnd") return false;
+        var mi = new MONITORINFO { Size = System.Runtime.InteropServices.Marshal.SizeOf<MONITORINFO>() };
+        if (!GetMonitorInfoW(MonitorFromWindow(h, 2 /* NEAREST */), ref mi)) return false;
+        return r.L <= mi.Monitor.L && r.T <= mi.Monitor.T && r.R >= mi.Monitor.R && r.B >= mi.Monitor.B;
     }
 }

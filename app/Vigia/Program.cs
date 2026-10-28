@@ -504,6 +504,13 @@ sealed partial class MainForm : Form
                 if (c.MemAuto) await Task.Run(() => Memory.AutoTick(c));
                 return;
             }
+            // con un juego delante (Vigía abierta detrás o en otra pantalla): nada de sensores, solo la memoria
+            if (!ContainsFocus && AutoStart.Busy())
+            {
+                var c = _cfg;
+                if (c.MemAuto && await Task.Run(() => Memory.AutoTick(c)) is { } a) Send("memFreed", a);
+                return;
+            }
             Send("telemetry", await Task.Run(_tel.Read));
             // cada 2 lecturas: estado de la memoria y, si toca, liberación automática
             if (_tick++ % 2 == 0)
