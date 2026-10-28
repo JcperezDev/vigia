@@ -75,13 +75,25 @@
       <button class="nav" data-view="settings">
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1 7 17M17 7l2.1-2.1"/></svg>Configuración
       </button>
-    </div>
-    <div class="rail-update" id="update" hidden>
-      <button class="up-link" id="up-run" title="Se cierra un momento y vuelve a abrir ya actualizada.">Actualizar</button>
+      <button class="nav nav-news" id="news-btn" aria-haspopup="dialog" aria-expanded="false" title="Novedades">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15Z"/><path d="M10 20.5a2.2 2.2 0 0 0 4 0"/></svg><span class="nn-text"><span class="t">Novedades</span><span class="s" id="news-sub">Versión —</span></span>
+        <span class="news-count" id="news-count" hidden></span>
+      </button>
     </div>
     <div class="rail-foot" id="privilege"></div>
-    <p class="rail-ver" id="ver"><button class="linkish" id="up-check" title="Buscar versión nueva">Versión —</button></p>
   </nav>
+  <div class="news-pop" id="news-pop" role="dialog" aria-label="Novedades" tabindex="-1" hidden>
+    <header class="news-head">
+      <h2>Novedades</h2>
+      <button class="news-x" id="news-close" aria-label="Cerrar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+    </header>
+    <div class="news-upd" id="news-upd" hidden>
+      <div class="news-upd-text"><span class="t" id="news-upd-t"></span><span class="s" id="news-upd-s"></span></div>
+      <button class="btn primary" id="news-upd-btn" title="Se cierra un momento y vuelve a abrir ya actualizada.">Actualizar</button>
+      <div class="news-upd-bar" id="news-upd-bar" hidden><i></i></div>
+    </div>
+    <ol class="news-list" id="news-list"></ol>
+  </div>
 
   <main>
     <section class="view" id="view-monitor">
