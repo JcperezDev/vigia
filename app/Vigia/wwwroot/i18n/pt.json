@@ -1308,5 +1308,10 @@
  "cosas por aprovechar": "coisas para aproveitar",
  "Encender modo juego": "Ligar o modo de jogo",
  "Encender HAGS": "Ligar o HAGS",
- "Poner Máximo rendimiento": "Pôr em Desempenho máximo"
+ "Poner Máximo rendimiento": "Pôr em Desempenho máximo",
+ "{0} Análisis rápido limpio.": "{0} Análise rápida limpa.",
+ "{0} El análisis no terminó (código {1}).": "{0} A análise não terminou (código {1}).",
+ "{0} Encontró amenazas: ábrelas en Seguridad de Windows → Historial de protección.": "{0} Ameaças encontradas: abra em Segurança do Windows → Histórico de proteção.",
+ "No se pudieron bajar firmas nuevas (¿sin internet?).": "Não foi possível baixar assinaturas novas (sem internet?).",
+ "Windows no dio el permiso de restaurar": "O Windows não deu a permissão de restauração"
 }

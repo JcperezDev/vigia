@@ -1308,5 +1308,10 @@
  "cosas por aprovechar": "Sachen ungenutzt",
  "Encender modo juego": "Spielmodus einschalten",
  "Encender HAGS": "HAGS einschalten",
- "Poner Máximo rendimiento": "Auf Ultimative Leistung stellen"
+ "Poner Máximo rendimiento": "Auf Ultimative Leistung stellen",
+ "{0} Análisis rápido limpio.": "{0} Schnellprüfung sauber.",
+ "{0} El análisis no terminó (código {1}).": "{0} Die Prüfung wurde nicht beendet (Code {1}).",
+ "{0} Encontró amenazas: ábrelas en Seguridad de Windows → Historial de protección.": "{0} Bedrohungen gefunden: Windows-Sicherheit → Schutzverlauf öffnen.",
+ "No se pudieron bajar firmas nuevas (¿sin internet?).": "Neue Signaturen konnten nicht geladen werden (kein Internet?).",
+ "Windows no dio el permiso de restaurar": "Windows hat die Wiederherstellungsberechtigung nicht erteilt"
 }

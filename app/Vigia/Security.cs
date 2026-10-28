@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using System.Text.Json.Nodes;
 using Microsoft.Win32;
 
@@ -60,6 +61,58 @@ public static class Security
         using (root) using (var k = root.OpenSubKey(sub)) return k?.GetValue(name);
     }
 
+    const string DefKey = @"HKLM\SOFTWARE\Microsoft\Windows Defender";
+    static readonly string[] Own = { "DisableAntiSpyware", "DisableAntiVirus" };
+
+    // Claves donde los administradores solo leen (la configuración propia de Defender, a veces sus servicios).
+    // Se activa SeRestorePrivilege, el que usan los programas de copias, y se abre la clave en modo restauración.
+    // No crea tareas ni procesos.
+    static void WithRestoreKey(string path, Action<IntPtr> act)
+    {
+        if (!OpenProcessToken(Process.GetCurrentProcess().Handle, 0x20 | 0x8, out var tok)) throw new InvalidOperationException("sin token");
+        try
+        {
+            if (!LookupPrivilegeValue(null, "SeRestorePrivilege", out var luid)) throw new InvalidOperationException("sin privilegio");
+            var tp = new TOKEN_PRIVILEGES { Count = 1, Luid = luid, Attr = 2 };
+            if (!AdjustTokenPrivileges(tok, false, ref tp, 0, IntPtr.Zero, IntPtr.Zero) || Marshal.GetLastWin32Error() != 0)
+                throw new InvalidOperationException("Windows no dio el permiso de restaurar");
+            var sub = path[(path.IndexOf('\\') + 1)..];
+            var rc = RegCreateKeyEx(new IntPtr(unchecked((int)0x80000002)), sub, 0, null, 4 /*BACKUP_RESTORE*/, 0x0002 | 0x0100, IntPtr.Zero, out var hk, out _);
+            if (rc != 0) throw new InvalidOperationException($"código {rc}");
+            try { act(hk); } finally { RegCloseKey(hk); }
+        }
+        finally { CloseHandle(tok); }
+    }
+
+    static void DeleteProtected(string path, string name) => WithRestoreKey(path, hk =>
+    {
+        var d = RegDeleteValue(hk, name); if (d != 0 && d != 2) throw new InvalidOperationException($"código {d}");
+    });
+
+    // Escribe normal; si Windows lo niega, con el permiso de restaurar.
+    static void SetAny(string path, string name, int v)
+    {
+        try { Set(path, name, v); }
+        catch (Exception e) when (e is UnauthorizedAccessException or System.Security.SecurityException)
+        {
+            WithRestoreKey(path, hk =>
+            {
+                var r = RegSetValueEx(hk, name, 0, 4 /*DWORD*/, ref v, 4); if (r != 0) throw new InvalidOperationException($"código {r}");
+            });
+        }
+    }
+
+    // LUID va a 4 bytes, como en Windows (sin Pack = 4 quedaba en 8 y Windows no daba el permiso)
+    [StructLayout(LayoutKind.Sequential, Pack = 4)] struct TOKEN_PRIVILEGES { public uint Count; public long Luid; public uint Attr; }
+    [DllImport("advapi32.dll", SetLastError = true)] static extern bool OpenProcessToken(IntPtr p, uint access, out IntPtr tok);
+    [DllImport("advapi32.dll", SetLastError = true, CharSet = CharSet.Unicode)] static extern bool LookupPrivilegeValue(string? sys, string name, out long luid);
+    [DllImport("advapi32.dll", SetLastError = true)] static extern bool AdjustTokenPrivileges(IntPtr tok, bool all, ref TOKEN_PRIVILEGES tp, uint len, IntPtr prev, IntPtr ret);
+    [DllImport("advapi32.dll", CharSet = CharSet.Unicode)] static extern int RegCreateKeyEx(IntPtr hKey, string sub, int res, string? cls, int opt, int sam, IntPtr sa, out IntPtr result, out int disp);
+    [DllImport("advapi32.dll", CharSet = CharSet.Unicode)] static extern int RegDeleteValue(IntPtr hKey, string name);
+    [DllImport("advapi32.dll")] static extern int RegCloseKey(IntPtr hKey);
+    [DllImport("advapi32.dll", CharSet = CharSet.Unicode)] static extern int RegSetValueEx(IntPtr hKey, string name, int res, int type, ref int data, int size);
+    [DllImport("kernel32.dll")] static extern bool CloseHandle(IntPtr h);
+
     static (RegistryKey, string) Split(string path)
     {
         var i = path.IndexOf('\\');
@@ -76,7 +129,7 @@ public static class Security
         var b = new List<Block>();
         var pol = Policies.Where(p => Get(Pol + p.Sub, p.Name) is int v && (p.Name == "ServiceKeepAlive" ? v == 0 : v != 0)).ToList();
         if (pol.Count > 0) b.Add(new("policies", $"Hay {pol.Count} reglas del registro que le ordenan a Defender no arrancar."));
-        if (Get(@"HKLM\SOFTWARE\Microsoft\Windows Defender", "DisableAntiSpyware") is int d && d != 0)
+        if (Own.Any(n => Get(DefKey, n) is int d && d != 0))
             b.Add(new("local", "Defender tiene marcado «no arrancar» en su propia configuración."));
         var off = Services.Where(s => Start(s.Name) == 4).Select(s => s.Name).ToList();
         if (off.Count > 0) b.Add(new("services", $"{off.Count} servicios de seguridad están deshabilitados ({string.Join(", ", off.Take(4))}{(off.Count > 4 ? "…" : "")})."));
@@ -124,7 +177,7 @@ public static class Security
                 return new(false, "Hace falta abrir Vigía como administrador.", false);
         var items = new List<JsonObject>();
         foreach (var p in Policies) items.Add(Backups.Item.Reg(Pol + p.Sub, p.Name, $"Regla de Defender {p.Name}"));
-        items.Add(Backups.Item.Reg(@"HKLM\SOFTWARE\Microsoft\Windows Defender", "DisableAntiSpyware", "Defender: no arrancar"));
+        foreach (var n in Own) items.Add(Backups.Item.Reg(DefKey, n, "Defender: no arrancar"));
         foreach (var s in Services) items.Add(Backups.Item.Reg(Svc + s.Name, "Start", $"Arranque del servicio {s.Name}"));
         items.Add(Backups.Item.Reg(Svc + "wscsvc", "DelayedAutostart", "Arranque diferido del Centro de seguridad"));
         items.Add(Backups.Item.Reg(Ifeo + "smartscreen.exe", "Debugger", "Bloqueo de SmartScreen"));
@@ -139,14 +192,19 @@ public static class Security
 
         progress?.Invoke("Quitando las reglas que lo apagan…");
         foreach (var p in Policies) Try(p.Name, () => Delete(Pol + p.Sub, p.Name));
-        Try("DisableAntiSpyware", () => Delete(@"HKLM\SOFTWARE\Microsoft\Windows Defender", "DisableAntiSpyware"));
+        // la configuración propia de Defender solo la puede escribir el sistema: se usa el permiso de restaurar copias
+        foreach (var n in Own) Try(n, () => { if (Get(DefKey, n) is int v && v != 0) DeleteProtected(DefKey, n); });
         Try("SmartScreen", () => Delete(Ifeo + "smartscreen.exe", "Debugger"));
         Try("SmartScreen", () => { if (Get(@"HKLM\SOFTWARE\Policies\Microsoft\Windows\System", "EnableSmartScreen") is 0) Delete(@"HKLM\SOFTWARE\Policies\Microsoft\Windows\System", "EnableSmartScreen"); });
 
         progress?.Invoke("Dejando los servicios como vienen de fábrica…");
         foreach (var s in Services)
-            if (Start(s.Name) == 4) Try(s.Name, () => Set(Svc + s.Name, "Start", s.Start));
-        Try("wscsvc", () => { if (Get(Svc + "wscsvc", "Start") is not null) Set(Svc + "wscsvc", "DelayedAutostart", 1); });
+            if (Start(s.Name) == 4) Try(s.Name, () =>
+            {
+                SetAny(Svc + s.Name, "Start", s.Start);
+                // de fábrica el Centro de seguridad arranca un poco después que el resto
+                if (s.Name == "wscsvc") SetAny(Svc + "wscsvc", "DelayedAutostart", 1);
+            });
         Try("icono", () =>
         {
             var tray = Path.Combine(Environment.SystemDirectory, "SecurityHealthSystray.exe");
@@ -178,14 +236,19 @@ public static class Security
     {
         if (MpCmdRun() is not { } mp) return new(false, "Defender no está funcionando todavía.", false);
         progress?.Invoke("Bajando firmas nuevas…");
-        var up = Run(mp, "-SignatureUpdate", TimeSpan.FromMinutes(10));
+        Run(mp, "-SignatureUpdate", TimeSpan.FromMinutes(10));
+        // el código de salida no basta: se mira la fecha real de las firmas
+        var fresh = Status().SigAgeDays is <= 1;
         progress?.Invoke("Analizando lo más común (unos minutos)…");
         var scan = Run(mp, "-Scan -ScanType 1", TimeSpan.FromMinutes(40));
-        // MpCmdRun -Scan devuelve 2 cuando encuentra algo
-        var found = scan == 2 ? " Encontró amenazas: ábrelas en Seguridad de Windows → Historial de protección." : "";
-        if (scan is not (0 or 2)) return new(false, $"El análisis no terminó (código {scan}).", false);
-        return new(scan == 0, (up == 0 ? "Firmas al día. " : "No se pudieron bajar firmas (¿sin internet?). ") +
-                              (scan == 0 ? "Análisis rápido limpio." : "") + found, false);
+        var sig = fresh ? "Firmas al día." : "No se pudieron bajar firmas nuevas (¿sin internet?).";
+        // MpCmdRun -Scan devuelve 0 limpio y 2 cuando encuentra algo; lo demás es que no pudo analizar
+        return scan switch
+        {
+            0 => new(fresh, $"{sig} Análisis rápido limpio.", false),
+            2 => new(false, $"{sig} Encontró amenazas: ábrelas en Seguridad de Windows → Historial de protección.", false),
+            _ => new(false, $"{sig} El análisis no terminó (código {scan}).", false),
+        };
     }
 
     static int Run(string exe, string args, TimeSpan max)

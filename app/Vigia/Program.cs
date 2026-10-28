@@ -118,6 +118,20 @@ static class Program
             File.WriteAllText(args[3], JsonSerializer.Serialize(res, new JsonSerializerOptions(Json) { WriteIndented = true }));
             return 0;
         }
+        // Laboratorio del antivirus: Vigia.exe --sec <status|enable|scan> <salida.json>
+        if (args.Length >= 3 && args[0] == "--sec")
+        {
+            var log = new List<string>();
+            object res = args[1] switch
+            {
+                "enable" => Security.Enable(log.Add),
+                "scan" => Security.UpdateAndScan(log.Add),
+                _ => Security.Status(),
+            };
+            File.WriteAllText(args[2], JsonSerializer.Serialize(new { result = res, progress = log, after = Security.Status() },
+                new JsonSerializerOptions(Json) { WriteIndented = true }));
+            return 0;
+        }
         // Lectura de «Tu PC para jugar» y del antivirus, sin cambiar nada: Vigia.exe --rig <salida.json>
         if (args.Length >= 2 && args[0] == "--rig")
         {

@@ -1308,5 +1308,10 @@
  "cosas por aprovechar": "things to make the most of",
  "Encender modo juego": "Turn on Game Mode",
  "Encender HAGS": "Turn on HAGS",
- "Poner Máximo rendimiento": "Switch to Ultimate Performance"
+ "Poner Máximo rendimiento": "Switch to Ultimate Performance",
+ "{0} Análisis rápido limpio.": "{0} Quick scan clean.",
+ "{0} El análisis no terminó (código {1}).": "{0} The scan didn’t finish (code {1}).",
+ "{0} Encontró amenazas: ábrelas en Seguridad de Windows → Historial de protección.": "{0} Threats found: open them in Windows Security → Protection history.",
+ "No se pudieron bajar firmas nuevas (¿sin internet?).": "Couldn’t download new signatures (no internet?).",
+ "Windows no dio el permiso de restaurar": "Windows didn’t grant the restore permission"
 }

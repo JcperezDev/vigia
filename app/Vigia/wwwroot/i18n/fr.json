@@ -1308,5 +1308,10 @@
  "cosas por aprovechar": "choses à exploiter",
  "Encender modo juego": "Activer le mode Jeu",
  "Encender HAGS": "Activer HAGS",
- "Poner Máximo rendimiento": "Passer en Performances optimales"
+ "Poner Máximo rendimiento": "Passer en Performances optimales",
+ "{0} Análisis rápido limpio.": "{0} Analyse rapide : rien trouvé.",
+ "{0} El análisis no terminó (código {1}).": "{0} L’analyse n’a pas fini (code {1}).",
+ "{0} Encontró amenazas: ábrelas en Seguridad de Windows → Historial de protección.": "{0} Menaces trouvées : ouvre Sécurité Windows → Historique de protection.",
+ "No se pudieron bajar firmas nuevas (¿sin internet?).": "Impossible de télécharger de nouvelles signatures (pas d’internet ?).",
+ "Windows no dio el permiso de restaurar": "Windows n’a pas accordé l’autorisation de restauration"
 }
