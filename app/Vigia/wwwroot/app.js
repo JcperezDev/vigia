@@ -58,7 +58,8 @@
     $('ram-total').textContent = `/ ${fmt(r.totalGb, 0)} GB`;
     $('ram-bar').style.width = r.totalGb ? `${(r.usedGb / r.totalGb) * 100}%` : '0';
     $('ram-speed').textContent = r.speedMts ? `${r.speedMts} MT/s` : 'N/D';
-    $('ram-lat').textContent = r.cl ? `CL${r.cl} · ${fmt(r.latencyNs, 1)} ns` : 'N/D';
+    $('ram-lat').textContent = r.cl ? `≈ CL${r.cl}` : 'N/D';
+    $('ram-lat').title = 'Calculado con la velocidad actual y los datos de fábrica del módulo. Windows no deja leer el CL exacto; míralo en la BIOS.';
     $('ram-temp').textContent = fmt(r.temp, 0, ' °C');
 
     const [pTitle, pText] = s.elevated
@@ -131,7 +132,6 @@
       ctx.fillText(String(Math.round(v)), 4, y + 4);
     }
     ctx.fillText(`-${win}s`, padL, h - 4);
-    ctx.fillText(window.vigiaI18n.t('ahora'), w - 40, h - 4);
 
     const X = (t) => padL + ((t - from) / (win * 1000)) * pw;
     const Y = (v) => padT + ph - (Math.min(v, top) / top) * ph;
