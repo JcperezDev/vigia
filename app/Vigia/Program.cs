@@ -172,6 +172,18 @@ static class Program
             File.WriteAllText(args[3], JsonSerializer.Serialize(res, jo));
             return res.Ok ? 0 : 1;
         }
+        // Vigia --wallpaper <status|set|restore> <salida.json>  (set/restore solo en laboratorio: cambian el fondo)
+        if (args.Length >= 3 && args[0] == "--wallpaper")
+        {
+            object wres = args[1] switch
+            {
+                "set" when Environment.GetEnvironmentVariable("VIGIA_LAB") == "1" => Wallpaper.Apply(),
+                "restore" when Environment.GetEnvironmentVariable("VIGIA_LAB") == "1" && Wallpaper.Status().BackupId is { } wb => Backups.Restore(wb),
+                _ => Wallpaper.Status(),
+            };
+            File.WriteAllText(args[2], JsonSerializer.Serialize(new { result = wres, after = Wallpaper.Status() }, new JsonSerializerOptions(Json) { WriteIndented = true }));
+            return 0;
+        }
         if (args.Length >= 2 && args[0] == "--bios") { File.WriteAllText(args[1], JsonSerializer.Serialize(Bios.Get(), new JsonSerializerOptions(Json) { WriteIndented = true })); return 0; }
         if (args.Length >= 3 && args[0] == "--sec")
         {
@@ -525,6 +537,13 @@ sealed partial class MainForm : Form
                     await Task.Run(() => RestorePoint.Create("Vigía: antes de quitar apps"));
                     Send("bloatDone", await Task.Run(() => Debloat.Remove(bids)));
                     Send("bloat", await Task.Run(Debloat.List));
+                    break;
+                case "wallGet":
+                    Send("wall", Wallpaper.Status());
+                    break;
+                case "wallSet":
+                    Send("wallDone", await Task.Run(Wallpaper.Apply));
+                    Send("wall", Wallpaper.Status());
                     break;
                 case "toolsList":
                     Send("tools", new { root = _cfg.ToolsRoot, items = Toolbox.List(_cfg.ToolsRoot) });
