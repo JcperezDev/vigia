@@ -5,7 +5,7 @@
   const send = (msg) => host && host.postMessage(msg);
 
   const fmt = (v, d = 0, unit = '') => (v === null || v === undefined || Number.isNaN(v)) ? 'N/D'
-    : `${Number(v).toLocaleString('es', { minimumFractionDigits: d, maximumFractionDigits: d })}${unit}`;
+    : `${Number(v).toLocaleString(window.vigiaI18n.locale(), { minimumFractionDigits: d, maximumFractionDigits: d })}${unit}`;
   const gb = (b) => b >= 1073741824 ? `${(b / 1073741824).toFixed(2)} GB` : b >= 1048576 ? `${(b / 1048576).toFixed(1)} MB` : `${Math.round(b / 1024)} KB`;
 
   // ---------- navegación ----------
@@ -35,7 +35,7 @@
   }
 
   function render(s) {
-    lastTs = Date.now();
+    lastTs = Date.now(); window.vigiaLastTs = lastTs;
     $('clock').hidden = true;
 
     const c = s.cpu;
@@ -61,9 +61,10 @@
     $('ram-lat').textContent = r.cl ? `CL${r.cl} · ${fmt(r.latencyNs, 1)} ns` : 'N/D';
     $('ram-temp').textContent = fmt(r.temp, 0, ' °C');
 
-    $('privilege').innerHTML = s.elevated
-      ? '<strong>Modo administrador</strong>Sensores completos.'
-      : '<strong>Modo estándar</strong>Ejecuta como administrador para ver temperaturas.';
+    const [pTitle, pText] = s.elevated
+      ? ['Modo administrador', 'Sensores completos.']
+      : ['Modo estándar', 'Ejecuta como administrador para ver temperaturas.'];
+    if ($('privilege').dataset.k !== pTitle) { $('privilege').replaceChildren(el('strong', null, pTitle), pText); $('privilege').dataset.k = pTitle; }
     const notes = (s.notes || []).filter((n) => !n.startsWith('Sin privilegios'));
     $('notes').hidden = notes.length === 0;
     $('notes').textContent = notes.join(' ');
@@ -130,7 +131,7 @@
       ctx.fillText(String(Math.round(v)), 4, y + 4);
     }
     ctx.fillText(`-${win}s`, padL, h - 4);
-    ctx.fillText('ahora', w - 40, h - 4);
+    ctx.fillText(window.vigiaI18n.t('ahora'), w - 40, h - 4);
 
     const X = (t) => padL + ((t - from) / (win * 1000)) * pw;
     const Y = (v) => padT + ph - (Math.min(v, top) / top) * ph;
@@ -152,7 +153,7 @@
     line('ct', css('--amber'), true);
     if (!pts.some((p) => p.ct != null)) {
       ctx.fillStyle = css('--fg-3'); ctx.font = '13px Plex, sans-serif';
-      ctx.fillText('Temperatura de CPU no disponible en modo estándar.', padL + 12, padT + 20);
+      ctx.fillText(window.vigiaI18n.t('Temperatura de CPU no disponible en modo estándar.'), padL + 12, padT + 20);
     }
   }
 
@@ -200,7 +201,7 @@
   const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
   const stat = (label, value, extra) => { const d = el('div'); d.append(el('dt', null, label), el('dd', null, value)); if (extra) d.append(extra); return d; };
   const LV = { ok: 'Bien', info: 'Aviso', warn: 'Revisar', bad: 'Problema' };
-  const nf = new Intl.NumberFormat('es', { useGrouping: 'always', maximumFractionDigits: 0 });
+  const nf = new Intl.NumberFormat(window.vigiaI18n.locale(), { useGrouping: 'always', maximumFractionDigits: 0 });
   const num = (v) => nf.format(Number(v));
   const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
   const LVN = { ok: ['bien', 'bien'], info: ['aviso', 'avisos'], warn: ['para revisar', 'para revisar'], bad: ['problema', 'problemas'] };
@@ -288,7 +289,7 @@
     [...$('sysinfo').querySelectorAll('dd')].forEach((d) => { d.title = d.textContent; });
     const count = (l) => r.items.filter((i) => i.level === l).length;
     $('tally').replaceChildren(...['bad', 'warn', 'info', 'ok'].filter((l) => count(l)).map((l) => el('span', `pill lv-${l}`, `${count(l)} ${LVN[l][count(l) === 1 ? 0 : 1]}`)));
-    $('diag-sub').textContent = `Registro de eventos de Windows, últimos ${r.days} días. Solo lectura. Revisado a las ${new Date(r.ts).toLocaleTimeString('es')}.`;
+    $('diag-sub').textContent = `Registro de eventos de Windows, últimos ${r.days} días. Solo lectura. Revisado a las ${new Date(r.ts).toLocaleTimeString(window.vigiaI18n.locale())}.`;
     const order = { bad: 0, warn: 1, info: 2, ok: 3 };
     $('findings').replaceChildren(...[...r.items].sort((a, b) => order[a.level] - order[b.level]).map((i) => {
       const li = el('li', `finding lv-${i.level}`);
@@ -304,7 +305,7 @@
 
 
   // ---------- memoria ----------
-  const GBf = (v) => `${(v ?? 0).toLocaleString('es', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} GB`;
+  const GBf = (v) => `${(v ?? 0).toLocaleString(window.vigiaI18n.locale(), { minimumFractionDigits: 1, maximumFractionDigits: 1 })} GB`;
   function renderMem(m) {
     const t = m.totalGb || 1;
     const procs = Math.max(0, m.usedGb - m.modifiedGb);
@@ -501,7 +502,7 @@
   const bkKind = { ajustes: 'Ajustes', inicio: 'Inicio de Windows', pantalla: 'Pantalla', apps: 'Apps', restauracion: 'Restauración' };
   function bkWhen(s) {
     const d = new Date(s);
-    return d.toLocaleDateString('es', { day: 'numeric', month: 'short' }) + ', ' + d.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' });
+    return d.toLocaleDateString(window.vigiaI18n.locale(), { day: 'numeric', month: 'short' }) + ', ' + d.toLocaleTimeString(window.vigiaI18n.locale(), { hour: '2-digit', minute: '2-digit' });
   }
   function renderBackups(list) {
     busyBtn($('bk-reload'), false, 'Volver a leer');
@@ -590,7 +591,17 @@
   }));
   // para --snap: abrir una sección
   // 'opt-run' = abrir Optimizar y lanzar la primera unidad (prueba de extremo a extremo)
-  window.vigiaSnap = (v) => {
+  window.vigiaSnap = (spec) => {
+    const [v, lang] = spec.split('@');   // 'settings@en' = abrir Configuración en inglés
+    if (lang) window.vigiaI18n.set(lang);
+    if (lang) setTimeout(() => {   // diagnóstico de idioma en la captura
+      const I = window.vigiaI18n, left = [];
+      const it = document.createTreeWalker(document.querySelector('.view:not([hidden])') || document.body, NodeFilter.SHOW_TEXT);
+      for (let n = it.nextNode(); n; n = it.nextNode()) { const s = n.nodeValue.trim(); if (s && I.t(s) !== s) left.push(s.slice(0, 30) + ' ' + I.debug(n).slice(0, 80) + ' ' + n.parentElement.closest('[translate]')?.tagName); }
+      const pre = document.createElement('pre'); pre.setAttribute('translate', 'no');
+      pre.textContent = 'I18N ' + JSON.stringify({ lang: I.lang, errors: I.errors, left: left.slice(0, 15) });
+      (document.querySelector('.view:not([hidden])') || document.body).append(pre);
+    }, 9000);
     const [view, act] = v.split('-');
     document.querySelector(`.nav[data-view="${view}"]`)?.click();
     if (act === 'run' && view === 'opt') setTimeout(() => document.querySelector('.vol .btn')?.click(), 2500);
@@ -603,23 +614,50 @@
   function renderUpdate(u) {
     $('up-check').textContent = `Versión ${u.current}`;
     $('up-check').disabled = false;
+    $('st-ver').textContent = `Tienes la versión ${u.current}`;
+    busyBtn($('st-check'), false, 'Buscar actualizaciones');
+    busyBtn($('st-run'), false, 'Actualizar ahora');
+    busyBtn($('up-run'), false, 'Actualizar');
     const box = $('update');
     if (u.available) {
-      box.hidden = false;
-      $('up-text').textContent = u.puenteFound
-        ? `Hay una versión nueva: ${u.latest}. Vigía se cierra, se actualiza y vuelve a abrir sola.`
-        : `Hay una versión nueva: ${u.latest}. Para instalarla falta Puente: bájalo de github.com/JcperezDev/vigia-releases.`;
-      $('up-run').hidden = !u.puenteFound;
-    } else if (upAsked) {
-      box.hidden = false; $('up-run').hidden = true;
-      $('up-text').textContent = u.error ? `No pude mirar si hay versión nueva: ${u.error}` : `Estás en la última versión (${u.current}).`;
-      setTimeout(() => { if ($('up-run').hidden) box.hidden = true; }, 6000);
+      box.hidden = false; $('up-run').hidden = false;
+      $('up-text').textContent = `Hay una versión nueva: ${u.latest}. Vigía se cierra, se actualiza y vuelve a abrir sola.`;
+      $('st-new').hidden = false;
+      $('st-new-title').textContent = `Versión nueva: ${u.latest}`;
+      $('st-notes').textContent = (u.notes || '').trim();
+      $('st-state').textContent = u.error || 'Vigía baja la versión nueva, comprueba la firma, se cierra, se actualiza y vuelve a abrir sola.';
+      $('st-state').classList.toggle('bad', !!u.error);
+    } else {
+      $('st-new').hidden = true;
+      if (upAsked) {
+        $('st-state').textContent = u.error ? `No pude mirar si hay versión nueva: ${u.error}` : `Estás en la última versión (${u.current}).`;
+        $('st-state').classList.toggle('bad', !!u.error);
+      }
     }
     upAsked = false;
   }
-  $('up-check').addEventListener('click', () => { upAsked = true; $('up-check').disabled = true; send({ cmd: 'updateCheck' }); });
-  $('up-run').addEventListener('click', () => { busyBtn($('up-run'), true, 'Abriendo Puente…'); send({ cmd: 'updateRun' }); });
+  const goSettings = () => document.querySelector('.nav[data-view="settings"]').click();
+  $('up-check').addEventListener('click', () => { goSettings(); $('st-check').click(); });
+  $('st-check').addEventListener('click', () => { upAsked = true; busyBtn($('st-check'), true, 'Buscando…'); send({ cmd: 'updateCheck' }); });
+  const runUpdate = () => { busyBtn($('st-run'), true, 'Preparando…'); busyBtn($('up-run'), true, 'Preparando…'); send({ cmd: 'updateRun' }); };
+  $('st-run').addEventListener('click', runUpdate);
+  $('up-run').addEventListener('click', runUpdate);
   send({ cmd: 'version' });
+
+  // ---------- configuración: idioma y búsqueda automática ----------
+  const I = window.vigiaI18n;
+  Object.entries(I.langs).forEach(([code, name]) => { const o = el('option', null, name); o.value = code; o.translate = false; $('st-lang').append(o); });
+  function applyLang(pref) {
+    try { localStorage.setItem('vigia-lang', pref); } catch { /* sin almacenamiento */ }
+    I.set(pref);
+  }
+  try { $('st-lang').value = localStorage.getItem('vigia-lang') || 'auto'; } catch { /* nada */ }
+  $('st-lang').addEventListener('change', () => {
+    applyLang($('st-lang').value);
+    if (cfg) { cfg.lang = $('st-lang').value; send({ cmd: 'settingsSet', cfg }); }
+  });
+  $('st-auto').addEventListener('change', () => { if (cfg) { cfg.updateCheck = $('st-auto').checked; send({ cmd: 'settingsSet', cfg }); } });
+  send({ cmd: 'settingsGet' });
 
   // ---------- mensajes del backend ----------
   if (host) host.addEventListener('message', (e) => {
@@ -632,6 +670,8 @@
     else if (type === 'memFreed') renderFreed(payload);
     else if (type === 'settings') {
       cfg = payload.cfg;
+      $('st-auto').checked = cfg.updateCheck;
+      if (cfg.lang && $('st-lang').value !== cfg.lang) { $('st-lang').value = cfg.lang; applyLang(cfg.lang); }
       $('m-auto').checked = cfg.memAuto; $('m-thr').value = cfg.memAutoThreshold; $('m-int').value = cfg.memAutoIntervalMin;
     }
     else if (type === 'tweaks') renderTweaks(payload);

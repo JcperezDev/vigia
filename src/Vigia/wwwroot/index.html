@@ -49,6 +49,9 @@
     <button class="nav" data-view="diag">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4h6M10 4v2M14 4v2"/><rect x="5" y="6" width="14" height="15" rx="2"/><path d="M9 11h6M9 15h4"/></svg>Diagnóstico
     </button>
+    <button class="nav" data-view="settings">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1 7 17M17 7l2.1-2.1"/></svg>Configuración
+    </button>
     <div class="rail-update" id="update" hidden>
       <p id="up-text"></p>
       <button class="btn" id="up-run">Actualizar</button>
@@ -246,6 +249,36 @@
       <ul class="rows" id="bk-list"><li class="empty">Leyendo copias…</li></ul>
     </section>
 
+    <section class="view" id="view-settings" hidden>
+      <header class="head">
+        <div><h1>Configuración</h1><p class="sub">Actualizaciones e idioma.</p></div>
+      </header>
+      <section class="tw-group">
+        <h2>Actualizaciones</h2>
+        <div class="panel st-panel">
+          <div class="st-line">
+            <div><strong id="st-ver">Versión —</strong><p class="sub" id="st-state">Vigía baja la versión nueva, comprueba la firma, se cierra, se actualiza y vuelve a abrir sola.</p></div>
+            <button class="btn" id="st-check">Buscar actualizaciones</button>
+          </div>
+          <div class="st-new" id="st-new" hidden>
+            <strong id="st-new-title"></strong>
+            <p class="st-notes" id="st-notes"></p>
+            <button class="btn primary" id="st-run">Actualizar ahora</button>
+          </div>
+          <label class="chk"><input type="checkbox" id="st-auto"><span>Buscar sola al abrir Vigía y cada 6 horas<small>Solo pregunta a GitHub si hay versión nueva; no baja nada sin que lo pidas.</small></span></label>
+        </div>
+      </section>
+      <section class="tw-group">
+        <h2>Idioma</h2>
+        <div class="panel st-panel">
+          <div class="st-line">
+            <div><strong>Idioma de Vigía</strong><p class="sub">«Automático» usa el idioma de Windows.</p></div>
+            <select id="st-lang" class="st-select"><option value="auto">Automático</option></select>
+          </div>
+        </div>
+      </section>
+    </section>
+
     <section class="view" id="view-tools" hidden>
       <header class="head">
         <div><h1>Herramientas</h1><p class="sub" id="tl-sub">Programas de tu carpeta. Vigía solo los abre.</p></div>
@@ -281,6 +314,7 @@
     </section>
   </main>
 </div>
+<script src="i18n.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

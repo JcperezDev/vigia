@@ -44,7 +44,7 @@ static class Ui
     /// <summary>Texto principal, detalle y barra (null = sin barra, NaN = en marcha sin porcentaje, 0..1 = porcentaje).</summary>
     public static void Show(string main, string sub = "", double? progress = null)
     {
-        lock (Gate) { _main = main; _sub = sub; _progress = progress; _buttons = []; _hover = -1; }
+        lock (Gate) { _tone = Tone(main); _main = L.T(main); _sub = L.T(sub); _progress = progress; _buttons = []; _hover = -1; }
         Redraw();
     }
 
@@ -53,10 +53,14 @@ static class Ui
     {
         if (!Active) return 0;
         var tcs = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
-        lock (Gate) { _main = main; _sub = sub; _progress = null; _buttons = buttons; _hover = -1; _choice = tcs; }
+        lock (Gate) { _tone = Tone(main); _main = L.T(main); _sub = L.T(sub); _progress = null; _buttons = [.. buttons.Select(L.T)]; _hover = -1; _choice = tcs; }
         Redraw();
         return tcs.Task.GetAwaiter().GetResult();
     }
+
+    // el color del título se decide con el texto en español, antes de traducirlo
+    static int _tone;
+    static int Tone(string es) => es.StartsWith("No se pudo") ? -1 : es.StartsWith("Listo") ? 1 : 0;
 
     /// <summary>Mientras se cambian las carpetas no se deja cerrar la ventana.</summary>
     public static void Lock(bool on) { lock (Gate) _locked = on; }
@@ -226,6 +230,7 @@ static class Ui
     public static void Render(string path, string main, string sub, double? prog, string[] buttons, int hover = -1, float scale = 1.5f)
     {
         _s = scale; _tick = 30;
+        _tone = Tone(main); main = L.T(main); sub = L.T(sub); buttons = [.. buttons.Select(L.T)];
         _fTitle = Font(19, 600); _fMain = Font(15, 400); _fSub = Font(13, 400); _fBtn = Font(13, 600);
         var cr = new RECT { right = Px(W), bottom = Px(H) };
         var screen = GetDC(0);
@@ -261,7 +266,7 @@ static class Ui
             Text(dc, "Puente", _fSub, Fg3, Px(Pad), Px(26), Px(W - Pad), Px(50), DT_SINGLELINE | DT_RIGHT);
             Fill(dc, new RECT { left = Px(Pad), top = Px(58), right = Px(W - Pad), bottom = Px(58) + Math.Max(1, Px(1)) }, Line);
 
-            var mainColor = main.StartsWith("No se pudo") ? Hot : main.StartsWith("Listo") ? Ok : Fg;
+            var mainColor = _tone < 0 ? Hot : _tone > 0 ? Ok : Fg;
             Text(dc, main, _fMain, mainColor, Px(Pad), Px(76), Px(W - Pad), Px(100), DT_SINGLELINE | DT_END_ELLIPSIS);
             Text(dc, sub, _fSub, Fg3, Px(Pad), Px(100), Px(W - Pad), Px(138), DT_WORDBREAK | DT_END_ELLIPSIS);
 

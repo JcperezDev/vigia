@@ -62,12 +62,21 @@ static class Program
             File.WriteAllText(args[1], report);
             return report.Contains("FAIL") ? 1 : 0;
         }
+        // Prueba de la descarga de Puente: Vigia.exe --puente-get <carpeta> -> baja Puente ahí y comprueba la firma
+        if (args.Length >= 2 && args[0] == "--puente-get")
+        {
+            var err = Updates.EnsurePuenteAsync(Path.Combine(args[1], "Puente.exe")).GetAwaiter().GetResult();
+            Console.WriteLine(err ?? "ok");
+            return err is null ? 0 : 1;
+        }
         // Una sola ventana: si ya está abierta, no abrir otra
         using var mutex = new Mutex(true, @"Local\Vigia.SingleInstance", out var first);
         if (!first) return 0;
         ApplicationConfiguration.Initialize();
         // Verificación visual: Vigia.exe --snap salida.png [storage] -> captura la UI real tras ~8 s y sale
-        Application.Run(args.Length >= 2 && args[0] == "--snap" ? new MainForm(args[1], args.ElementAtOrDefault(2)) : new MainForm());
+        // Consumo real: Vigia.exe --bench salida.json -> 30 s abierta, 60 s minimizada, y sale
+        Application.Run(args.Length >= 2 && args[0] == "--snap" ? new MainForm(args[1], args.ElementAtOrDefault(2))
+            : args.Length >= 2 && args[0] == "--bench" ? new MainForm(null, null, args[1]) : new MainForm());
         return 0;
     }
 }
@@ -80,11 +89,12 @@ sealed class MainForm : Form
     bool _busy;
     int _tick;
     Settings _cfg = Settings.Load();
-    readonly string? _snapPath, _snapView;
+    readonly string? _snapPath, _snapView, _benchPath;
+    bool _resting;   // minimizada: sin sensores ni dibujo, solo el vistazo barato a la RAM para la liberación automática
 
-    public MainForm(string? snapPath = null, string? snapView = null) : this()
+    public MainForm(string? snapPath = null, string? snapView = null, string? benchPath = null) : this()
     {
-        _snapPath = snapPath; _snapView = snapView;
+        _snapPath = snapPath; _snapView = snapView; _benchPath = benchPath;
     }
 
     public MainForm()
@@ -97,6 +107,9 @@ sealed class MainForm : Form
         Controls.Add(_web);
         Load += async (_, _) => await InitAsync();
         FormClosed += (_, _) => { _timer.Stop(); Optimize.Cancel(); _tel.Dispose(); };
+        Resize += async (_, _) => await SetRestingAsync(WindowState == FormWindowState.Minimized);
+        Activated += (_, _) => { if (!_resting) _timer.Interval = 1000; };
+        Deactivate += (_, _) => { if (!_resting) _timer.Interval = 2000; };   // detrás de otra ventana: la mitad de lecturas
     }
 
     async Task InitAsync()
@@ -119,6 +132,7 @@ sealed class MainForm : Form
         _timer.Tick += async (_, _) => await PushAsync();
         _timer.Start();
         if (_snapPath is not null) _ = SnapAsync();
+        else if (_benchPath is not null) _ = BenchAsync();
         else if (_cfg.UpdateCheck) _ = UpdateLoopAsync();
     }
 
@@ -141,6 +155,68 @@ sealed class MainForm : Form
         Close();
     }
 
+    /// <summary>
+    /// Minimizada, Vigía no lee sensores ni dibuja: WebView2 se suspende (sus procesos quedan congelados y Windows puede
+    /// sacar su memoria) y el reloj pasa de 1 s a 10 s solo para la liberación automática de RAM, que es una llamada barata.
+    /// Al volver, todo arranca otra vez y se piden datos al momento.
+    /// </summary>
+    async Task SetRestingAsync(bool rest)
+    {
+        if (rest == _resting || _web.CoreWebView2 is null) return;
+        if (Environment.GetEnvironmentVariable("VIGIA_NOREST") == "1") return;   // para medir el antes en --bench
+        _resting = rest;
+        var core = _web.CoreWebView2;
+        if (rest)
+        {
+            _timer.Interval = 10_000;
+            core.MemoryUsageTargetLevel = CoreWebView2MemoryUsageTargetLevel.Low;
+            _web.Visible = false;   // sin esto WebView2 no se deja suspender
+            try { await core.TrySuspendAsync(); } catch { /* si no se puede, al menos ya no dibuja */ }
+            // devolver a Windows la memoria que Vigía ya no usa
+            GC.Collect(GC.MaxGeneration, GCCollectionMode.Aggressive, true, true);
+            SetProcessWorkingSetSize(System.Diagnostics.Process.GetCurrentProcess().Handle, -1, -1);
+        }
+        else
+        {
+            _web.Visible = true;
+            try { core.Resume(); } catch { }
+            core.MemoryUsageTargetLevel = CoreWebView2MemoryUsageTargetLevel.Normal;
+            _timer.Interval = ContainsFocus ? 1000 : 2000;
+            await PushAsync();
+        }
+    }
+
+    [System.Runtime.InteropServices.DllImport("kernel32.dll")]
+    static extern bool SetProcessWorkingSetSize(IntPtr proc, nint min, nint max);
+
+    async Task BenchAsync()
+    {
+        await Task.Delay(10_000);                                   // que termine de arrancar
+        var a = await Task.Run(Bench.Take);
+        await Task.Delay(30_000);
+        var b = await Task.Run(Bench.Take);
+        WindowState = FormWindowState.Minimized;
+        await Task.Delay(8_000);                                    // que se asiente la suspensión
+        var c = await Task.Run(Bench.Take);
+        await Task.Delay(60_000);
+        var d = await Task.Run(Bench.Take);
+        // al volver: tiene que leer otra vez en menos de 3 s
+        WindowState = FormWindowState.Normal;
+        await Task.Delay(1500);
+        var t1 = await _web.CoreWebView2.ExecuteScriptAsync("window.vigiaLastTs||0");
+        await Task.Delay(3000);
+        var t2 = await _web.CoreWebView2.ExecuteScriptAsync("window.vigiaLastTs||0");
+        var vuelve = double.TryParse(t1, out var x1) && double.TryParse(t2, out var x2) && x2 > x1;
+        File.WriteAllText(_benchPath!, JsonSerializer.Serialize(new
+        {
+            version = Updates.Current,
+            abierta = new { cpuNucleoPct = Bench.CorePct(a, b), privadaMb = b.PrivateMb, ramMb = b.WorkingMb, procesos = b.Procs },
+            minimizada = new { cpuNucleoPct = Bench.CorePct(c, d), privadaMb = d.PrivateMb, ramMb = d.WorkingMb, procesos = d.Procs },
+            alVolverLee = vuelve,
+        }, new JsonSerializerOptions { WriteIndented = true }));
+        Close();
+    }
+
     async Task UpdateLoopAsync()
     {
         await Task.Delay(TimeSpan.FromSeconds(20));
@@ -158,8 +234,14 @@ sealed class MainForm : Form
         _busy = true;
         try
         {
+            if (_resting)   // minimizada: solo la liberación automática
+            {
+                var c = _cfg;
+                if (c.MemAuto) await Task.Run(() => Memory.AutoTick(c));
+                return;
+            }
             Send("telemetry", await Task.Run(_tel.Read));
-            // cada 2 s: estado de la memoria y, si toca, liberación automática
+            // cada 2 lecturas: estado de la memoria y, si toca, liberación automática
             if (_tick++ % 2 == 0)
             {
                 var cfg = _cfg;
@@ -287,8 +369,9 @@ sealed class MainForm : Form
                     Send("update", await Updates.CheckAsync());
                     break;
                 case "updateRun":
+                    if (await Updates.EnsurePuenteAsync() is string perr) { Send("update", (await Updates.CheckAsync()) with { Error = perr }); break; }
                     if (Updates.StartPuente()) Close();
-                    else Send("update", (await Updates.CheckAsync()) with { Error = "No encuentro Puente. Bájalo de github.com/JcperezDev/vigia-releases." });
+                    else Send("update", (await Updates.CheckAsync()) with { Error = "No pude abrir Puente." });
                     break;
                 case "utilidad-externa":
                     var rp = await Task.Run(() => RestorePoint.Create("Vigía: antes de utilidad externa"));
