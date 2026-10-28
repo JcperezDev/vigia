@@ -402,6 +402,16 @@ public static class Suggestions
                     ["Ajustes › Ratón sin aceleración."], "tweaks", ["«Mejorar la precisión del puntero»: encendido"]));
 
         var bcd = Bcd();
+        // Programas que leen el mando y lo vuelven a enviar como otro: cada paso extra suma retraso
+        string[] remap = ["ds4windows", "dsx", "rewasd", "rewasdengine", "antimicrox", "antimicro", "inputmapper", "x360ce", "joytokey", "steamrelay"];
+        var open = System.Diagnostics.Process.GetProcesses().Select(p => { try { return p.ProcessName; } catch { return ""; } })
+            .Where(n => remap.Contains(n.ToLowerInvariant())).Distinct().ToList();
+        if (Environment.GetEnvironmentVariable("VIGIA_FAKE_REMAP") == "1") open = ["Remap"];
+        if (open.Count > 0)
+            res.Add(new("lag-remap", "info", "Un programa traduce tu mando",
+                ["El mando pasa primero por ese programa y luego llega al juego: es un paso más y suma retraso."],
+                ["Si el juego reconoce tu mando sin él, ciérralo antes de jugar."],
+                null, open.Select(n => n + ".exe").ToList()));
         if (bcd.Contains("useplatformclock") && Regex.IsMatch(bcd, @"useplatformclock\s+(yes|on|true|sí|si|sim|oui|ja)", RegexOptions.IgnoreCase))
             res.Add(new("lag-hpet", "warn", "Windows usa el reloj HPET a la fuerza",
                 ["Alguien activó «useplatformclock». Ese reloj es más lento de leer y causa tirones en juegos."],

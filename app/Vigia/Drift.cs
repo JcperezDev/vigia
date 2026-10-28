@@ -214,4 +214,124 @@ public static class Drift
             lvl == "bad" ? "Eso es drift: el juego lo lee como si movieras el stick." : "Drift leve: en algunos juegos ya se nota.",
             $"Sube la zona muerta de ese stick en el juego a {Math.Min(dz, 40)} %. Si va a más, limpia el stick o cámbialo.");
     }
+
+    // ---------- Hz: cada cuánto mandan datos el ratón y el mando ----------
+    [DllImport("winmm.dll")] static extern int timeBeginPeriod(int ms);
+    [DllImport("winmm.dll")] static extern int timeEndPeriod(int ms);
+
+    /// <summary>Lo que se midió moviendo el ratón y el stick: Hz reales de cada uno.</summary>
+    public sealed record RateItem(string Kind, string Name, int Hz, string Level, string Title, string? Fix);
+    public sealed record RateReport(int Seconds, IReadOnlyList<RateItem> Items);
+
+    sealed class RateSink : NativeWindow
+    {
+        public readonly Dictionary<IntPtr, int[]> Buckets = new();   // informes por tramo de 50 ms, por ratón
+        public readonly System.Diagnostics.Stopwatch Clock = System.Diagnostics.Stopwatch.StartNew();
+        public int Slots;
+        public RateSink(int slots) { Slots = slots; CreateHandle(new CreateParams { Parent = new IntPtr(-3) }); }
+        protected override void WndProc(ref Message m)
+        {
+            if (m.Msg == WM_INPUT) Read(m.LParam);
+            base.WndProc(ref m);
+        }
+        void Read(IntPtr h)
+        {
+            int hdr = 8 + 2 * IntPtr.Size, size = 0;
+            GetRawInputData(h, RID_INPUT, IntPtr.Zero, ref size, hdr);
+            if (size <= 0 || size > 1024) return;
+            var buf = Marshal.AllocHGlobal(size);
+            try
+            {
+                if (GetRawInputData(h, RID_INPUT, buf, ref size, hdr) != size || Marshal.ReadInt32(buf) != RIM_TYPEMOUSE) return;
+                var dev = Marshal.ReadIntPtr(buf, 8);
+                int dx = Marshal.ReadInt32(buf, hdr + 12), dy = Marshal.ReadInt32(buf, hdr + 16);
+                if (dev == IntPtr.Zero || (dx == 0 && dy == 0)) return;
+                if (!Buckets.TryGetValue(dev, out var b)) Buckets[dev] = b = new int[Slots];
+                var i = (int)(Clock.ElapsedMilliseconds / 50); if (i < Slots) b[i]++;
+            }
+            finally { Marshal.FreeHGlobal(buf); }
+        }
+    }
+
+    static readonly int[] Steps = [125, 250, 500, 1000, 2000, 4000, 8000];
+    static int Snap(double hz) => hz < 90 ? (int)Math.Round(hz) : Steps.OrderBy(s => Math.Abs(Math.Log(hz / s))).First();
+
+    /// <summary>Hz de un tramo: los tramos de 50 ms con movimiento seguido, el valor alto (no el medio: al frenar bajan).</summary>
+    static double Rate(IEnumerable<int> buckets)
+    {
+        var busy = buckets.Where(n => n >= 2).OrderBy(n => n).ToList();
+        if (busy.Count < 6) return 0;
+        return busy[(int)(busy.Count * 0.8)] / 0.05;
+    }
+
+    /// <summary>Solo cuando el usuario pulsa «Medir»: unos segundos moviendo el ratón y el stick. No escribe nada.</summary>
+    public static RateReport Rates(int seconds)
+    {
+        seconds = Math.Clamp(seconds, 3, 15);
+        RateReport? rep = null; Exception? err = null;
+        var t = new Thread(() => { try { rep = MeasureRates(seconds); } catch (Exception e) { err = e; } }) { IsBackground = true };
+        t.SetApartmentState(ApartmentState.STA);
+        t.Start(); t.Join();
+        if (err is not null) throw err;
+        return rep!;
+    }
+
+    static RateReport MeasureRates(int seconds)
+    {
+        int slots = seconds * 20;
+        var sink = new RateSink(slots);
+        var reg = new[] { new RAWINPUTDEVICE { UsagePage = 1, Usage = 2, Flags = RIDEV_INPUTSINK, Target = sink.Handle } };
+        RegisterRawInputDevices(reg, 1, Marshal.SizeOf<RAWINPUTDEVICE>());
+        var xi = new List<int>();
+        for (int i = 0; i < 4; i++) { try { if (XInputGetState(i, out _) == 0) xi.Add(i); } catch (DllNotFoundException) { break; } }
+        var pads = xi.ToDictionary(i => i, _ => new int[slots]);
+        var last = xi.ToDictionary(i => i, _ => 0u);
+        timeBeginPeriod(1);   // solo durante la medida, para leer el mando cada 1 ms
+        try
+        {
+            var end = seconds * 1000L;
+            while (sink.Clock.ElapsedMilliseconds < end)
+            {
+                while (PeekMessage(out var m, IntPtr.Zero, 0, 0, 1)) { TranslateMessage(ref m); DispatchMessage(ref m); }
+                var slot = (int)(sink.Clock.ElapsedMilliseconds / 50);
+                foreach (var i in xi)
+                    if (XInputGetState(i, out var s) == 0 && s.Packet != last[i])
+                    {
+                        // solo cuenta si el stick está fuera del centro: así se mide mientras se mueve
+                        if (last[i] != 0 && slot < slots && (Math.Abs((int)s.LX) > 6000 || Math.Abs((int)s.LY) > 6000 || Math.Abs((int)s.RX) > 6000 || Math.Abs((int)s.RY) > 6000)) pads[i][slot]++;
+                        last[i] = s.Packet;
+                    }
+                Thread.Sleep(1);
+            }
+        }
+        finally
+        {
+            timeEndPeriod(1);
+            reg[0].Flags = RIDEV_REMOVE; reg[0].Target = IntPtr.Zero;
+            RegisterRawInputDevices(reg, 1, Marshal.SizeOf<RAWINPUTDEVICE>());
+        }
+        var mice = sink.Buckets.ToList();
+        sink.DestroyHandle();
+
+        var items = new List<RateItem>();
+        foreach (var (dev, b) in mice)
+        {
+            var raw = Rate(b); if (raw == 0) continue;
+            var hz = Snap(raw); var name = MouseName(dev);
+            items.Add(hz >= 900 ? new("mouse", name, hz, "ok", $"{hz} Hz: responde rápido.", null)
+                : hz >= 450 ? new("mouse", name, hz, "ok", $"{hz} Hz: bien.", "Si tu ratón llega a 1000 Hz, súbelo en su programa o con su botón.")
+                : new("mouse", name, hz, "warn", $"{hz} Hz: cada movimiento llega hasta {1000 / Math.Max(hz, 1)} ms tarde.", "Súbelo a 1000 Hz en el programa del ratón o con su botón de abajo."));
+        }
+        if (items.Count == 0 && mice.Count > 0) items.Add(new("mouse", "Ratón", 0, "touched", "Lo moviste muy poco.", "Muévelo en círculos rápidos durante toda la medida."));
+        foreach (var i in xi)
+        {
+            var raw = Rate(pads[i]);
+            if (raw == 0) { items.Add(new("pad", $"Mando {i + 1}", 0, "touched", "No moviste el stick.", "Gira un stick sin parar durante la medida.")); continue; }
+            var hz = (int)Math.Round(raw);
+            items.Add(hz >= 240 ? new("pad", $"Mando {i + 1}", hz, "ok", $"{hz} Hz: responde rápido.", null)
+                : new("pad", $"Mando {i + 1}", hz, "warn", $"{hz} Hz: cada movimiento llega hasta {1000 / Math.Max(hz, 1)} ms tarde.",
+                    "Por cable suele ir más rápido que inalámbrico. Si lo usas con un programa que traduce el mando, prueba sin él."));
+        }
+        return new RateReport(seconds, items);
+    }
 }

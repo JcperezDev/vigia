@@ -936,6 +936,29 @@
     drT = setInterval(() => { n = Math.max(0, n - 1); $('dr-sub').textContent = `No toques nada… ${n}`; if (!n) clearInterval(drT); }, 1000);
     send({ cmd: 'drift' });
   });
+  let hzT = 0;
+  $('hz-run').addEventListener('click', () => {
+    const b = $('hz-run'); let n = 5;
+    busyBtn(b, true, 'Midiendo…'); $('hz-list').hidden = true;
+    const say = () => { $('hz-sub').textContent = `Mueve el ratón en círculos rápidos (o gira un stick)… ${n}`; };
+    say(); clearInterval(hzT);
+    hzT = setInterval(() => { n = Math.max(0, n - 1); say(); if (!n) clearInterval(hzT); }, 1000);
+    send({ cmd: 'rates' });
+  });
+  function renderRates(r) {
+    clearInterval(hzT); busyBtn($('hz-run'), false, 'Medir otra vez');
+    const LV = { warn: 'warn', touched: 'info', ok: 'ok' };
+    $('hz-sub').textContent = !r.items.length ? 'No se movió nada: vuelve a medir moviendo el ratón o un stick.'
+      : r.items.some((i) => i.level === 'warn') ? 'Hay algo lento.' : 'Responden rápido.';
+    $('hz-list').replaceChildren(...r.items.map((i) => {
+      const li = el('li', `finding lv-${LV[i.level] || 'info'}`);
+      const body = el('div'); body.append(el('p', null, i.title));
+      if (i.fix) body.append(el('p', 'src', i.fix));
+      li.append(el('span', 'dot'), el('strong', null, i.name), body);
+      return li;
+    }));
+    $('hz-list').hidden = !r.items.length;
+  }
   function renderDrift(r) {
     clearInterval(drT); busyBtn($('dr-run'), false, 'Probar otra vez');
     const LV = { bad: 'bad', warn: 'warn', touched: 'info', ok: 'ok' };
@@ -1694,6 +1717,7 @@
     else if (type === 'gameDone') $('gm-result').textContent = payload.message;
     else if (type === 'fpsState') renderFpsState(payload);
     else if (type === 'drift') renderDrift(payload);
+    else if (type === 'rates') renderRates(payload);
     else if (type === 'backups') renderBackups(payload);
     else if (type === 'backupDone') {
       $('bk-result').textContent = payload.message + (payload.errors.length ? ` ${payload.errors.join('; ')}` : '');
