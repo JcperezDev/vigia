@@ -30,7 +30,8 @@ public static class Cleanup
 
     // ---------- Papelera: la de todas las unidades, con la API de Windows (sin ventana ni sonido) ----------
     const string RecycleId = "recycle";
-    [StructLayout(LayoutKind.Sequential, Pack = 4)] struct SHQUERYRBINFO { public int cbSize; public long i64Size; public long i64NumItems; }
+    // en x64 mide 24 bytes; con Pack=4 la API lo rechaza y la Papelera se veía vacía
+    [StructLayout(LayoutKind.Sequential)] struct SHQUERYRBINFO { public int cbSize; public long i64Size; public long i64NumItems; }
     [DllImport("shell32.dll", CharSet = CharSet.Unicode)] static extern int SHQueryRecycleBinW(string? root, ref SHQUERYRBINFO info);
     [DllImport("shell32.dll", CharSet = CharSet.Unicode)] static extern int SHEmptyRecycleBinW(IntPtr hwnd, string? root, uint flags);
     static (long bytes, long items) Recycle()
