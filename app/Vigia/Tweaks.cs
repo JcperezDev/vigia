@@ -575,12 +575,41 @@ public static class Tweaks
 /// <summary>Puntos de restauración del sistema (WMI root\default:SystemRestore).</summary>
 public static class RestorePoint
 {
-    public record Result(bool Ok, string Message);
+    public record Result(bool Ok, string Message, bool Off = false);
+
+    /// <summary>Activa la protección del sistema en C: (lo mismo que «Configurar» en Propiedades del sistema).</summary>
+    public static Result EnableC()
+    {
+        try
+        {
+            using var cls = new ManagementClass(@"\\.\root\default", "SystemRestore", null);
+            var p = cls.GetMethodParameters("Enable");
+            p["Drive"] = @"C:\";
+            var rv = Convert.ToUInt32(cls.InvokeMethod("Enable", p, null)["ReturnValue"]);
+            return rv == 0 ? new(true, "Protección del sistema activada en C:.") : new(false, $"Windows no activó la protección del sistema (código {rv}).");
+        }
+        catch (Exception e) { return new(false, $"No se pudo activar la protección del sistema: {e.Message}"); }
+    }
 
     public static int Count()
     {
         try { using var s = new ManagementObjectSearcher(@"root\default", "SELECT SequenceNumber FROM SystemRestore"); return s.Get().Count; }
         catch { return -1; }
+    }
+
+    /// <summary>True si C: no tiene la protección del sistema activada (RPSessionInterval = 0 o sin configurar).</summary>
+    public static bool ProtectionOff()
+    {
+        try
+        {
+            using var k = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows NT\CurrentVersion\SystemRestore");
+            if (k?.GetValue("RPSessionInterval") is int i && i == 0) return true;
+            using var s = new ManagementObjectSearcher(@"root\cimv2", "SELECT * FROM Win32_ShadowStorage");
+            foreach (ManagementObject o in s.Get())
+                if (((string?)o["Volume"])?.Length > 0) return false;   // hay almacenamiento de instantáneas configurado
+            return true;
+        }
+        catch { return false; }
     }
 
     public static Result Create(string description)
@@ -596,11 +625,20 @@ public static class RestorePoint
             var p = cls.GetMethodParameters("CreateRestorePoint");
             p["Description"] = description; p["RestorePointType"] = 12; p["EventType"] = 100;
             var rv = Convert.ToUInt32(cls.InvokeMethod("CreateRestorePoint", p, null)["ReturnValue"]);
-            if (rv == 1058) return new(false, "La protección del sistema está apagada en C:. Actívala para poder volver atrás.");
+            if (rv == 1058) return new(false, "La protección del sistema está apagada en C:.", Off: true);
             if (rv != 0) return new(false, $"Windows no creó el punto de restauración (código {rv}).");
-            return Count() > before ? new(true, "Punto de restauración creado.") : new(false, "Windows aceptó la orden pero no apareció un punto nuevo.");
+            // Windows tarda unos segundos en listar el punto nuevo
+            for (var i = 0; i < 20 && Count() <= before; i++) System.Threading.Thread.Sleep(1000);
+            if (Count() > before) return new(true, "Punto de restauración creado.");
+            // con la protección apagada Windows a veces responde 0 sin crear nada
+            return ProtectionOff() ? new(false, "La protección del sistema está apagada en C:.", Off: true)
+                                   : new(false, "Windows aceptó la orden pero no apareció un punto nuevo.");
         }
-        catch (Exception e) { return new(false, $"No se pudo crear el punto de restauración: {e.Message}"); }
+        catch (Exception e)
+        {
+            if (ProtectionOff()) return new(false, "La protección del sistema está apagada en C:.", Off: true);
+            return new(false, $"No se pudo crear el punto de restauración: {(string.IsNullOrWhiteSpace(e.Message) ? e.GetType().Name : e.Message)}");
+        }
         finally
         {
             try

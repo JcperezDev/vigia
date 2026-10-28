@@ -1,6 +1,6 @@
 [
   {
-    "id": "power-ultimate", "group": "Rendimiento", "risk": "bajo", "reboot": false,
+    "id": "power-ultimate", "tested": true, "group": "Rendimiento", "risk": "bajo", "reboot": false,
     "title": "Plan de energía Máximo rendimiento",
     "detail": "Crea y activa el plan oculto de Windows. La CPU no baja de frecuencia entre fotogramas. Gasta algo más en reposo.",
     "source": "pack externo · 5 - Programs\\High Performance.txt",

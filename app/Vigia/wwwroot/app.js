@@ -871,7 +871,22 @@
     }
     else if (type === 'tweaks') renderTweaks(payload);
     else if (type === 'tweaksDone') renderTweaksDone(payload);
-    else if (type === 'utilidad-externaRp') { busyBtn($('tw-utilidad-externa'), false, 'Abrir utilidad externa'); $('tw-result').textContent = `${payload.message} utilidad externa se abre en otra ventana.`; }
+    else if (type === 'utilidad-externaRp') {
+      busyBtn($('tw-utilidad-externa'), false, 'Abrir utilidad externa');
+      const r = $('tw-result'); r.textContent = '';
+      if (payload.opened) r.textContent = payload.message ? `${payload.message} utilidad externa se abre en otra ventana.` : 'utilidad externa se abre en otra ventana.';
+      else {
+        r.append(`${payload.message} Por eso no abrí utilidad externa: sin ese punto no hay forma fácil de deshacer lo que cambie. `);
+        if (payload.off) {
+          const on = el('button', 'btn primary sp-inline', 'Activar la protección y abrir');
+          on.addEventListener('click', () => { busyBtn($('tw-utilidad-externa'), true, 'Creando punto de restauración…'); r.textContent = ''; send({ cmd: 'utilidad-externa', enable: true }); });
+          r.append(on);
+        }
+        const go = el('button', 'btn sp-inline', 'Abrir igual, sin punto');
+        go.addEventListener('click', () => { go.disabled = true; send({ cmd: 'utilidad-externa', force: true }); });
+        r.append(go);
+      }
+    }
     else if (type === 'bloat') renderBloat(payload);
     else if (type === 'bloatDone') {
       busyBtn($('ap-remove'), false, 'Quitar seleccionadas');

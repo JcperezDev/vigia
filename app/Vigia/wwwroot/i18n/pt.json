@@ -1089,5 +1089,11 @@
  "Terminar": "Concluir",
  "{0} de {1}": "{0} de {1}",
  "Donar": "Doar",
- "«Liberar ahora» devuelve RAM sin cerrar tus programas. Además se libera sola cuando el uso pasa del 60 %; ese número lo cambias más abajo, en «Automático».": "“Liberar agora” devolve RAM sem fechar seus programas. Também libera sozinha quando o uso passa de 60 %; esse número você muda mais abaixo, em “Automático”."
+ "«Liberar ahora» devuelve RAM sin cerrar tus programas. Además se libera sola cuando el uso pasa del 60 %; ese número lo cambias más abajo, en «Automático».": "“Liberar agora” devolve RAM sem fechar seus programas. Também libera sozinha quando o uso passa de 60 %; esse número você muda mais abaixo, em “Automático”.",
+ "{0} Por eso no abrí utilidad externa: sin ese punto no hay forma fácil de deshacer lo que cambie.": "{0} Por isso não abri o utilidad externa: sem esse ponto não há jeito fácil de desfazer o que ele mudar.",
+ "Abrir igual, sin punto": "Abrir mesmo assim, sem ponto",
+ "utilidad externa se abre en otra ventana.": "O utilidad externa abre em outra janela.",
+ "Activar la protección y abrir": "Ativar a proteção e abrir",
+ "La protección del sistema está apagada en C:.": "A proteção do sistema está desligada em C:.",
+ "Protección del sistema activada en C:.": "Proteção do sistema ativada em C:."
 }

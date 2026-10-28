@@ -395,3 +395,5 @@ dd { margin: 0; font: 500 14px "JBMono", monospace; font-variant-numeric: tabula
 .tour-act .linkish { font-size: 12.5px; margin-right: auto; }
 .tour-count { white-space: nowrap; font: 500 12px "JBMono", monospace; color: var(--fg-2); margin-right: 4px; }
 @media (prefers-reduced-motion: reduce) { .tour-hole, .tour-card { transition: none; } }
+
+.result .sp-inline { margin-left: 6px; padding: 4px 10px; font-size: 12.5px; }

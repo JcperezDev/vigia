@@ -1089,5 +1089,11 @@
  "Terminar": "Finish",
  "{0} de {1}": "{0} of {1}",
  "Donar": "Donate",
- "«Liberar ahora» devuelve RAM sin cerrar tus programas. Además se libera sola cuando el uso pasa del 60 %; ese número lo cambias más abajo, en «Automático».": "“Free now” gives back RAM without closing your programs. It also frees itself when usage passes 60 %; you change that number further down, under “Automatic”."
+ "«Liberar ahora» devuelve RAM sin cerrar tus programas. Además se libera sola cuando el uso pasa del 60 %; ese número lo cambias más abajo, en «Automático».": "“Free now” gives back RAM without closing your programs. It also frees itself when usage passes 60 %; you change that number further down, under “Automatic”.",
+ "{0} Por eso no abrí utilidad externa: sin ese punto no hay forma fácil de deshacer lo que cambie.": "{0} That's why I didn't open utilidad externa: without that point there's no easy way to undo what it changes.",
+ "Abrir igual, sin punto": "Open anyway, without a point",
+ "utilidad externa se abre en otra ventana.": "utilidad externa opens in another window.",
+ "Activar la protección y abrir": "Activate protection and open",
+ "La protección del sistema está apagada en C:.": "System protection is off on C:.",
+ "Protección del sistema activada en C:.": "System protection turned on for C:."
 }

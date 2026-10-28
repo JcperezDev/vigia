@@ -40,6 +40,16 @@ static class Program
             File.WriteAllText(args[1], JsonSerializer.Serialize(new { startup = Startup.List(), display = Display.Status() }, new JsonSerializerOptions(Json) { WriteIndented = true }));
             return 0;
         }
+        if (args.Length >= 2 && args[0] == "--restore-point")   // laboratorio: crea un punto (y activa la protección si se pide)
+        {
+            var lines = new List<string> { $"off antes: {RestorePoint.ProtectionOff()}", $"puntos antes: {RestorePoint.Count()}" };
+            if (args.Contains("--enable")) { var en = RestorePoint.EnableC(); lines.Add($"enable: {en.Ok} {en.Message}"); }
+            var r = RestorePoint.Create("Vigía: prueba de laboratorio");
+            lines.Add($"create: ok={r.Ok} off={r.Off} {r.Message}");
+            lines.Add($"off después: {RestorePoint.ProtectionOff()}"); lines.Add($"puntos después: {RestorePoint.Count()}");
+            File.WriteAllLines(args[1], lines);
+            return r.Ok ? 0 : 1;
+        }
         if (args.Length >= 2 && args[0] == "--original")   // crea (si falta) la copia del estado original y lista las copias
         {
             var ok = Backups.EnsureOriginal(withRestorePoint: args.Contains("--rp"));
@@ -425,9 +435,16 @@ sealed partial class MainForm : Form
                     else Send("update", (await Updates.CheckAsync()) with { Error = "No pude abrir Puente." });
                     break;
                 case "utilidad-externa":
-                    var rp = await Task.Run(() => RestorePoint.Create("Vigía: antes de utilidad externa"));
-                    Send("utilidad-externaRp", rp);
-                    Toolbox.Openutilidad externa();
+                    // sin punto de restauración no se abre, salvo que el usuario lo confirme (force)
+                    if ((bool?)msg["force"] == true) { Toolbox.Openutilidad externa(); Send("utilidad-externaRp", new { ok = true, opened = true, message = "" }); break; }
+                    var enable = (bool?)msg["enable"] == true;
+                    var rp = await Task.Run(() =>
+                    {
+                        if (enable) { var en = RestorePoint.EnableC(); if (!en.Ok) return en; }
+                        return RestorePoint.Create("Vigía: antes de utilidad externa");
+                    });
+                    if (rp.Ok) Toolbox.Openutilidad externa();
+                    Send("utilidad-externaRp", new { ok = rp.Ok, opened = rp.Ok, off = rp.Off, message = rp.Message });
                     break;
                 case "supportGet":
                     Send("support", await Support.GetAsync());
