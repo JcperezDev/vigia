@@ -98,7 +98,7 @@ out.append(f'<text x="{cx}" y="{ty}" text-anchor="middle" font-family="Segoe UI 
 TW = 471                              # ancho medido del título a 132 px
 L = cx - TW / 2
 gy = ty + 74
-DX = 0.5 * TW                         # todo el bloque corrido medio título a la derecha
+DX = 0.15 * TW                        # bloque apenas corrido a la derecha del logo
 x1, x2 = L - 0.25 * TW + DX, L + 0.21 * TW + DX
 tx, TL = L + 0.26 * TW + DX, 1.1 * TW
 out.append(f'<line x1="{x1:.0f}" y1="{gy - 12}" x2="{x2:.0f}" y2="{gy - 12}" stroke="#f1f4f9" stroke-opacity=".9" stroke-width="2.5"/>')

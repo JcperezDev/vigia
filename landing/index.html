@@ -42,10 +42,10 @@
 <header class="top">
   <a class="brand" href="#" aria-label="Vigía"><svg><use href="#i-logo"/></svg>Vigía</a>
   <nav data-i-aria="navAria" aria-label="Secciones">
-    <a href="#hace" data-i="navWhat">Qué hace</a>
-    <a href="#copias" data-i="navCopies">Copias</a>
-    <a href="#codigo" data-i="navCode">Código</a>
-    <a href="#apoya" data-i="navSupport">Apoya</a>
+    <a href="#what" data-i="navWhat">Qué hace</a>
+    <a href="#backups" data-i="navCopies">Copias</a>
+    <a href="#code" data-i="navCode">Código</a>
+    <a href="#support" data-i="navSupport">Apoya</a>
   </nav>
   <label class="lang">
     <span class="sr" data-i="langLabel">Idioma</span>
@@ -81,7 +81,7 @@
     </div>
   </section>
 
-  <section class="what" id="hace" aria-labelledby="hace-h">
+  <section class="what" id="what" aria-labelledby="hace-h">
     <div class="what-head">
       <h2 id="hace-h" data-i="whatH">Lo que toca en tu PC</h2>
       <p data-i="whatP">Cada parte explica qué cambia en palabras simples. Lo arriesgado viene apagado y marcado.</p>
@@ -101,16 +101,14 @@
   <section class="shots" aria-labelledby="shots-h">
     <h2 id="shots-h" class="sr" data-i="shotsH">Capturas de Vigía</h2>
     <figure class="win w1">
-      <img src="img/simple-es.webp" data-shot="simple" width="1028" height="749" loading="lazy" decoding="async" data-i-alt="shot1Alt" alt="Pantalla Modo simple de Vigía: preguntas de sí o no sobre juegos, impresora, Xbox y búsqueda.">
-      <figcaption data-i="shot1">Modo simple: tú contestas, Vigía hace el resto.</figcaption>
+      <img src="img/simple-es.webp" data-shot="simple" width="1028" height="749" loading="lazy" decoding="async" alt="Modo simple">
     </figure>
     <figure class="win w2">
-      <img src="img/monitor-es.webp" data-shot="monitor" width="1028" height="552" loading="lazy" decoding="async" data-i-alt="shot2Alt" alt="Pantalla Monitor de Vigía: CPU, GPU y memoria con temperatura, carga y reloj, y la gráfica del último minuto.">
-      <figcaption data-i="shot2">Monitor: lo mismo que mide el Administrador de tareas, más las temperaturas.</figcaption>
+      <img src="img/monitor-es.webp" data-shot="monitor" width="1028" height="552" loading="lazy" decoding="async" alt="Monitor">
     </figure>
   </section>
 
-  <section class="copies" id="copias" aria-labelledby="copias-h">
+  <section class="copies" id="backups" aria-labelledby="copias-h">
     <h2 id="copias-h" data-i="copiesH">Cada cambio deja su copia</h2>
     <ol class="track">
       <li><b data-i="c1h">Guarda cómo estaba</b><span data-i="c1p">Registro, servicios, inicio de Windows o resolución. Si no puede guardar la copia, no cambia nada.</span></li>
@@ -135,7 +133,7 @@
     </table>
   </section>
 
-  <section class="code" id="codigo" aria-labelledby="code-h">
+  <section class="code" id="code" aria-labelledby="code-h">
     <div class="code-text">
       <h2 id="code-h" data-i="codeH">El código está a la vista</h2>
       <p data-i="codeP">Vigía cambia cosas de tu sistema, así que tienes derecho a ver cómo lo hace. Todo el código está en GitHub: puedes leerlo, compilarlo tú mismo o proponer cambios. Úsala y modifícala gratis; lo que no se permite es venderla ni cobrar por ella.</p>
@@ -152,9 +150,7 @@ cd vigia/app/Vigia
 dotnet build -c Release</code></pre>
   </section>
 
-  <section class="support" id="apoya" aria-labelledby="apoya-h">
-    <h2 id="apoya-h" data-i="supH">Gratis de verdad</h2>
-    <p data-i="supP">No pide correo ni registro, y no hay versión de pago que se guarde lo mejor. Si Vigía te sirvió, así puedes ayudar:</p>
+  <section class="support" id="support" aria-label="Apoya" data-i-aria="navSupport">
     <ul class="acts">
       <li><a href="https://ko-fi.com/vigiapc"><svg><use href="#i-cup"/></svg><b data-i="a1h">Invitar un café</b><span data-i="a1p">En Ko-fi. Es opcional y no desbloquea nada.</span></a></li>
       <li><button type="button" id="share"><svg><use href="#i-share"/></svg><b data-i="a2h">Compartir</b><span data-i="a2p" id="share-msg">Pásale el enlace a un amigo.</span></button></li>
@@ -166,7 +162,7 @@ dotnet build -c Release</code></pre>
 </main>
 
 <footer>
-  <span class="brand"><svg><use href="#i-logo"/></svg>Vigía</span>
+  <span class="brand"><svg><use href="#i-logo"/></svg>Vigía<svg class="do" viewBox="0 0 30 20" role="img" aria-label="República Dominicana"><title>República Dominicana</title><rect width="30" height="20" fill="#fff"/><rect width="13" height="8" fill="#002d62"/><rect x="17" width="13" height="8" fill="#ce1126"/><rect y="12" width="13" height="8" fill="#ce1126"/><rect x="17" y="12" width="13" height="8" fill="#002d62"/></svg></span>
   <a href="https://github.com/JcperezDev/vigia" data-i="fCode">Código fuente</a>
   <a href="https://github.com/JcperezDev/vigia-releases/releases" data-i="fRel">Todas las versiones</a>
   <a href="https://github.com/JcperezDev/vigia/blob/main/LICENSE" data-i="fLic">Licencia no comercial</a>

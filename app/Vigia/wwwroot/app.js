@@ -545,10 +545,8 @@
     const shown = list.filter((a) => a.installed);
     $('ap-remove').disabled = true;
     $('ap-rec').hidden = $('ap-remove').hidden = !shown.length;
-    if (!shown.length) {
-      $('ap-list').replaceChildren(el('li', 'empty', 'No queda ninguna por quitar.'));
-      return;
-    }
+    $('ap-list').hidden = !shown.length;   // nada que quitar: no se muestra nada
+    if (!shown.length) { $('ap-list').replaceChildren(); return; }
     $('ap-list').replaceChildren(...shown.map((a) => {
       const li = el('li', `row${a.blocked ? ' off-limits' : ''}`);
       const cb = el('input'); cb.type = 'checkbox'; cb.dataset.id = a.id; cb.id = `ap-${a.id}`; cb.disabled = !!a.blocked;
@@ -569,10 +567,9 @@
   function apNote(items) {
     const t = items.find((x) => x.id === 'suggestions-off'); const n = $('ap-note');
     if (!t || t.state === 'applied') { n.hidden = true; return; }
-    const b = el('button', 'btn', 'Evitarlo');
+    const b = el('button', 'btn', 'Que Windows no las reinstale');
     b.addEventListener('click', () => { busyBtn(b, true, 'Aplicando…'); send({ cmd: 'tweaksApply', ids: ['suggestions-off'] }); });
-    const row = el('div', 'ap-note-act'); row.append(el('span', null, 'Windows puede reinstalar algunas por su cuenta.'), b);
-    n.hidden = false; n.replaceChildren(row);
+    n.hidden = false; n.replaceChildren(b);
   }
 
   // ---------- fondo de VigíaOS ----------
@@ -580,7 +577,7 @@
   function renderWall(w) {
     busyBtn($('wall-set'), false, w.ours ? 'Ya lo tienes puesto' : 'Poner el fondo');
     $('wall-set').disabled = w.ours;
-    $('wall-set').hidden = $('wall-sub').hidden = w.ours;   // ya puesto: solo queda la opción de volver
+    $('wall-set').hidden = w.ours;   // ya puesto: solo queda la opción de volver
     wallBk = w.backupId;
     $('wall-back').hidden = !(w.ours && w.backupId);
   }
@@ -1700,7 +1697,7 @@
     else if (type === 'tweaksDone') renderTweaksDone(payload);
     else if (type === 'bloat') { renderBloat(payload); send({ cmd: 'wallGet' }); }
     else if (type === 'wall') renderWall(payload);
-    else if (type === 'wallDone') { $('wall-result').textContent = payload.message; $('wall-result').classList.toggle('bad', !payload.ok); }
+    else if (type === 'wallDone') { $('wall-result').textContent = payload.ok ? '' : payload.message; $('wall-result').classList.toggle('bad', !payload.ok); }
     else if (type === 'simplePlan') smPlan(payload);
     else if (type === 'simpleStep') smStep(payload);
     else if (type === 'simpleDone') smDone(payload);
@@ -1727,7 +1724,7 @@
       $('bk-result').classList.toggle('bad', !payload.ok);
       if (payload.id === wallBk) {
         busyBtn($('wall-back'), false, 'Volver al fondo de antes');
-        $('wall-result').textContent = payload.ok ? 'Listo, tienes otra vez tu fondo de antes.' : payload.message + (payload.errors.length ? ` ${payload.errors.join('; ')}` : '');
+        $('wall-result').textContent = payload.ok ? '' : payload.message + (payload.errors.length ? ` ${payload.errors.join('; ')}` : '');
         $('wall-result').classList.toggle('bad', !payload.ok);
       }
       send({ cmd: 'wallGet' });

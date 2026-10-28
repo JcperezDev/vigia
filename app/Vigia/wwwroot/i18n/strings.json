@@ -2223,5 +2223,9 @@
  "Windows no pudo optimizarla (código 0x{0}).",
  "Optimizar: «Detener» ya no sale como error, «Analizar» espera a que termine y, al acabar, el disco mecánico muestra su fragmentación al momento.",
  "Windows ya la está optimizando. Prueba en unos minutos.",
- "Si Windows ya estaba optimizando la unidad, Vigía espera y lo vuelve a intentar en vez de decir «Listo» sin hacer nada."
+ "Si Windows ya estaba optimizando la unidad, Vigía espera y lo vuelve a intentar en vez de decir «Listo» sin hacer nada.",
+ "Que Windows no las reinstale",
+ "Menos ruido",
+ "Apps de Windows más limpia: si no queda nada por quitar, no sale nada.",
+ "Fondo de VigíaOS: el lema queda más cerca del nombre."
 ]

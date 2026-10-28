@@ -2018,5 +2018,9 @@
  "Windows no pudo optimizarla (código 0x{0}).": "Windows konnte es nicht optimieren (Code 0x{0}).",
  "Optimizar: «Detener» ya no sale como error, «Analizar» espera a que termine y, al acabar, el disco mecánico muestra su fragmentación al momento.": "Optimieren: „Stoppen“ erscheint nicht mehr als Fehler, „Analysieren“ wartet bis zum Ende und die Festplatte zeigt danach sofort ihre Fragmentierung.",
  "Windows ya la está optimizando. Prueba en unos minutos.": "Windows optimiert es bereits. Versuch es in ein paar Minuten.",
- "Si Windows ya estaba optimizando la unidad, Vigía espera y lo vuelve a intentar en vez de decir «Listo» sin hacer nada.": "Wenn Windows das Laufwerk bereits optimiert hat, wartet Vigía und versucht es erneut, statt ohne etwas zu tun „Fertig“ zu melden."
+ "Si Windows ya estaba optimizando la unidad, Vigía espera y lo vuelve a intentar en vez de decir «Listo» sin hacer nada.": "Wenn Windows das Laufwerk bereits optimiert hat, wartet Vigía und versucht es erneut, statt ohne etwas zu tun „Fertig“ zu melden.",
+ "Que Windows no las reinstale": "Windows soll sie nicht neu installieren",
+ "Menos ruido": "Weniger Ballast",
+ "Apps de Windows más limpia: si no queda nada por quitar, no sale nada.": "Windows-Apps aufgeräumter: Wenn nichts mehr zu entfernen ist, wird nichts angezeigt.",
+ "Fondo de VigíaOS: el lema queda más cerca del nombre.": "VigíaOS-Hintergrund: Der Slogan steht jetzt näher am Namen."
 }
