@@ -8,7 +8,7 @@
   // ------------------------------------------------------------------ textos
   // El español está escrito en el HTML; aquí van los demás idiomas. Las claves b* son del tablero.
   const ES_EXTRA = {
-    title: 'Vigía · Optimiza tu PC para jugar, con copia de todo',
+    title: 'Vigía · Optimización real para tu PC de juego',
     desc: 'Vigía optimiza Windows para jugar: libera RAM, apaga lo que arranca con Windows, ajusta el sistema y crea una ISO limpia. Guarda una copia antes de cada cambio. Gratis y de código abierto.',
     shareOk: 'Enlace copiado. Pégalo donde quieras.',
     shareText: 'Vigía: optimiza el PC para jugar y guarda copia de todo. Gratis y de código abierto.',
@@ -19,10 +19,10 @@
   };
   const T = {
     en: {
-      title: 'Vigía · Tune your gaming PC, with a backup of everything',
+      title: 'Vigía · Real optimization for your gaming PC',
       desc: 'Vigía tunes Windows for gaming: frees RAM, turns off what starts with Windows, adjusts the system and builds a clean ISO. It saves a backup before every change. Free and open source.',
       skip: 'Skip to content', navAria: 'Sections', navWhat: 'What it does', navCopies: 'Backups', navCode: 'Code', navSupport: 'Support', langLabel: 'Language', download: 'Download',
-      heroH: 'Your PC, ready to game. With a backup of everything.',
+      heroH: 'Real optimization. Measurable performance.',
       heroLead: 'Vigía frees RAM, turns off what starts with Windows and tunes the system for gaming. Before it touches anything it saves how things were, and you undo it in one click.',
       dlFree: 'Download free', dlMeta: 'Windows 10 and 11 · 64-bit', ghLink: 'Read the code on GitHub',
       t1: 'Open source (MIT)', t2: 'No account, no ads', t3: 'Sends none of your data',
@@ -61,10 +61,10 @@
       bTw: 'Windows settings', bTwA: 'out of the box', bTwB: 'for gaming', bUs: 'Vigía idle', bUsV: '0.1% CPU', bCopy: 'backup saved',
     },
     pt: {
-      title: 'Vigía · Otimize seu PC para jogar, com cópia de tudo',
+      title: 'Vigía · Otimização real para o seu PC gamer',
       desc: 'O Vigía otimiza o Windows para jogar: libera RAM, desliga o que inicia com o Windows, ajusta o sistema e cria uma ISO limpa. Salva uma cópia antes de cada mudança. Grátis e de código aberto.',
       skip: 'Pular para o conteúdo', navAria: 'Seções', navWhat: 'O que faz', navCopies: 'Cópias', navCode: 'Código', navSupport: 'Apoie', langLabel: 'Idioma', download: 'Baixar',
-      heroH: 'Seu PC pronto para jogar. Com cópia de tudo.',
+      heroH: 'Otimização real. Desempenho que se mede.',
       heroLead: 'O Vigía libera a RAM, desliga o que inicia com o Windows e ajusta o sistema para jogar. Antes de mexer em algo, salva como estava, e você desfaz com um clique.',
       dlFree: 'Baixar grátis', dlMeta: 'Windows 10 e 11 · 64 bits', ghLink: 'Ver o código no GitHub',
       t1: 'Código aberto (MIT)', t2: 'Sem conta nem anúncios', t3: 'Não envia seus dados',
@@ -103,10 +103,10 @@
       bTw: 'Ajustes do Windows', bTwA: 'como vêm', bTwB: 'para jogar', bUs: 'Vigía parado', bUsV: '0,1 % CPU', bCopy: 'cópia salva',
     },
     fr: {
-      title: 'Vigía · Optimisez votre PC de jeu, avec une copie de tout',
+      title: 'Vigía · Une vraie optimisation pour votre PC de jeu',
       desc: 'Vigía optimise Windows pour le jeu : libère la RAM, coupe ce qui démarre avec Windows, règle le système et crée une ISO propre. Une copie avant chaque changement. Gratuit et open source.',
       skip: 'Aller au contenu', navAria: 'Sections', navWhat: 'Ce qu\u2019il fait', navCopies: 'Copies', navCode: 'Code', navSupport: 'Soutenir', langLabel: 'Langue', download: 'Télécharger',
-      heroH: 'Votre PC prêt à jouer. Avec une copie de tout.',
+      heroH: 'Une vraie optimisation. Des performances mesurables.',
       heroLead: 'Vigía libère la RAM, coupe ce qui démarre avec Windows et règle le système pour le jeu. Avant de toucher à quoi que ce soit, il garde l\u2019état d\u2019origine, et vous annulez en un clic.',
       dlFree: 'Télécharger gratuitement', dlMeta: 'Windows 10 et 11 · 64 bits', ghLink: 'Voir le code sur GitHub',
       t1: 'Open source (MIT)', t2: 'Sans compte ni pub', t3: 'N\u2019envoie aucune donnée',
@@ -145,10 +145,10 @@
       bTw: 'Réglages Windows', bTwA: 'd\u2019origine', bTwB: 'pour jouer', bUs: 'Vigía au repos', bUsV: '0,1 % CPU', bCopy: 'copie gardée',
     },
     de: {
-      title: 'Vigía · Gaming-PC optimieren, mit Sicherung von allem',
+      title: 'Vigía · Echte Optimierung für deinen Gaming-PC',
       desc: 'Vigía optimiert Windows fürs Spielen: gibt RAM frei, schaltet Autostart-Programme ab, passt das System an und erstellt eine saubere ISO. Vor jeder Änderung wird gesichert. Kostenlos und Open Source.',
       skip: 'Zum Inhalt', navAria: 'Abschnitte', navWhat: 'Was es macht', navCopies: 'Sicherungen', navCode: 'Code', navSupport: 'Unterstützen', langLabel: 'Sprache', download: 'Herunterladen',
-      heroH: 'Dein PC, bereit zum Zocken. Mit Sicherung von allem.',
+      heroH: 'Echte Optimierung. Messbare Leistung.',
       heroLead: 'Vigía gibt RAM frei, schaltet ab, was mit Windows startet, und stellt das System aufs Spielen ein. Bevor es etwas ändert, sichert es den alten Zustand, und du machst es mit einem Klick rückgängig.',
       dlFree: 'Kostenlos herunterladen', dlMeta: 'Windows 10 und 11 · 64 Bit', ghLink: 'Code auf GitHub ansehen',
       t1: 'Open Source (MIT)', t2: 'Ohne Konto, ohne Werbung', t3: 'Sendet keine Daten',
