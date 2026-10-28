@@ -136,6 +136,17 @@ static class Program
             File.WriteAllText(args[1], JsonSerializer.Serialize(new { rep, steps }, new JsonSerializerOptions(Json) { WriteIndented = true }));
             return rep.Ok ? 0 : 1;
         }
+        if (args.Length >= 2 && args[0] == "--drift")   // solo lectura: Vigia --drift <salida.json> [segundos]
+        {
+            File.WriteAllText(args[1], JsonSerializer.Serialize(Drift.Run(args.Length >= 3 ? int.Parse(args[2]) : 10), new JsonSerializerOptions(Json) { WriteIndented = true }));
+            return 0;
+        }
+        if (args.Length >= 2 && args[0] == "--crashes")   // solo lectura: Vigia --crashes <salida.json> [días]
+        {
+            var days = args.Length >= 3 ? int.Parse(args[2]) : 7;
+            File.WriteAllText(args[1], JsonSerializer.Serialize(Diagnostics.Crashes(days), new JsonSerializerOptions(Json) { WriteIndented = true }));
+            return 0;
+        }
         if (args.Length >= 2 && args[0] == "--procs")   // solo lectura: Vigia --procs <salida.json> [segundos]
         {
             Procs.Reset(); Procs.Sample();
@@ -607,14 +618,14 @@ sealed partial class MainForm : Form
                     Send("settings", new { cfg = _cfg, lab = Tweaks.Lab, autoStart = AutoStart.Enabled() });
                     break;
                 case "tweaksList":
-                    Send("tweaks", new { items = await Task.Run(Tweaks.List), restorePoints = await Task.Run(RestorePoint.Count) });
+                    Send("tweaks", new { items = await Task.Run(Tweaks.List), restorePoints = await Task.Run(RestorePoint.Count), laptop = Suggestions.HasBattery() });
                     break;
                 case "tweaksApply":
                 case "tweaksRevert":
                     var tids = msg["ids"]!.AsArray().Select(x => (string)x!).ToList();
                     var batch = (string?)msg["cmd"] == "tweaksApply" ? await Task.Run(() => Tweaks.Apply(tids)) : await Task.Run(() => Tweaks.Revert(tids));
                     Send("tweaksDone", batch);
-                    Send("tweaks", new { items = await Task.Run(Tweaks.List), restorePoints = await Task.Run(RestorePoint.Count) });
+                    Send("tweaks", new { items = await Task.Run(Tweaks.List), restorePoints = await Task.Run(RestorePoint.Count), laptop = Suggestions.HasBattery() });
                     break;
                 case "bloatList":
                     Send("bloat", await Task.Run(Debloat.List));
@@ -653,7 +664,7 @@ sealed partial class MainForm : Form
                     {
                         var ra = msg["answers"].Deserialize<Simple.Answers>(Program.Json) ?? new();
                         var rep = await Task.Run(() => Simple.Run(Simple.Build(ra), st => BeginInvoke(() => Send("simpleStep", st)),
-                            on => BeginInvoke(() => { _cfg.MemAuto = on; if (on) _cfg.MemAutoThreshold = 60; _cfg.Save(); Send("settings", _cfg); })));
+                            on => BeginInvoke(() => { _cfg.MemAuto = on; if (on) _cfg.MemAutoThreshold = 60; _cfg.Save(); Send("settings", new { cfg = _cfg, lab = Tweaks.Lab, autoStart = AutoStart.Enabled() }); })));
                         Send("simpleDone", rep);
                     }
                     finally { _simpleBusy = false; }
@@ -711,18 +722,6 @@ sealed partial class MainForm : Form
                     if (Updates.StartPuente()) { _quitting = true; Close(); }   // salir de verdad, no a la bandeja
                     else Send("update", (await Updates.CheckAsync()) with { Error = "No pude abrir Puente." });
                     break;
-                case "utilidad-externa":
-                    // sin punto de restauración no se abre, salvo que el usuario lo confirme (force)
-                    if ((bool?)msg["force"] == true) { Toolbox.Openutilidad externa(); Send("utilidad-externaRp", new { ok = true, opened = true, message = "" }); break; }
-                    var enable = (bool?)msg["enable"] == true;
-                    var rp = await Task.Run(() =>
-                    {
-                        if (enable) { var en = RestorePoint.EnableC(); if (!en.Ok) return en; }
-                        return RestorePoint.Create("Vigía: antes de utilidad externa");
-                    });
-                    if (rp.Ok) Toolbox.Openutilidad externa();
-                    Send("utilidad-externaRp", new { ok = rp.Ok, opened = rp.Ok, off = rp.Off, message = rp.Message });
-                    break;
                 case "gamesGet":
                     Send("games", await Task.Run(GamesPayload));
                     break;
@@ -759,6 +758,10 @@ sealed partial class MainForm : Form
                         Fps.Finished += _ => { try { BeginInvoke(async () => Send("games", await Task.Run(GamesPayload))); } catch { } };
                     }
                     Fps.Start(fsec, (string?)msg["label"] ?? "");
+                    break;
+                case "drift":
+                    try { Send("drift", await Task.Run(() => Drift.Run(10))); }
+                    catch { Send("drift", new DriftReport(10, 0, 0, [])); }
                     break;
                 case "fpsCancel":
                     Fps.Cancel();

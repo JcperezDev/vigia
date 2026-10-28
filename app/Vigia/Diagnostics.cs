@@ -5,10 +5,10 @@ namespace Vigia;
 
 public sealed record DiagItem(string Level, string Title, string Detail, IReadOnlyList<string> Examples);
 public sealed record SystemInfo(string Os, string Build, string Board, string Bios, double UptimeHours, DateTime? LastBoot);
-public sealed record DiagReport(SystemInfo System, int Days, IReadOnlyList<DiagItem> Items, long Ts);
+public sealed record DiagReport(SystemInfo System, int Days, IReadOnlyList<DiagItem> Items, long Ts, IReadOnlyList<Crash> Crashes);
 
 /// <summary>Diagnóstico de solo lectura: registro de eventos de Windows, volcados y estado del antivirus. No cambia nada.</summary>
-public static class Diagnostics
+public static partial class Diagnostics
 {
     static string P(int n, string one, string many) => $"{n} {(n == 1 ? one : many)}";
 
@@ -105,7 +105,17 @@ public static class Diagnostics
 
         // --- Errores de disco y sistema de archivos ---
         var disk = Query("System", $"*[System[(Provider[@Name='disk'] or Provider[@Name='Ntfs'] or Provider[@Name='stornvme'] or Provider[@Name='storahci'] or Provider[@Name='Microsoft-Windows-Ntfs']) and (Level=1 or Level=2 or Level=3) and {Since(days)}]]");
-        var diskReal = disk.Where(e => !(e.Provider.Contains("Ntfs") && e.Id == 98)).ToList(); // 98 = volumen revisado y OK
+        // Solo discos físicos que siguen conectados: una ISO o un disco virtual montado (y luego quitado)
+        // deja avisos de «Harddisk N» que no son fallos del PC.
+        var phys = Wmi(@"root\cimv2", "SELECT Index, Model FROM Win32_DiskDrive")
+            .Where(o => !((o["Model"] as string ?? "").Contains("Virtual", StringComparison.OrdinalIgnoreCase)))
+            .Select(o => Convert.ToInt32(o["Index"])).ToHashSet();
+        bool OnRealDisk(string msg)
+        {
+            var m = System.Text.RegularExpressions.Regex.Match(msg ?? "", @"Harddisk(\d+)");
+            return !m.Success || phys.Count == 0 || phys.Contains(int.Parse(m.Groups[1].Value));
+        }
+        var diskReal = disk.Where(e => !(e.Provider.Contains("Ntfs") && e.Id == 98) && OnRealDisk(e.Message)).ToList(); // 98 = volumen revisado y OK
         items.Add(diskReal.Count == 0
             ? new DiagItem("ok", "Errores de disco", "Sin errores de lectura/escritura ni del sistema de archivos.", Array.Empty<string>())
             : new DiagItem(diskReal.Any(e => e.Provider == "disk" && e.Id is 7 or 11 or 51) ? "warn" : "info", "Errores de disco",
@@ -119,14 +129,6 @@ public static class Diagnostics
         items.Add(svc.Count == 0
             ? new DiagItem("ok", "Servicios y drivers", "Ningún servicio falló al arrancar o se cerró solo.", Array.Empty<string>())
             : new DiagItem("info", "Servicios y drivers", $"{P(svc.Count, "fallo", "fallos")} de servicios. Casi siempre es inofensivo si no notas nada raro.", svcNames));
-
-        // --- Programas que se cerraron o colgaron ---
-        var apps = Query("Application", $"*[System[(Provider[@Name='Application Error'] and EventID=1000) or (Provider[@Name='Application Hang'] and EventID=1002)] and System[{Since(days)}]]");
-        var appTop = apps.Select(e => e.Props.Count > 0 ? e.Props[0].Value?.ToString() ?? "?" : "?")
-            .GroupBy(n => n, StringComparer.OrdinalIgnoreCase).OrderByDescending(g => g.Count()).Take(6).Select(g => $"{g.Key} · {g.Count()} vez/veces").ToList();
-        items.Add(apps.Count == 0
-            ? new DiagItem("ok", "Programas que se cerraron", "Ningún programa se cerró de golpe ni se colgó.", Array.Empty<string>())
-            : new DiagItem(apps.Count >= 15 ? "warn" : "info", "Programas que se cerraron", $"{P(apps.Count, "cierre o cuelgue", "cierres o cuelgues")}.", appTop));
 
         // --- Antivirus (solo lectura) ---
         var av = Wmi(@"root\Microsoft\Windows\Defender", "SELECT AntivirusEnabled, RealTimeProtectionEnabled, AntivirusSignatureAge, QuickScanAge FROM MSFT_MpComputerStatus").FirstOrDefault();
@@ -162,7 +164,8 @@ public static class Diagnostics
 
         items.Add(Clock());
 
-        return new DiagReport(sys, days, items, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+        List<Crash> crashes; try { crashes = Crashes(days); } catch { crashes = []; }
+        return new DiagReport(sys, days, items, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(), crashes);
     }
 
     // --- Reloj del sistema ---

@@ -8,8 +8,7 @@ public record BloatResult(string Id, bool Ok, string? Error);
 
 /// <summary>
 /// Quita apps preinstaladas de Windows para el usuario actual (Remove-AppxPackage). No toca el paquete aprovisionado,
-/// así que cualquiera se vuelve a instalar desde Microsoft Store. Lista basada en externo «1; Eliminar Bloatware»,
-/// «Uninstall Xbox Gamebar.bat» y los recomendados de externo.
+/// así que cualquiera se vuelve a instalar desde Microsoft Store. Lista propia de apps de relleno.
 /// </summary>
 public static class Debloat
 {

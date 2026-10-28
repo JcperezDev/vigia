@@ -19,7 +19,7 @@ public static class Simple
 
     public static Plan Build(Answers a)
     {
-        var perf = new List<string> { "priority-separation", "browsers-bg", "startup-delay", "end-task", "shutdown-fast" };
+        var perf = new List<string> { "priority-separation", "browsers-bg", "startup-delay", "end-task" };
         if (!a.Laptop) perf.AddRange(["power-ultimate", "hibernate-off"]);
         if (a.Games) perf.AddRange(["mmcss-games", "gpu-high", "windowed-opt", "hags", "game-mode", "mouse-raw", "accessibility-keys"]);
         if (a.Games && !a.Xbox) perf.Add("game-dvr-off");
@@ -86,10 +86,10 @@ public static class Simple
                         removed += res.Count(r => r.Ok);
                         var bad = res.Where(r => !r.Ok).ToList();
                         detail = $"{res.Count(r => r.Ok)} quitadas" + (bad.Count > 0 ? $", {bad.Count} no se dejaron" : "") + ".";
-                        if (bad.Count > 0) { state = "warn"; problems.AddRange(bad.Select(b => $"{b.Id}: {b.Error}")); }
+                        if (bad.Count > 0) { state = "warn"; failed += bad.Count; problems.AddRange(bad.Select(b => $"{b.Id}: {b.Error}")); }
                         break;
                     case "clean":
-                        var cr = Cleanup.Run(Cleanup.TempIds);   // la Papelera no: eso lo decide cada uno en Almacenamiento
+                        var cr = Cleanup.Run(Cleanup.TempIds.Append("startup_left"));   // temporales + restos del inicio; la Papelera no: eso lo decide cada uno
                         cleaned = Math.Round(cr.FreedBytes / 1048576.0, 1);
                         detail = cleaned >= 1024 ? $"{cleaned / 1024:0.0} GB liberados." : $"{cleaned:0} MB liberados.";
                         break;
@@ -116,7 +116,7 @@ public static class Simple
                         break;
                 }
             }
-            catch (Exception e) { state = "warn"; detail = e.Message; problems.Add($"{s.Title}: {e.Message}"); }
+            catch (Exception e) { state = "warn"; failed++; detail = e.Message; problems.Add($"{s.Title}: {e.Message}"); }
             progress(new(i, s.Id, state, detail));
         }
         return new(failed == 0, applied, already, failed, removed, cleaned, freed, reboot, problems);

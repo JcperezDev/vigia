@@ -8,7 +8,7 @@ public sealed class Settings
     public bool MemAuto { get; set; } = true;
     public int MemAutoThreshold { get; set; } = 60;
     public int MemAutoIntervalMin { get; set; } = 5;
-    public string ToolsRoot { get; set; } = @"D:\pack externo";
+    public string ToolsRoot { get; set; } = "";
     /// <summary>Mirar al abrir y cada 6 h si hay versión nueva (solo pregunta a GitHub; no descarga nada).</summary>
     public bool UpdateCheck { get; set; } = true;
     /// <summary>Idioma de la interfaz: auto (el de Windows), es, en, pt, fr, de. Puente también lo lee.</summary>

@@ -42,7 +42,7 @@ Optimizar el PC de juego desde una sola app: monitor de hardware, limpieza, libe
 
 - Nombre: Vigía. Icono: `app/Vigia/vigia.ico`.
 - Voz: español claro y directo, sin jerga de marketing; no debe parecer hecha con IA (nada de «en vivo», brillos, frases infladas).
-- No copiar código, textos ni recursos de Pickle Utility Pro, externo TWEAKS u otras apps.
+- No copiar código, textos ni recursos de otras apps.
 
 ## Evidence on Hand
 

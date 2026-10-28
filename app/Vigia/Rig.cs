@@ -47,12 +47,12 @@ public static partial class Rig
                 applied ? null : t.Reboot ? "Hace falta reiniciar para que se note." : null,
                 applied || t.Blocked is not null ? null : "tweak:" + id, applied ? null : label));
         }
-        Tw("game-mode", "Modo juego", "Encendido: mientras juegas, Windows no instala actualizaciones y le da prioridad al juego.",
-           "Apagado: Windows puede ponerse a actualizar o a trabajar en segundo plano en plena partida.", "Encender modo juego");
-        Tw("hags", "Programación de GPU por hardware (HAGS)", "Encendida: la tarjeta gráfica ordena su propia memoria. Hace falta para la generación de fotogramas de DLSS.",
-           "Apagada: Windows hace ese trabajo en la CPU y no puedes usar la generación de fotogramas de DLSS.", "Encender HAGS");
-        Tw("power-ultimate", "Plan de energía", "{plan}: el procesador no se duerme entre fotograma y fotograma.",
-           "{plan}: el procesador baja de velocidad para ahorrar y tarda en volver a subir.", "Poner Máximo rendimiento");
+        Tw("game-mode", "Modo juego", "Encendido.",
+           "Apagado: Windows puede actualizar en plena partida.", "Encender modo juego");
+        Tw("hags", "Programación de GPU por hardware (HAGS)", "Encendida.",
+           "Apagada: sin generación de fotogramas de DLSS.", "Encender HAGS");
+        Tw("power-ultimate", "Plan de energía", "{plan}.",
+           "{plan}: el procesador baja de velocidad para ahorrar.", "Poner Máximo rendimiento");
         return list;
     }
 
@@ -76,8 +76,8 @@ public static partial class Rig
         var amd = Cpu().Contains("AMD", StringComparison.OrdinalIgnoreCase);
         var profile = amd ? "EXPO" : "XMP";
         if (rated > conf + 100)
-            return new("ram", "warn", "Memoria RAM", $"Va a {conf} MT/s y es de {rated} MT/s. El perfil {profile} está apagado, así que pierdes velocidad. En juegos que dependen del procesador, como Fortnite, es donde más se nota.",
-                       $"Se activa en la BIOS: {BiosRam(board, profile)} El primer arranque después puede quedarse en negro uno o dos minutos mientras la placa prueba la memoria: es normal, no lo apagues.", null, null);
+            return new("ram", "warn", "Memoria RAM", $"Va a {conf} MT/s y es de {rated} MT/s: el perfil {profile} está apagado.",
+                       Cap(BiosRam(board, profile)), null, null);
         return new("ram", "ok", "Memoria RAM", $"{type} a {conf} MT/s, su velocidad de fábrica{(n > 0 ? $" ({n} módulos)" : "")}.", null, null, null);
     }
 
@@ -94,6 +94,8 @@ public static partial class Rig
     }
     [GeneratedRegex(@"^KF(4\d\d|5\d\d)C")] private static partial Regex KingstonRx();
     [GeneratedRegex(@"(?<!\d)\d{4}(?!\d)")] private static partial Regex SpeedRx();
+
+    static string Cap(string s) => s.Length == 0 ? s : char.ToUpperInvariant(s[0]) + s[1..];
 
     static string BiosRam(string board, string p) => Vendor(board) switch
     {
@@ -129,7 +131,7 @@ public static partial class Rig
         int fb = Total(txt, "FB Memory Usage"), bar = Total(txt, "BAR1 Memory Usage");
         if (fb == 0 || bar == 0) return new("rebar", "info", title, "No se pudo leer de la tarjeta gráfica.", how, null, null);
         return bar >= fb * 0.9
-            ? new("rebar", "ok", title, $"Activado: el procesador ve los {bar / 1024} GB de la tarjeta gráfica de una vez.", null, null, null)
+            ? new("rebar", "ok", title, "Activado.", null, null, null)
             : new("rebar", "warn", title, $"Apagado: el procesador solo ve {bar} MB de la memoria de la tarjeta a la vez. Algunos juegos van más fluidos con él.", how, null, null);
     }
 

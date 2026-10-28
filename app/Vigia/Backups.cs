@@ -33,7 +33,7 @@ public static class Backups
             new() { ["t"] = "display", ["w"] = w, ["h"] = h, ["hz"] = hz, ["label"] = $"Resolución {w} × {h} a {hz} Hz" };
         /// <summary>Un archivo de configuración entero (pequeño): su contenido exacto y si estaba en solo lectura.</summary>
         public static JsonObject File(string path, string label) =>
-            new() { ["t"] = "file", ["path"] = path, ["label"] = label,
+            new() { ["t"] = "file", ["path"] = path, ["label"] = label, ["existed"] = System.IO.File.Exists(path),
                     ["data"] = System.IO.File.Exists(path) ? Convert.ToBase64String(System.IO.File.ReadAllBytes(path)) : null,
                     ["readonly"] = System.IO.File.Exists(path) && (System.IO.File.GetAttributes(path) & FileAttributes.ReadOnly) != 0 };
         public static JsonObject Appx(string name, string label) =>
@@ -191,7 +191,11 @@ public static class Backups
                 var fp = (string)it["path"]!;
                 if (fp.Contains("FortniteGame", StringComparison.OrdinalIgnoreCase) && Games.FortniteRunning())
                     throw new InvalidOperationException("cierra Fortnite primero.");
-                if ((string?)it["data"] is not { } data) break;
+                if ((string?)it["data"] is not { } data)
+                {
+                    if ((bool?)it["existed"] == false && System.IO.File.Exists(fp)) System.IO.File.Delete(fp);
+                    break;
+                }
                 if (System.IO.File.Exists(fp)) System.IO.File.SetAttributes(fp, System.IO.File.GetAttributes(fp) & ~FileAttributes.ReadOnly);
                 System.IO.File.WriteAllBytes(fp, Convert.FromBase64String(data));
                 if ((bool?)it["readonly"] == true) System.IO.File.SetAttributes(fp, System.IO.File.GetAttributes(fp) | FileAttributes.ReadOnly);
