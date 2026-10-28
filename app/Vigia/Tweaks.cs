@@ -129,6 +129,7 @@ public static class Tweaks
             foreach (var d in defs)
             {
                 if (BlockedReason(d) is string why) { results.Add(new(d.Id, false, StateOf(d), why)); continue; }
+                if (StateOf(d) == "na") { results.Add(new(d.Id, true, "na", null)); continue; }   // no aplica en este PC: no se toca
                 try
                 {
                     if (!bk.ContainsKey(d.Id)) { bk[d.Id] = Capture(d); SaveBackup(bk); }   // el original, solo la primera vez
@@ -156,7 +157,12 @@ public static class Tweaks
             var results = new List<TweakResult>();
             foreach (var d in Catalog().Where(d => ids.Contains(d.Id)))
             {
-                if (bk[d.Id] is not JsonObject saved) { results.Add(new(d.Id, false, StateOf(d), "No hay copia del valor original: Vigía no aplicó este ajuste.")); continue; }
+                if (bk[d.Id] is not JsonObject saved)
+                {
+                    var now = StateOf(d);   // sin copia porque nunca se aplicó: si no aplica en este PC, no hay nada que revertir
+                    results.Add(now is "na" ? new(d.Id, true, now, null) : new(d.Id, false, now, "No hay copia del valor original: Vigía no aplicó este ajuste."));
+                    continue;
+                }
                 try
                 {
                     var ops = d.Ops.Select(x => x!.AsObject()).ToList();
@@ -261,7 +267,7 @@ public static class Tweaks
         else if (op["svc"] is not null)
         {
             var k = $@"HKLM\SYSTEM\CurrentControlSet\Services\{(string)op["svc"]!}";
-            if (RegRead(k, "Start").value is not null) RegWrite(k, "Start", "dword", (long)op["start"]!);
+            if (RegRead(k, "Start").value is not null) SvcStart((string)op["svc"]!, (long)op["start"]!);
         }
         else if (op["task"] is not null && Task((string)op["task"]!) is { } t) t.Enabled = (bool)op["enabled"]!;
         else switch ((string?)op["special"])
@@ -292,8 +298,14 @@ public static class Tweaks
         else if (op["svc"] is not null && s is not null)
         {
             var k = $@"HKLM\SYSTEM\CurrentControlSet\Services\{(string)op["svc"]!}";
-            Restore(k, "Start", s["start"]!.AsObject());
-            Restore(k, "DelayedAutostart", s["delayed"]!.AsObject());
+            var st = s["start"]!.AsObject();
+            if (!JsonNode.DeepEquals(Snap(k, "Start"), st) && (bool?)st["existed"] == true && (string?)st["type"] == "dword")
+                SvcStart((string)op["svc"]!, long.Parse((string)st["value"]!));
+            try { Restore(k, "DelayedAutostart", s["delayed"]!.AsObject()); }
+            catch (UnauthorizedAccessException)
+            {
+                if ((string?)s["delayed"]!["value"] == "1") Must(Run("sc.exe", $"config {(string)op["svc"]!} start= delayed-auto"), "restaurar el servicio");
+            }
         }
         else if (op["task"] is not null && s is not null && Task((string)op["task"]!) is { } t) t.Enabled = (bool)s["enabled"]!;
         else switch ((string?)op["special"])
@@ -344,6 +356,18 @@ public static class Tweaks
                 case "binary": k.SetValue(name, Convert.FromHexString(value.ToString()!), RegistryValueKind.Binary); break;
                 default: throw new ArgumentException($"Tipo no admitido: {type}");
             }
+    }
+
+    // Inicio de un servicio: primero por registro (copia exacta); si la clave está protegida (p. ej. TrkWks en 26H2),
+    // por el Administrador de servicios, que es quien tiene permiso de verdad.
+    static void SvcStart(string svc, long start)
+    {
+        try { RegWrite($@"HKLM\SYSTEM\CurrentControlSet\Services\{svc}", "Start", "dword", start); }
+        catch (UnauthorizedAccessException)
+        {
+            var mode = start switch { 2 => "auto", 3 => "demand", 4 => "disabled", 1 => "system", 0 => "boot", _ => throw new Exception($"Inicio no admitido: {start}") };
+            Must(Run("sc.exe", $"config {svc} start= {mode}"), $"cambiar el servicio {svc}");
+        }
     }
 
     static void RegDelete(string path, string name)

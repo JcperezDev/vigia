@@ -69,6 +69,21 @@ static class Program
             File.WriteAllText(args[3], ok);
             return ok.StartsWith("OK") ? 0 : 1;
         }
+        // Pruebas de laboratorio (VM): Vigia --lab <apply|revert|debloat|list> <ids|all> <salida.json>
+        if (args.Length >= 4 && args[0] == "--lab")
+        {
+            object res;
+            IEnumerable<string> Ids(IEnumerable<string> all) => args[2] == "all" ? all : args[2].Split(',');
+            switch (args[1])
+            {
+                case "apply": res = Tweaks.Apply(Ids(Tweaks.List().Select(t => t.Id)).ToList(), restorePoint: false); break;
+                case "revert": res = Tweaks.Revert(Ids(Tweaks.List().Select(t => t.Id)).ToList()); break;
+                case "debloat": res = Debloat.Remove(Ids(Debloat.List().Where(a => a.Installed).Select(a => a.Id)).ToList()); break;
+                default: res = new { tweaks = Tweaks.List(), apps = Debloat.List(), lab = Tweaks.Lab }; break;
+            }
+            File.WriteAllText(args[3], JsonSerializer.Serialize(res, new JsonSerializerOptions(Json) { WriteIndented = true }));
+            return 0;
+        }
         if (args.Length >= 2 && args[0] == "--selftest")
         {
             var report = Cleanup.SelfTest() + Environment.NewLine + "--- ajustes" + Environment.NewLine + Tweaks.SelfTest()

@@ -228,6 +228,7 @@ static class Program
         foreach (var d in new[] { AppDir, PrevDir, NewDir })
             if (Directory.Exists(d)) Directory.Delete(d, true);
         foreach (var l in LinkPaths()) if (File.Exists(l)) File.Delete(l);
+        try { Microsoft.Win32.Registry.CurrentUser.DeleteSubKeyTree(UninstallKey, false); } catch { }
         Log("desinstalada");
         Ui.Show("Listo: Vigía quitada", "Puente se borra solo al cerrar esta ventana.", 1.0);
         // un .exe no se puede borrar a sí mismo mientras corre: lo borra cmd unos segundos después
@@ -320,6 +321,27 @@ static class Program
         using var p = Process.Start(new ProcessStartInfo("powershell.exe", "-NoProfile -NonInteractive -EncodedCommand " + Convert.ToBase64String(Encoding.Unicode.GetBytes(ps)))
         { CreateNoWindow = true, UseShellExecute = false });
         p?.WaitForExit(30_000);
+        try { RegisterApp(exe, puente); } catch (Exception e) { Log("registro en Apps: " + e.Message); }
+    }
+
+    const string UninstallKey = @"Software\Microsoft\Windows\CurrentVersion\Uninstall\Vigia";
+
+    /// <summary>Aparece en Configuración › Apps (por usuario, sin administrador) y se quita desde ahí con Puente.</summary>
+    static void RegisterApp(string exe, string puente)
+    {
+        using var k = Microsoft.Win32.Registry.CurrentUser.CreateSubKey(UninstallKey);
+        var size = new DirectoryInfo(AppDir).EnumerateFiles("*", SearchOption.AllDirectories).Sum(f => f.Length) / 1024;
+        k.SetValue("DisplayName", "Vigía");
+        k.SetValue("DisplayVersion", InstalledVersion()?.ToString(3) ?? "");
+        k.SetValue("Publisher", "Vigía");
+        k.SetValue("DisplayIcon", exe + ",0");
+        k.SetValue("InstallLocation", AppDir);
+        k.SetValue("UninstallString", $"\"{puente}\" --uninstall");
+        k.SetValue("QuietUninstallString", $"\"{puente}\" --uninstall --quiet");
+        k.SetValue("URLInfoAbout", "https://github.com/JcperezDev/vigia-releases");
+        k.SetValue("EstimatedSize", (int)Math.Min(size, int.MaxValue), Microsoft.Win32.RegistryValueKind.DWord);
+        k.SetValue("NoModify", 1, Microsoft.Win32.RegistryValueKind.DWord);
+        k.SetValue("NoRepair", 1, Microsoft.Win32.RegistryValueKind.DWord);
     }
 
     static void Launch()

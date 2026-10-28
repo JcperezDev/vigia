@@ -114,7 +114,7 @@
     ]
   },
   {
-    "id": "shutdown-fast", "group": "Windows", "risk": "medio", "reboot": false,
+    "id": "shutdown-fast", "tested": true, "group": "Windows", "risk": "medio", "reboot": false,
     "title": "Cerrar programas colgados sin esperar",
     "detail": "Menús sin retardo y apagado más rápido. Al apagar, los programas que no respondan se cierran solos: guarda antes.",
     "source": "pack externo · 4 - Windows Important Tweaks\\Improve system responsiveness.reg",
@@ -206,7 +206,7 @@
     ]
   },
   {
-    "id": "services-xbox", "group": "Servicios", "risk": "medio", "reboot": true,
+    "id": "services-xbox", "tested": true, "group": "Servicios", "risk": "medio", "reboot": true,
     "title": "Servicios de Xbox",
     "detail": "Fortnite y Steam no los usan. Rompe Xbox Game Pass, los logros de Xbox y Minecraft de la Tienda.",
     "source": "externo · 3; Servicios Innecesarios",
@@ -217,7 +217,7 @@
     ]
   },
   {
-    "id": "search-off", "group": "Servicios", "risk": "medio", "reboot": true,
+    "id": "search-off", "tested": true, "group": "Servicios", "risk": "medio", "reboot": true,
     "title": "Indexador de búsqueda",
     "detail": "Menos lecturas de disco en segundo plano. A cambio, buscar en Inicio y en el Explorador es mucho más lento.",
     "source": "externo · 3; Servicios Innecesarios",
