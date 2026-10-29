@@ -524,8 +524,12 @@
     && !['print-off', 'boot-info'].includes(t.id) && !(twLaptop && ['power-ultimate', 'hibernate-off'].includes(t.id)));
   function twAllCard() {
     const n = twAll().length;
-    $('tw-all-t').textContent = n ? plural(n, 'ajuste por aplicar', 'ajustes por aplicar') : 'Todo aplicado';
-    $('tw-all-p').textContent = n ? 'Con copia: se puede deshacer.' : '';
+    // los de riesgo medio no entran en «Aplicar todo»: si quedan, se dice dónde están
+    const rest = tweaks.filter((t) => t.risk !== 'bajo' && !t.blocked && t.state !== 'applied' && t.state !== 'na').length;
+    $('tw-all-t').textContent = n ? plural(n, 'ajuste por aplicar', 'ajustes por aplicar') : rest ? 'Lo seguro ya está aplicado' : 'Todo aplicado';
+    $('tw-all-p').textContent = n ? 'Con copia: se puede deshacer.'
+      : rest === 1 ? 'Queda 1 que depende de lo que uses. Está en «Elegir uno por uno».'
+      : rest ? `Quedan ${rest} que dependen de lo que uses. Están en «Elegir uno por uno».` : '';
     $('tw-all').disabled = !n; $('tw-all').hidden = !n;
   }
   // Aplicar/Deshacer de arriba solo cuando se eligen uno por uno
@@ -1191,7 +1195,12 @@
   }
   function smPlan(p) {
     const n = p.changes;
-    $('sm-count').textContent = n ? `Se harán ${plural(n, 'cambio', 'cambios')}, con copia de seguridad antes.` : 'Ya está todo optimizado según tus respuestas. Igual puedes limpiar y liberar memoria.';
+    // qué se va a cambiar, con nombre, si son pocos (el mismo nombre que en Ajustes)
+    const named = p.names || [];
+    $('sm-count').textContent = !n ? 'Ya está todo optimizado según tus respuestas. Igual puedes limpiar y liberar memoria.'
+      : n === 1 && named.length ? `Se hará 1 cambio: ${named[0]}. Con copia de seguridad antes.`
+      : n <= 3 && named.length ? `Se harán ${n} cambios: ${named.join(', ')}. Con copia de seguridad antes.`
+      : n === 1 ? 'Se hará 1 cambio, con copia de seguridad antes.' : `Se harán ${n} cambios, con copia de seguridad antes.`;
     $('sm-go').disabled = false;
     smStages = p.stages;
   }
