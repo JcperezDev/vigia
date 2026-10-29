@@ -86,12 +86,14 @@ public static class Bios
         try
         {
             using var s = new ManagementObjectSearcher(new ManagementScope(@"root\CIMV2\Security\MicrosoftTpm"), new ObjectQuery("SELECT IsEnabled_InitialValue, IsActivated_InitialValue, SpecVersion FROM Win32_Tpm"));
-            on = false;
+            // «apagado» solo si la consulta terminó: sin permisos falla a mitad y eso es «no se pudo leer»
+            bool got = false;
             foreach (var o in s.Get())
             {
-                on = (o["IsEnabled_InitialValue"] as bool? ?? false) && (o["IsActivated_InitialValue"] as bool? ?? false);
+                got = (o["IsEnabled_InitialValue"] as bool? ?? false) && (o["IsActivated_InitialValue"] as bool? ?? false);
                 spec = ((o["SpecVersion"] as string) ?? "").Split(',')[0].Trim();
             }
+            on = got;
         }
         catch { }
         var name = amd ? "fTPM" : "PTT";

@@ -251,6 +251,8 @@ const T = {
   "Ya no están desde el último análisis: {0}.": ["Gone since the last analysis: {0}.", "Não estão mais desde a última análise: {0}.", "Disparues depuis la dernière analyse : {0}.", "Seit der letzten Analyse verschwunden: {0}."],
   "Microsoft Visual C++ 2015-2022 Redistributable (x64)": ["Microsoft Visual C++ 2015-2022 Redistributable (x64)", "Microsoft Visual C++ 2015-2022 Redistributable (x64)", "Microsoft Visual C++ 2015-2022 Redistributable (x64)", "Microsoft Visual C++ 2015-2022 Redistributable (x64)"],
   "Programas clásicos:": ["Classic programs:", "Programas clássicos:", "Programmes classiques :", "Klassische Programme:"],
+  "Las opciones de arranque solo se leen con permisos de administrador; esta vez no se pudieron revisar.": ["Boot options can only be read with administrator rights; this time they could not be checked.", "As opções de inicialização só podem ser lidas com permissões de administrador; desta vez não foi possível verificá-las.", "Les options de démarrage ne se lisent qu’avec des droits d’administrateur ; cette fois, elles n’ont pas pu être vérifiées.", "Die Startoptionen lassen sich nur mit Administratorrechten lesen; diesmal konnten sie nicht geprüft werden."],
+  "Solo se puede leer con permisos de administrador; esta vez no se pudo revisar.": ["It can only be read with administrator rights; this time it could not be checked.", "Só pode ser lido com permissões de administrador; desta vez não foi possível verificar.", "Ne peut être lu qu’avec des droits d’administrateur ; cette fois, la vérification n’a pas été possible.", "Lässt sich nur mit Administratorrechten lesen; diesmal konnte es nicht geprüft werden."],
 };
 const langs = ['en', 'pt', 'fr', 'de'];
 for (const [i, lang] of langs.entries()) {

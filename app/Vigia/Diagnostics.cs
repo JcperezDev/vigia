@@ -267,9 +267,13 @@ public static partial class Diagnostics
     static DiagItem Clock()
     {
         var bad = new List<string>();
+        bool read = false;
         try
         {
-            var bcd = Tweaks.Run("bcdedit.exe", "/enum {current}").output;
+            var (bex, bcd) = Tweaks.Run("bcdedit.exe", "/enum {current}");
+            // sin permisos bcdedit falla («acceso denegado»): eso no es «todo por defecto»
+            read = bex == 0 && bcd.Contains("{current}", StringComparison.OrdinalIgnoreCase);
+            if (!read) bcd = "";
             foreach (var (key, why) in new[] {
                 ("useplatformclock", "useplatformclock: obliga a usar el reloj HPET, más lento. Suele bajar FPS."),
                 ("useplatformtick", "useplatformtick: tick fijo de la placa en vez del de la CPU."),
@@ -282,6 +286,8 @@ public static partial class Diagnostics
         var res = "";
         try { if (NtQueryTimerResolution(out _, out var max, out var cur) == 0) { var es = System.Globalization.CultureInfo.GetCultureInfo("es-ES"); res = $" Resolución actual del temporizador: {(cur / 10000.0).ToString("0.0##", es)} ms (mejor posible {(max / 10000.0).ToString("0.0##", es)} ms)."; } }
         catch { }
+        if (!read)
+            return new DiagItem("info", "Reloj del sistema", "Las opciones de arranque solo se leen con permisos de administrador; esta vez no se pudieron revisar." + res, Array.Empty<string>());
         return bad.Count == 0
             ? new DiagItem("ok", "Reloj del sistema", "El arranque usa el reloj por defecto de Windows." + res, Array.Empty<string>())
             : new DiagItem("warn", "Reloj del sistema",

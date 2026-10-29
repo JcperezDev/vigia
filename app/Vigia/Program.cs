@@ -1112,7 +1112,13 @@ sealed partial class MainForm : Form
                     break;
                 case "isoPick":
                     using (var ofd = new OpenFileDialog { Filter = "Imagen de Windows (*.iso)|*.iso", Title = "Elige la ISO oficial de Windows" })
-                        if (ofd.ShowDialog(this) == DialogResult.OK) { Send("isoSource", new { path = ofd.FileName, busy = true }); Send("isoSource", await Task.Run(() => IsoBuild.Inspect(ofd.FileName))); }
+                        if (ofd.ShowDialog(this) == DialogResult.OK)
+                        {
+                            Send("isoSource", new { path = ofd.FileName, busy = true });
+                            // montar la ISO pide administrador: el diálogo es de la ventana, el montaje lo hace el ayudante
+                            if (Elevation.IsAdmin) Send("isoSource", await Task.Run(() => IsoBuild.Inspect(ofd.FileName)));
+                            else await ViaBrokerAsync("isoInspect", new JsonObject { ["path"] = ofd.FileName });
+                        }
                     break;
                 case "isoSaveAs":
                     var isrc = (string?)msg["source"] ?? "";

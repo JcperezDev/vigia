@@ -25,6 +25,8 @@ public static class AdminOps
         "simpleRun", "procClose", "backupRestore", "sugFix", "biosReboot",
         "isoBuild", "isoCancel", "usbList", "usbWrite", "fpsStart", "fpsCancel",
         "pawnInstall", "restorePoint", "telemetry", "ping",
+        // lecturas que sin permisos salen incompletas (arranque, TPM, SMART) o no se pueden hacer (montar la ISO)
+        "healthScan", "diagRun", "secGet", "isoInspect",
     };
 
     /// <summary>
@@ -34,6 +36,7 @@ public static class AdminOps
     public static readonly IReadOnlySet<string> Soft = new HashSet<string>(StringComparer.Ordinal)
     {
         "appsScan", "appsPreview", "telemetry", "optCancel", "appsCancel", "isoCancel", "fpsCancel", "memAuto", "undoRetired",
+        "healthScan", "diagRun", "secGet",
     };
 
     static readonly Regex IdRx = new(@"^[a-z0-9][a-z0-9\-]{0,63}$", RegexOptions.CultureInvariant);
@@ -89,6 +92,24 @@ public static class AdminOps
                 Telemetry t;
                 lock (TelGate) t = _tel ??= new Telemetry();
                 emit("telemetry", await Task.Run(t.Read));
+                break;
+            case "healthScan":
+                Telemetry ht;
+                lock (TelGate) ht = _tel ??= new Telemetry();
+                emit("healthScan", await Task.Run(() => Health.Scan(ht)));
+                break;
+            case "diagRun":
+                emit("diagRun", await Task.Run(() => Diagnostics.Run(7)));
+                break;
+            case "secGet":
+                emit("sec", await Task.Run(Security.Status));
+                emit("secPos", await Task.Run(Security.Posture));
+                break;
+            case "isoInspect":
+                // solo se monta (de solo lectura) un .iso local que el usuario eligió en el diálogo; nunca se ejecuta nada de dentro
+                var ipath = S(msg, "path", 1024);
+                if (PathGuard.IsoProblem(ipath, mustExist: true) is { } ie0) throw new InvalidOperationException(ie0);
+                emit("isoSource", await Task.Run(() => IsoBuild.Inspect(ipath)));
                 break;
             case "cleanRun":
                 var cids = L(msg, "ids", 60, CleanRx);
@@ -275,6 +296,7 @@ public static class AdminOps
         "procClose" => ("procDone", new Procs.Done(false, message)),
         "sugFix" => ("sugDone", new Rig.HzDone(false, message, false)),
         "biosReboot" => ("biosDone", new { ok = false, message }),
+        "isoInspect" => ("isoSource", new IsoBuild.Source((string?)msg["path"] ?? "", 0, [], message)),
         "isoBuild" => ("isoDone", new IsoBuild.Done(false, message, null, 0, 0)),
         "usbWrite" => ("usbDone", new IsoBuild.UsbDone(false, message, null, 0)),
         "usbList" => ("usbList", Array.Empty<object>()),
@@ -306,6 +328,9 @@ public static class AdminOps
         Check(Err("isoBuild", "{\"options\":{\"source\":\"C:\\\\no\\\\existe.iso\",\"output\":\"C:\\\\Windows\\\\x.iso\",\"index\":1,\"apps\":[],\"noAds\":false,\"localAccount\":false,\"skipChecks\":false}}") == nameof(InvalidOperationException),
             "ISO: no se escribe dentro de Windows ni se lee algo que no existe");
         Check(Err("ping", "{}") is null, "ping responde");
+        Check(Err("isoInspect", "{\"path\":\"C:\\\\Windows\\\\System32\\\\config\\\\SAM\"}") == nameof(InvalidOperationException)
+            && Err("isoInspect", "{\"path\":\"\\\\\\\\servidor\\\\x.iso\"}") == nameof(InvalidOperationException), "ISO: solo se monta un .iso local elegido por el usuario");
+        Check(Failed("isoInspect", JsonNode.Parse("{\"path\":\"C:\\\\a.iso\"}")!.AsObject(), "x") is { Type: "isoSource" }, "ISO: si no se pudo abrir, la pantalla deja de esperar");
         Check(Failed("tweaksApply", new JsonObject(), "x") is { Type: "tweaksDone" } && Failed("appsRun", new JsonObject(), "x") is { Type: "appsDone" }, "si no se pudo, la pantalla recibe su «terminado»");
         return string.Join(Environment.NewLine, log);
     }

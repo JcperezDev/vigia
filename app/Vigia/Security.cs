@@ -400,11 +400,16 @@ public static class Security
                                                               : "No disponible: Windows arranca en modo antiguo (Legacy/CSM).", false, null));
 
         // TPM
-        var tpm = Wmi(@"root\cimv2\Security\MicrosoftTpm", "SELECT IsEnabled_InitialValue, IsActivated_InitialValue, SpecVersion FROM Win32_Tpm").FirstOrDefault();
+        // sin permisos Win32_Tpm da «acceso denegado»: eso no es «no hay TPM»
+        bool tpmRead = true;
+        System.Management.ManagementBaseObject? tpm = null;
+        try { using var ts = new System.Management.ManagementObjectSearcher(@"root\cimv2\Security\MicrosoftTpm", "SELECT IsEnabled_InitialValue, IsActivated_InitialValue, SpecVersion FROM Win32_Tpm"); foreach (var o in ts.Get()) { tpm = o; break; } }
+        catch { tpmRead = false; }
         bool tpmOn = tpm?["IsEnabled_InitialValue"] is true && tpm?["IsActivated_InitialValue"] is true;
         var spec = (tpm?["SpecVersion"] as string ?? "").Split(',')[0].Trim();
         r.Add(tpmOn && spec.StartsWith("2.") ? new("tpm", "ok", "TPM", "TPM 2.0 activo.", false, "device")
             : tpmOn ? new("tpm", "info", "TPM", "Hay TPM, pero no es 2.0: Windows 11 pide 2.0.", false, "device")
+            : !tpmRead ? new("tpm", "info", "TPM", "Solo se puede leer con permisos de administrador; esta vez no se pudo revisar.", false, "device")
             : new("tpm", "info", "TPM", "No se encontró o está apagado en la BIOS (fTPM en AMD, PTT en Intel). Windows 11 y algunos antitrampas lo piden.", false, "device"));
 
         // BitLocker en la unidad de Windows
