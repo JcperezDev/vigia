@@ -120,7 +120,7 @@ scanHtml(fs.readFileSync(path.join(root, 'wwwroot', 'index.html'), 'utf8'), 'ind
 scanJs(fs.readFileSync(path.join(root, 'wwwroot', 'app.js'), 'utf8'), 'app.js');
 for (const f of fs.readdirSync(root).filter((f) => f.endsWith('.cs'))) scanCs(fs.readFileSync(path.join(root, f), 'utf8'), f);
 for (const t of JSON.parse(fs.readFileSync(path.join(root, 'tweaks.json'), 'utf8')))
-  for (const k of ['title', 'detail', 'group', 'source']) if (t[k]) add(t[k], 'tweaks.json');
+  for (const k of ['title', 'detail', 'ask', 'group', 'source']) if (t[k]) add(t[k], 'tweaks.json');
 // catálogo de apps: nombre y descripción se ven en la vista Apps (los nombres de paquete no se traducen)
 for (const t of JSON.parse(fs.readFileSync(path.join(root, 'apps.json'), 'utf8')).apps || [])
   for (const k of ['name', 'detail']) if (t[k]) add(t[k], 'apps.json');

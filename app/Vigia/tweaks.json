@@ -1084,5 +1084,141 @@
       }
     ],
     "status": "optional"
+  },
+  {
+    "id": "privacy-tailored-experiences-off",
+    "group": "Privacidad",
+    "risk": "bajo",
+    "reboot": false,
+    "title": "Sin recomendaciones según tus datos de diagnóstico",
+    "detail": "Microsoft deja de usar los datos de diagnóstico de tu cuenta de Windows para darte consejos, ofertas y recomendaciones. No cambia cuántos datos se envían.",
+    "ask": "Los consejos y sugerencias de Windows dejan de ser personalizados. Es una directiva: en un PC de empresa manda la organización.",
+    "source": "https://learn.microsoft.com/en-us/windows/privacy/manage-connections-from-windows-operating-system-components-to-microsoft-services",
+    "editions": "pro",
+    "policy": true,
+    "ops": [
+      {
+        "reg": "HKCU\\Software\\Policies\\Microsoft\\Windows\\CloudContent",
+        "name": "DisableTailoredExperiencesWithDiagnosticData",
+        "type": "dword",
+        "value": 1
+      }
+    ],
+    "status": "optional"
+  },
+  {
+    "id": "privacy-online-speech-off",
+    "group": "Privacidad",
+    "risk": "bajo",
+    "reboot": false,
+    "title": "Sin reconocimiento de voz en línea",
+    "detail": "Nadie en este PC puede activar el reconocimiento de voz en línea de Microsoft. Afecta a todos los usuarios del equipo.",
+    "ask": "El dictado y las funciones que usan el reconocimiento de voz en línea dejan de funcionar o se vuelven más limitadas.",
+    "source": "https://learn.microsoft.com/en-us/windows/client-management/mdm/policy-csp-privacy",
+    "editions": "pro",
+    "policy": true,
+    "ops": [
+      {
+        "reg": "HKLM\\SOFTWARE\\Policies\\Microsoft\\InputPersonalization",
+        "name": "AllowInputPersonalization",
+        "type": "dword",
+        "value": 0
+      }
+    ],
+    "status": "optional"
+  },
+  {
+    "id": "privacy-clipboard-history-off",
+    "group": "Privacidad",
+    "risk": "bajo",
+    "reboot": false,
+    "title": "Sin historial del portapapeles",
+    "detail": "Windows no guarda en memoria lo que copiaste antes. Afecta a todos los usuarios del equipo.",
+    "ask": "Win+V deja de mostrar lo que copiaste antes; solo queda lo último que copiaste.",
+    "source": "https://learn.microsoft.com/en-us/windows/client-management/mdm/policy-csp-experience",
+    "minBuild": 17763,
+    "editions": "pro",
+    "policy": true,
+    "ops": [
+      {
+        "reg": "HKLM\\Software\\Policies\\Microsoft\\Windows\\System",
+        "name": "AllowClipboardHistory",
+        "type": "dword",
+        "value": 0
+      }
+    ],
+    "status": "optional"
+  },
+  {
+    "id": "privacy-clipboard-sync-off",
+    "group": "Privacidad",
+    "risk": "bajo",
+    "reboot": false,
+    "title": "El portapapeles no se comparte entre dispositivos",
+    "detail": "Lo que copias no se sube a la nube para pegarlo en tus otros PCs con la misma cuenta. Afecta a todos los usuarios del equipo.",
+    "ask": "Ya no podrás copiar en este PC y pegar en otro dispositivo con tu cuenta (ni al revés).",
+    "source": "https://learn.microsoft.com/en-us/windows/client-management/mdm/policy-csp-privacy",
+    "minBuild": 17763,
+    "editions": "pro",
+    "policy": true,
+    "ops": [
+      {
+        "reg": "HKLM\\Software\\Policies\\Microsoft\\Windows\\System",
+        "name": "AllowCrossDeviceClipboard",
+        "type": "dword",
+        "value": 0
+      }
+    ],
+    "status": "optional"
+  },
+  {
+    "id": "privacy-cloud-search-off",
+    "group": "Privacidad",
+    "risk": "bajo",
+    "reboot": false,
+    "title": "La búsqueda de Windows no mira en la nube",
+    "detail": "La búsqueda de Windows deja de buscar en tu contenido de la nube, como OneDrive o SharePoint. No es lo mismo que «Inicio busca solo en tu PC» (que quita las sugerencias de Bing).",
+    "ask": "Los archivos de OneDrive, SharePoint y de tu cuenta de trabajo o Microsoft dejan de salir en la búsqueda de Windows.",
+    "source": "https://learn.microsoft.com/en-us/windows/client-management/mdm/policy-csp-search",
+    "minBuild": 16299,
+    "editions": "pro",
+    "policy": true,
+    "ops": [
+      {
+        "reg": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\Windows Search",
+        "name": "AllowCloudSearch",
+        "type": "dword",
+        "value": 0
+      }
+    ],
+    "status": "optional"
+  },
+  {
+    "id": "privacy-settings-sync-off",
+    "group": "Privacidad",
+    "risk": "bajo",
+    "reboot": false,
+    "title": "No sincronizar las preferencias de Windows",
+    "detail": "Este PC deja de subir y bajar tus preferencias de Windows con tu cuenta, y el interruptor de sincronizar queda apagado para todos los usuarios.",
+    "ask": "Tus preferencias de Windows (tema, idioma, contraseñas guardadas por Windows y similares) dejan de pasar a tus otros PCs y de llegar de ellos. Tus archivos de OneDrive no cambian.",
+    "source": "https://learn.microsoft.com/en-us/windows/privacy/manage-connections-from-windows-operating-system-components-to-microsoft-services",
+    "minBuild": 22000,
+    "editions": "pro",
+    "policy": true,
+    "ops": [
+      {
+        "reg": "HKLM\\Software\\Policies\\Microsoft\\Windows\\SettingSync",
+        "name": "DisableSettingSync",
+        "type": "dword",
+        "value": 2
+      },
+      {
+        "reg": "HKLM\\Software\\Policies\\Microsoft\\Windows\\SettingSync",
+        "name": "DisableSettingSyncUserOverride",
+        "type": "dword",
+        "value": 1
+      }
+    ],
+    "status": "optional"
   }
 ]

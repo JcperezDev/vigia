@@ -9,7 +9,7 @@ using Microsoft.Win32;
 namespace Vigia;
 
 public record TweakView(string Id, string Group, string Title, string Detail, string Risk, string Source, bool Reboot,
-    bool Tested, string State, bool HasBackup, string? Blocked, string Status = "optional", string? Note = null);
+    bool Tested, string State, bool HasBackup, string? Blocked, string Status = "optional", string? Note = null, string? Ask = null);
 public record TweakResult(string Id, bool Ok, string State, string? Error);
 public record TweakBatch(bool Ok, string? RestorePoint, TweakResult[] Results, bool NeedsReboot);
 
@@ -27,7 +27,11 @@ public static class Tweaks
     public static bool Lab => Environment.GetEnvironmentVariable("VIGIA_LAB") == "1" || File.Exists(Path.Combine(Settings.Dir, "lab.flag"));
 
     // ---------- catálogo ----------
-    sealed record Def(string Id, string Group, string Title, string Detail, string Risk, string Source, bool Reboot, bool Tested, JsonArray Ops, bool Retired = false, string Status = "optional", string? Needs = null);
+    sealed record Def(string Id, string Group, string Title, string Detail, string Risk, string Source, bool Reboot, bool Tested, JsonArray Ops, bool Retired = false, string Status = "optional", string? Needs = null,
+        string? Ask = null, int MinBuild = 0, string? Editions = null, bool Policy = false);
+    // ask: lo que cambia para la persona; se enseña antes de aplicar y deja el ajuste fuera de «Aplicar todo» y del modo simple.
+    // minBuild / editions ("pro" = Pro, Enterprise y Education, como en la tabla de Microsoft) / policy (es una directiva:
+    // si la pone la organización u otro programa, no se pisa). Los tres los comprueba el motor, no solo la interfaz.
     /// <summary>Estados de la revisión del catálogo. «experimental» solo se aplica a mano desde Ajustes; nunca en el modo simple.</summary>
     internal static readonly string[] Statuses = ["recommended", "optional", "experimental", "deprecated", "unsupported"];
 
@@ -59,7 +63,8 @@ public static class Tweaks
 
     static Def ToDef(JsonObject o) => new((string)o["id"]!, (string)o["group"]!, (string)o["title"]!, (string)o["detail"]!,
         (string?)o["risk"] ?? "bajo", (string?)o["source"] ?? "", (bool?)o["reboot"] ?? false, (bool?)o["tested"] ?? false, o["ops"]!.AsArray(),
-        (bool?)o["retired"] ?? false, (string?)o["status"] ?? "optional", (string?)o["needs"]);
+        (bool?)o["retired"] ?? false, (string?)o["status"] ?? "optional", (string?)o["needs"],
+        (string?)o["ask"], (int?)o["minBuild"] ?? 0, (string?)o["editions"], (bool?)o["policy"] ?? false);
 
     /// <summary>
     /// Deshace los ajustes retirados que Vigía aplicó antes (solo esos: los que tienen copia del valor original).
@@ -88,7 +93,7 @@ public static class Tweaks
         {
             var bk = LoadBackup();
             return Catalog().Select(d => new TweakView(d.Id, d.Group, d.Title, d.Detail, d.Risk, d.Source, d.Reboot, d.Tested,
-                StateOf(d), bk.ContainsKey(d.Id), BlockedReason(d), d.Status, NoteOf(d))).ToList();
+                StateOf(d), bk.ContainsKey(d.Id), BlockedReason(d, bk), d.Status, NoteOf(d), d.Ask)).ToList();
         }
     }
 
@@ -183,11 +188,43 @@ public static class Tweaks
         };
     }
 
-    static string? BlockedReason(Def d)
+    static string? BlockedReason(Def d, JsonObject? bk = null)
     {
         // Riesgo bajo: un valor de registro, servicio o tarea con copia exacta del original. Lo demás, primero en la VM.
         if (d.Risk != "bajo" && !d.Tested && !Lab) return "Primero hay que probarlo en la máquina virtual.";
+        if (d.MinBuild == 0 && d.Editions is null && !d.Policy) return null;
+        var (build, home, managed) = Sys();
+        if (d.MinBuild > 0 && build > 0 && build < d.MinBuild) return $"Hace falta Windows build {d.MinBuild} o más nueva; este PC tiene la {build}.";
+        if (d.Editions == "pro" && home) return "Microsoft solo la documenta para Pro, Enterprise y Education: en Windows Home no se ofrece.";
+        if (d.Policy)
+        {
+            if (managed) return "Este PC lo administra una organización: sus directivas mandan y Vigía no las cambia.";
+            // ya hay una directiva con otro valor y no la puso Vigía: la puso la organización u otro programa, no se pisa
+            if (!(bk ?? LoadBackup()).ContainsKey(d.Id) && d.Ops.Select(x => x!.AsObject())
+                    .Any(op => op["reg"] is not null && op["kv"] is null && (bool?)op["delete"] != true && RegRead((string)op["reg"]!, (string)op["name"]!).value is not null && Matches(op) == false))
+                return "Ya hay una directiva con otro valor (de tu organización u otro programa): Vigía no la cambia.";
+        }
         return null;
+    }
+
+    /// <summary>Build, si es Home y si está unido a un dominio. Se lee una vez; las pruebas lo sustituyen.</summary>
+    internal static Func<(int Build, bool Home, bool Managed)>? SysOverride;
+    static (int Build, bool Home, bool Managed)? _sys;
+    static (int Build, bool Home, bool Managed) Sys()
+    {
+        if (SysOverride is not null) return SysOverride();
+        if (_sys is { } s) return s;
+        int build = 0; bool home = false;
+        try
+        {
+            using var k = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows NT\CurrentVersion");
+            int.TryParse(k?.GetValue("CurrentBuildNumber") as string, out build);
+            home = (k?.GetValue("EditionID") as string ?? "").StartsWith("Core", StringComparison.OrdinalIgnoreCase);   // Core, CoreN, CoreSingleLanguage…
+        }
+        catch { }
+        bool managed = false;
+        try { managed = Policies.Managed(); } catch { }
+        return (_sys = (build, home, managed)).Value;
     }
 
     /// <summary>Ajustes que Vigía aplicó (tienen copia del original) y que ya no están puestos: los deshizo Windows u otro programa.</summary>
@@ -806,6 +843,14 @@ public static class Tweaks
         Check(Simple.Build(new Simple.Answers()).Stages.First(s => s.Id == "apps").Apps.Count == 0 && Simple.Build(new Simple.Answers(Xbox: false, RemoveApps: [])).Stages.First(s => s.Id == "apps").Apps.Count == 0
             && Simple.Build(new Simple.Answers(RemoveApps: ["Microsoft.GamingApp", "Microsoft.XboxGamingOverlay"])).Stages.First(s => s.Id == "apps").Apps.Count == 0,
             "modo simple: sin lista no quita apps, y nunca las de Xbox");
+        // privacidad nueva: solo las que Microsoft documenta con clave y valor; nunca solas (modo simple / «Aplicar todo»)
+        string[] priv = ["privacy-tailored-experiences-off", "privacy-online-speech-off", "privacy-clipboard-history-off", "privacy-clipboard-sync-off", "privacy-cloud-search-off", "privacy-settings-sync-off"];
+        var pdefs = all.Where(d => priv.Contains(d.Id)).ToList();
+        Check(pdefs.Count == priv.Length && pdefs.All(d => d.Ask is { Length: > 0 } && d.Policy && d.Editions == "pro" && d.Risk == "bajo" && d.Status == "optional"
+                && d.Source.StartsWith("https://learn.microsoft.com/") && d.Ops.All(o => ((string?)o!["reg"] ?? "").Contains(@"\Policies\Microsoft\", StringComparison.OrdinalIgnoreCase))),
+            $"privacidad nueva: {pdefs.Count} directivas con aviso, fuente de Microsoft y solo claves de directiva");
+        Check(!all.Any(d => d.Id.StartsWith("privacy-handwriting")), "escritura a mano: fuera hasta que Microsoft documente clave y valor");
+        Check(!plan.Any(id => all.FirstOrDefault(d => d.Id == id)?.Ask is not null), "modo simple no propone nada que pida confirmar sus consecuencias");
         string OpsOf(string id) => all.FirstOrDefault(d => d.Id == id)?.Ops.ToJsonString() ?? "";
         Check(!OpsOf("activity-off").Contains("location") && !OpsOf("activity-off").Contains("lfsvc") && OpsOf("location-off").Contains("lfsvc"), "historial de actividad no apaga la ubicación (va aparte)");
         Check(!OpsOf("update-control").Contains("ExcludeWUDrivers") && OpsOf("wu-drivers-off").Contains("ExcludeWUDrivers"), "reinicios y drivers de Windows Update por separado");
@@ -869,6 +914,45 @@ public static class Tweaks
             Check(RegRead(K, "existente").value is 7 && RegRead(K, "nuevo").value is null, "fallo a mitad: lo ya cambiado vuelve (7 y sin «nuevo»)");
             Check(!LoadBackup().ContainsKey("stx") && List()[0].State == "off", "fallo a mitad: no queda como aplicado ni con copia colgando");
 
+            // directivas de privacidad: build mínima, Home, PC de empresa y directiva que ya puso otro (todo en HKCU\Software\Vigia\SelfTest)
+            {
+                var KP = K.Replace("\\", "\\\\");
+                CatalogOverride = () => [JsonNode.Parse($$"""
+                    {"id":"stpol","group":"t","title":"t","detail":"t","ask":"t","minBuild":17763,"editions":"pro","policy":true,"ops":[
+                      {"reg":"{{KP}}\\Pol","name":"Allow","type":"dword","value":0},
+                      {"reg":"{{KP}}\\Pol","name":"Override","type":"dword","value":1}]}
+                    """)!.AsObject()];
+                var sys = (Build: 26100, Home: false, Managed: false);
+                SysOverride = () => sys;
+                RegDelete(K + @"\Pol", "Allow"); RegDelete(K + @"\Pol", "Override");
+                var v0 = List()[0];
+                Check(v0.State == "off" && v0.Blocked is null && v0.Ask == "t", $"directiva: sin la clave = sin aplicar, se puede elegir y trae su aviso ({v0.State}, {v0.Blocked})");
+                var pa = Apply(["stpol"]);
+                Check(pa.Ok && pa.Results[0].State == "applied" && RegRead(K + @"\Pol", "Allow").value is 0 && RegRead(K + @"\Pol", "Override").value is 1,
+                    $"directiva: aplicar y comprobar los dos valores ({pa.Results[0].State} {pa.Results[0].Error})");
+                var pr = Revert(["stpol"]);
+                Check(pr.Ok && RegRead(K + @"\Pol", "Allow").value is null && RegRead(K + @"\Pol", "Override").value is null,
+                    "directiva: restaurar borra los valores que no existían (la clave vuelve a no tener nada)");
+                sys = (Build: 17134, Home: false, Managed: false);
+                var ob = Apply(["stpol"]);
+                Check(!ob.Ok && ob.Results[0].Error!.Contains("17763") && RegRead(K + @"\Pol", "Allow").value is null, "directiva: Windows más viejo que el documentado = no se aplica");
+                sys = (Build: 26100, Home: true, Managed: false);
+                var oh = Apply(["stpol"]);
+                Check(!oh.Ok && List()[0].Blocked is not null && RegRead(K + @"\Pol", "Allow").value is null, "directiva: en Windows Home no se aplica (Microsoft no la documenta ahí)");
+                sys = (Build: 26100, Home: false, Managed: true);
+                var om = Apply(["stpol"]);
+                Check(!om.Ok && RegRead(K + @"\Pol", "Allow").value is null, "directiva: PC de una organización = no se toca");
+                sys = (Build: 26100, Home: false, Managed: false);
+                RegWrite(K + @"\Pol", "Allow", "dword", 1L);   // la puso «la organización»
+                var oo = Apply(["stpol"]);
+                Check(!oo.Ok && RegRead(K + @"\Pol", "Allow").value is 1 && RegRead(K + @"\Pol", "Override").value is null,
+                    "directiva ajena con otro valor: no se pisa ni se añade nada");
+                Check(Revert(["stpol"]).Results[0].Error is not null && RegRead(K + @"\Pol", "Allow").value is 1, "directiva ajena: restaurar sin copia no la borra");
+                RegWrite(K + @"\Pol", "Allow", "dword", 0L); RegWrite(K + @"\Pol", "Override", "dword", 1L);
+                Check(List()[0].State == "applied", "directiva ya puesta por otro con el mismo valor: sale como aplicada");
+                SysOverride = null;
+            }
+
             // ajuste del plan de energía: «apagar la pantalla tras…» (inofensivo), +60 s y de vuelta
             var vop = new JsonObject { ["power"] = "7516b95f-f776-4464-8c53-06167f40cc99/3c0bc021-c8a8-4e07-a973-6b14cbcb2b7e", ["ac"] = 0 };
             if (PowerAc(vop) is { } was)
@@ -885,7 +969,7 @@ public static class Tweaks
         catch (Exception e) { Check(false, $"excepción: {e}"); }
         finally
         {
-            CatalogOverride = null;
+            CatalogOverride = null; SysOverride = null;
             if (realBackup is null) File.Delete(BackupPath); else File.WriteAllText(BackupPath, realBackup);
             var (root, sub) = Split(K);
             using (root) root.DeleteSubKeyTree(sub, false);

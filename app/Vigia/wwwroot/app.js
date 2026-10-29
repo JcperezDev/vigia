@@ -554,6 +554,7 @@
         const body = el('label'); body.htmlFor = id;
         body.append(el('strong', null, t.title), el('p', null, t.detail));
         if (t.note) body.append(el('p', 'src tw-note', t.note));   // dato leído de este equipo (edición de Windows, GPUs, SMB1)
+        if (t.ask) body.append(el('p', 'src tw-ask', `Lo que cambia: ${t.ask}`));   // la consecuencia, a la vista antes de marcarlo
         const src = el('p', 'src');
         if (t.risk !== 'bajo') src.append(el('span', `risk-${t.risk}`, `riesgo ${t.risk}`));
         // estado de la revisión: lo experimental se aplica solo a mano y conviene medir antes y después
@@ -582,7 +583,8 @@
   // «Aplicar todo»: los recomendados y opcionales de riesgo bajo que faltan; nunca lo experimental.
   // Fuera la impresión (rompe imprimir), la hibernación (decide cada uno) y, en laptop, lo que gasta batería.
   let twLaptop = false;
-  const twEasy = (t) => t.risk === 'bajo' && (t.status === 'recommended' || t.status === 'optional');
+  // los que traen «ask» (privacidad con consecuencias) nunca entran solos: se eligen uno por uno y se confirman
+  const twEasy = (t) => t.risk === 'bajo' && !t.ask && (t.status === 'recommended' || t.status === 'optional');
   const twAll = () => tweaks.filter((t) => twEasy(t) && !t.blocked && t.state !== 'applied' && t.state !== 'na'
     && !['print-off', 'boot-info', 'hags', 'hibernate-off', 'wer-off', 'update-control'].includes(t.id));
   function twAllCard() {
@@ -603,7 +605,13 @@
     busyBtn($('tw-all'), true, 'Aplicando…'); $('tw-apply').disabled = $('tw-revert').disabled = true;
     send({ cmd: 'tweaksApply', ids });
   });
-  $('tw-apply').addEventListener('click', () => { busyBtn($('tw-apply'), true, 'Aplicando…'); $('tw-revert').disabled = true; send({ cmd: 'tweaksApply', ids: twSel() }); });
+  $('tw-apply').addEventListener('click', async () => {
+    // antes de aplicar, lo que cambia en cada ajuste con consecuencias (si dice que no, no se aplica nada)
+    const ids = new Set(twSel());
+    const warn = tweaks.filter((t) => ids.has(t.id) && t.ask && !t.blocked && t.state !== 'applied' && t.state !== 'na');
+    const tr = (s) => window.vigiaI18n.t(s);   // el diálogo junta varios textos: se traduce cada uno por separado
+    if (warn.length && !(await ask('Antes de aplicar', warn.map((t) => `${tr(t.title)}: ${tr(t.ask)}`).join('\n\n'), 'Aplicar'))) return;
+    busyBtn($('tw-apply'), true, 'Aplicando…'); $('tw-revert').disabled = true; send({ cmd: 'tweaksApply', ids: twSel() }); });
   $('tw-revert').addEventListener('click', () => { busyBtn($('tw-revert'), true, 'Deshaciendo…'); $('tw-apply').disabled = true; send({ cmd: 'tweaksRevert', ids: twSel() }); });
   function renderTweaksDone(b) {
     busyBtn($('tw-apply'), false, 'Aplicar'); busyBtn($('tw-revert'), false, 'Deshacer'); busyBtn($('tw-all'), false, 'Aplicar todo');
