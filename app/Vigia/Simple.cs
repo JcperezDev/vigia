@@ -41,9 +41,10 @@ public static class Simple
 
         var net = new List<string> { "p2p-updates-off" };
 
-        var keep = new HashSet<string>(a.KeepApps ?? [], StringComparer.OrdinalIgnoreCase);
-        var apps = Debloat.List().Where(x => x.Installed && x.Blocked is null)
-            .Where(x => XboxApps.Contains(x.Id) ? !a.Xbox : !keep.Contains(x.Id))
+        // Solo se quita lo que el usuario desmarcó en la lista. Sin lista (comandos internos, respuestas viejas) no se quita nada.
+        // Las de Xbox no salen en esa lista y nunca se quitan desde aquí: rompen Game Pass y Win+G; quedan en Apps, a mano.
+        var apps = a.KeepApps is null ? [] : Debloat.List().Where(x => x.Installed && x.Blocked is null && !XboxApps.Contains(x.Id))
+            .Where(x => !a.KeepApps.Contains(x.Id, StringComparer.OrdinalIgnoreCase))
             .Select(x => x.Id).ToList();
 
         // solo lo que existe en el catálogo, no está bloqueado y aún no está puesto

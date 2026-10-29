@@ -38,21 +38,22 @@ public static partial class Rig
         if (ReBar(board) is { Key: "rebar" } rb && !rb.Detail.StartsWith("Solo se puede comprobar")) list.Add(rb);   // solo con NVIDIA, que es donde se puede medir
 
         var tw = Tweaks.List().ToDictionary(t => t.Id);
-        void Tw(string id, string title, string on, string off, string label)
+        // soft: si está apagado no es un fallo, solo se informa (no hay evidencia de que mejore en todos los equipos)
+        void Tw(string id, string title, string on, string off, string label, bool soft = false)
         {
             on = on.Replace("{plan}", Tweaks.PlanName() ?? "Alto rendimiento"); off = off.Replace("{plan}", Tweaks.PlanName() ?? "Equilibrado");
             if (!tw.TryGetValue(id, out var t) || t.State == "na") return;
             var applied = t.State == "applied";
-            list.Add(new("tweak:" + id, applied ? "ok" : "warn", title, applied ? on : off,
+            list.Add(new("tweak:" + id, applied ? "ok" : soft ? "info" : "warn", title, applied ? on : off,
                 applied ? null : t.Reboot ? "Hace falta reiniciar para que se note." : null,
                 applied || t.Blocked is not null ? null : "tweak:" + id, applied ? null : label));
         }
         Tw("game-mode", "Modo juego", "Encendido.",
            "Apagado: Windows puede actualizar en plena partida.", "Encender modo juego");
         Tw("hags", "Programación de GPU por hardware (HAGS)", "Encendida.",
-           "Apagada: sin generación de fotogramas de DLSS.", "Encender HAGS");
+           "Apagada. Solo hace falta para la generación de fotogramas de DLSS; en lo demás depende del equipo: mide con Frametimes si la pruebas.", "Encender HAGS", soft: true);
         Tw("power-ultimate", "Plan de energía", "Usas «{plan}»: enchufado, el procesador va siempre a tope.",
-           "Usas «{plan}»: el procesador baja de velocidad para ahorrar luz y en juegos eso se nota como tirones.", "Aplicar plan de energía de Vigía");
+           "Usas «{plan}»: el procesador baja de velocidad cuando no hace nada. En la mayoría de PCs sube al instante; si notas tirones, prueba el plan de Vigía y mide.", "Aplicar plan de energía de Vigía", soft: true);
         return list;
     }
 

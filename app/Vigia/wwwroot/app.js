@@ -521,6 +521,7 @@
         const id = `tw-${t.id}`; cb.id = id;
         const body = el('label'); body.htmlFor = id;
         body.append(el('strong', null, t.title), el('p', null, t.detail));
+        if (t.note) body.append(el('p', 'src tw-note', t.note));   // dato leído de este equipo (edición de Windows, GPUs, SMB1)
         const src = el('p', 'src');
         if (t.risk !== 'bajo') src.append(el('span', `risk-${t.risk}`, `riesgo ${t.risk}`));
         // estado de la revisión: lo experimental se aplica solo a mano y conviene medir antes y después
@@ -1340,6 +1341,7 @@
     if (act === 'run' && view === 'storage') setTimeout(() => document.querySelector('.vol .btn')?.click(), 2500);
     if (act === 'run' && view === 'mem') setTimeout(() => $('m-free').click(), 2500);
     if (act === 'excl') setTimeout(() => { document.querySelector('.excluded').open = true; }, 500);
+    if (act === 'all' && view === 'tweaks') setTimeout(() => document.querySelectorAll('.view:not([hidden]) details').forEach((d) => { d.open = true; }), 2500);
     // 'simple-demo' / 'simple-done': solo para capturas; pinta el progreso sin mandar nada al backend
     if (view === 'simple' && (act === 'demo' || act === 'done')) setTimeout(() => {
       $('sm-ask').hidden = true; $('sm-run').hidden = false;
@@ -1351,9 +1353,9 @@
       else smDone({ failed: 0, applied: 18, appsRemoved: 3, cleanedMb: 1450, freedMb: 2200, needsReboot: true, problems: [] });
     }, 2500);
     // 'simple-choices': para capturas; pinta la lista de ajustes con datos de ejemplo
-    if (view === 'simple' && act === 'choices') setTimeout(() => smPlan({ changes: 3, names: ['Servicios de Xbox', 'Windows Update sin sorpresas', 'Apagar la hibernación'], stages: smStages, choices: [
-      { id: 'smb1-off', title: 'Apagar el compartir archivos antiguo (SMB1)', detail: 'Protocolo de los 90 que usó WannaCry. Solo lo necesitan NAS o impresoras muy viejas.' },
-      { id: 'update-control', title: 'Windows Update sin sorpresas', detail: 'No reinicia solo con la sesión abierta y no reemplaza tu driver de NVIDIA. Las actualizaciones de seguridad siguen llegando.' },
+    if (view === 'simple' && act === 'choices') setTimeout(() => smPlan({ changes: 3, names: ['Servicios de Xbox', 'Windows Update no reinicia con la sesión abierta', 'Apagar la hibernación'], stages: smStages, choices: [
+      { id: 'smb1-off', title: 'Apagar el servidor SMB1 (compartir archivos antiguo)', detail: 'Protocolo de los 90 que usó WannaCry. Este ajuste apaga el servidor SMB1; el cliente es parte del componente «Compatibilidad con SMB 1.0/CIFS» de Windows y Vigía te dice si sigue instalado. Solo lo necesitan NAS o impresoras muy viejas.' },
+      { id: 'update-control', title: 'Windows Update no reinicia con la sesión abierta', detail: 'Windows espera a que cierres sesión para reiniciar tras una actualización. Las actualizaciones (también las de drivers) siguen llegando igual.' },
       { id: 'hibernate-off', title: 'Apagar la hibernación', detail: 'Borra hiberfil.sys (ocupa casi lo mismo que tu RAM en C:). También desactiva el inicio rápido.' }] }) ?? $('sm-twlist').scrollIntoView({ block: 'center' }), 4000);
   };
 

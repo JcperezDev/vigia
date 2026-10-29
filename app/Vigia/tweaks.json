@@ -496,8 +496,8 @@
     "group": "Privacidad",
     "risk": "bajo",
     "reboot": false,
-    "title": "Sin historial de actividad ni ubicación",
-    "detail": "Windows deja de guardar qué abres y deja de dar tu ubicación a las apps.",
+    "title": "Sin historial de actividad",
+    "detail": "Windows deja de guardar y subir la lista de lo que abres (historial de actividad). No toca la ubicación.",
     "source": "https://learn.microsoft.com/en-us/windows/client-management/mdm/policy-csp-privacy",
     "ops": [
       {
@@ -517,7 +517,19 @@
         "name": "UploadUserActivities",
         "type": "dword",
         "value": 0
-      },
+      }
+    ],
+    "status": "optional"
+  },
+  {
+    "id": "location-off",
+    "group": "Privacidad",
+    "risk": "bajo",
+    "reboot": false,
+    "title": "Apagar la ubicación de Windows",
+    "detail": "Ninguna app ni Windows puede usar tu ubicación. Deja de funcionar «Encontrar mi dispositivo», la zona horaria automática y las apps que la usan (mapas, tiempo). Se vuelve a encender en Configuración > Privacidad > Ubicación o con «Deshacer».",
+    "source": "https://learn.microsoft.com/en-us/windows/client-management/mdm/policy-csp-privacy",
+    "ops": [
       {
         "reg": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager\\ConsentStore\\location",
         "name": "Value",
@@ -529,7 +541,7 @@
         "start": 4
       }
     ],
-    "status": "optional"
+    "status": "experimental"
   },
   {
     "id": "services-unused",
@@ -649,8 +661,8 @@
     "group": "Actualizaciones",
     "risk": "bajo",
     "reboot": false,
-    "title": "Windows Update sin sorpresas",
-    "detail": "No reinicia solo con la sesión abierta y no reemplaza tu driver de NVIDIA. Las actualizaciones de seguridad siguen llegando.",
+    "title": "Windows Update no reinicia con la sesión abierta",
+    "detail": "Windows espera a que cierres sesión para reiniciar tras una actualización. Las actualizaciones (también las de drivers) siguen llegando igual.",
     "source": "https://learn.microsoft.com/en-us/windows/deployment/update/waas-wu-settings",
     "ops": [
       {
@@ -658,7 +670,19 @@
         "name": "NoAutoRebootWithLoggedOnUsers",
         "type": "dword",
         "value": 1
-      },
+      }
+    ],
+    "status": "optional"
+  },
+  {
+    "id": "wu-drivers-off",
+    "group": "Actualizaciones",
+    "risk": "bajo",
+    "reboot": false,
+    "title": "Windows Update sin drivers",
+    "detail": "Windows Update deja de instalar CUALQUIER driver (gráfica, sonido, red, chipset, Bluetooth…), no solo el de la gráfica. Los tendrás que actualizar tú desde la web del fabricante. Útil solo si Windows te cambia un driver que funcionaba; por defecto, mejor no.",
+    "source": "https://learn.microsoft.com/en-us/windows/deployment/update/waas-wu-settings",
+    "ops": [
       {
         "reg": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsUpdate",
         "name": "ExcludeWUDriversInQualityUpdate",
@@ -666,7 +690,7 @@
         "value": 1
       }
     ],
-    "status": "optional"
+    "status": "experimental"
   },
   {
     "id": "gpu-high",
@@ -674,7 +698,7 @@
     "risk": "bajo",
     "reboot": false,
     "title": "Juegos en la tarjeta gráfica potente",
-    "detail": "Pide a Windows la GPU de alto rendimiento para todos los programas. Solo cambia algo en equipos con dos GPU (portátiles con gráfica integrada y dedicada); en un PC con una sola GPU no hace nada. Mejor elegir la GPU por juego en Configuración de Windows > Gráficos.",
+    "detail": "Pide a Windows la tarjeta gráfica de alto rendimiento para todos los programas. Solo sirve en equipos con dos tarjetas (gráfica integrada y dedicada, típico en portátiles); con una sola no aplica. Lo que elijas por juego en Configuración > Sistema > Pantalla > Gráficos manda sobre esto.",
     "source": "",
     "ops": [
       {
@@ -684,7 +708,8 @@
         "value": "2"
       }
     ],
-    "status": "experimental"
+    "status": "experimental",
+    "needs": "multi-gpu"
   },
   {
     "id": "windowed-opt",
@@ -710,7 +735,7 @@
     "risk": "bajo",
     "reboot": true,
     "title": "Programación de GPU acelerada por hardware",
-    "detail": "La tarjeta gráfica ordena su propia memoria y Windows trabaja menos por fotograma. Necesario para generación de fotogramas de DLSS.",
+    "detail": "La tarjeta gráfica organiza su propia memoria de vídeo en vez de Windows. Hace falta para la generación de fotogramas de DLSS; fuera de eso, el efecto depende de la tarjeta y del driver: a veces no cambia nada y con algunos drivers da tirones. Mide con Frametimes antes y después. Si la tarjeta o el driver no lo soportan, Windows lo ignora.",
     "source": "https://devblogs.microsoft.com/directx/hardware-accelerated-gpu-scheduling/",
     "ops": [
       {
@@ -829,8 +854,8 @@
     "group": "Windows",
     "risk": "bajo",
     "reboot": true,
-    "title": "Apagar el compartir archivos antiguo (SMB1)",
-    "detail": "Protocolo de los 90 que usó WannaCry. Solo lo necesitan NAS o impresoras muy viejas.",
+    "title": "Apagar el servidor SMB1 (compartir archivos antiguo)",
+    "detail": "Protocolo de los 90 que usó WannaCry. Este ajuste apaga el servidor SMB1; el cliente es parte del componente «Compatibilidad con SMB 1.0/CIFS» de Windows y Vigía te dice si sigue instalado. Solo lo necesitan NAS o impresoras muy viejas.",
     "source": "https://learn.microsoft.com/en-us/windows-server/storage/file-server/troubleshoot/detect-enable-and-disable-smbv1-v2-v3",
     "ops": [
       {

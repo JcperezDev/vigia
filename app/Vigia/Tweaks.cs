@@ -9,7 +9,7 @@ using Microsoft.Win32;
 namespace Vigia;
 
 public record TweakView(string Id, string Group, string Title, string Detail, string Risk, string Source, bool Reboot,
-    bool Tested, string State, bool HasBackup, string? Blocked, string Status = "optional");
+    bool Tested, string State, bool HasBackup, string? Blocked, string Status = "optional", string? Note = null);
 public record TweakResult(string Id, bool Ok, string State, string? Error);
 public record TweakBatch(bool Ok, string? RestorePoint, TweakResult[] Results, bool NeedsReboot);
 
@@ -27,7 +27,7 @@ public static class Tweaks
     public static bool Lab => Environment.GetEnvironmentVariable("VIGIA_LAB") == "1" || File.Exists(Path.Combine(Settings.Dir, "lab.flag"));
 
     // ---------- catálogo ----------
-    sealed record Def(string Id, string Group, string Title, string Detail, string Risk, string Source, bool Reboot, bool Tested, JsonArray Ops, bool Retired = false, string Status = "optional");
+    sealed record Def(string Id, string Group, string Title, string Detail, string Risk, string Source, bool Reboot, bool Tested, JsonArray Ops, bool Retired = false, string Status = "optional", string? Needs = null);
     /// <summary>Estados de la revisión del catálogo. «experimental» solo se aplica a mano desde Ajustes; nunca en el modo simple.</summary>
     internal static readonly string[] Statuses = ["recommended", "optional", "experimental", "deprecated", "unsupported"];
 
@@ -59,7 +59,7 @@ public static class Tweaks
 
     static Def ToDef(JsonObject o) => new((string)o["id"]!, (string)o["group"]!, (string)o["title"]!, (string)o["detail"]!,
         (string?)o["risk"] ?? "bajo", (string?)o["source"] ?? "", (bool?)o["reboot"] ?? false, (bool?)o["tested"] ?? false, o["ops"]!.AsArray(),
-        (bool?)o["retired"] ?? false, (string?)o["status"] ?? "optional");
+        (bool?)o["retired"] ?? false, (string?)o["status"] ?? "optional", (string?)o["needs"]);
 
     /// <summary>
     /// Deshace los ajustes retirados que Vigía aplicó antes (solo esos: los que tienen copia del valor original).
@@ -81,7 +81,7 @@ public static class Tweaks
         {
             var bk = LoadBackup();
             return Catalog().Select(d => new TweakView(d.Id, d.Group, d.Title, d.Detail, d.Risk, d.Source, d.Reboot, d.Tested,
-                StateOf(d), bk.ContainsKey(d.Id), BlockedReason(d), d.Status)).ToList();
+                StateOf(d), bk.ContainsKey(d.Id), BlockedReason(d), d.Status, NoteOf(d))).ToList();
         }
     }
 
@@ -89,6 +89,7 @@ public static class Tweaks
     // applied | partial | off | na
     static string StateOf(Def d)
     {
+        if (d.Needs == "multi-gpu" && CatalogOverride is null && Gpus().Count < 2) return "na";   // con una sola GPU no hay a cuál cambiar
         int match = 0, total = 0;
         foreach (var op in d.Ops.Select(x => x!.AsObject()))
         {
@@ -98,6 +99,53 @@ public static class Tweaks
             total++; if (m == true) match++;
         }
         return total == 0 ? "na" : match == total ? "applied" : match == 0 ? "off" : "partial";
+    }
+
+    // ---------- datos reales del equipo para los avisos ----------
+    static List<string>? _gpus;
+    /// <summary>Tarjetas gráficas físicas (PCI): deja fuera adaptadores virtuales de escritorio remoto o pantallas virtuales.</summary>
+    internal static List<string> Gpus()
+    {
+        if (_gpus is not null) return _gpus;
+        var l = new List<string>();
+        try
+        {
+            using var q = new ManagementObjectSearcher("SELECT Name, PNPDeviceID FROM Win32_VideoController");
+            foreach (ManagementObject v in q.Get())
+                if (((string?)v["PNPDeviceID"] ?? "").StartsWith(@"PCI\", StringComparison.OrdinalIgnoreCase)) l.Add((string?)v["Name"] ?? "?");
+        }
+        catch { }
+        return _gpus = l;
+    }
+
+    /// <summary>Lo que hay que saber de un ajuste en ESTE equipo, leído del sistema (no supuesto).</summary>
+    static string? NoteOf(Def d)
+    {
+        try
+        {
+            switch (d.Id)
+            {
+                case "smb1-off":
+                    // InstallState: 1 = instalada, 2 = quitada, 3 = no existe en esta versión
+                    using (var q = new ManagementObjectSearcher("SELECT InstallState FROM Win32_OptionalFeature WHERE Name='SMB1Protocol'"))
+                    {
+                        var st = q.Get().Cast<ManagementObject>().Select(o => Convert.ToInt32(o["InstallState"])).FirstOrDefault();
+                        return st == 1
+                            ? "El componente SMB1 sigue instalado en Windows (cliente incluido). Este ajuste solo apaga el servidor; para quitarlo del todo, desinstala «Compatibilidad con SMB 1.0/CIFS» en Características de Windows."
+                            : "El componente SMB1 no está instalado en este Windows: el cliente ya no existe. Este ajuste apaga además el servidor por si alguien lo vuelve a poner.";
+                    }
+                case "telemetry-off":
+                    var ed = Registry.GetValue(@"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion", "EditionID", null) as string ?? "";
+                    return ed.StartsWith("Enterprise", StringComparison.OrdinalIgnoreCase) || ed.StartsWith("Education", StringComparison.OrdinalIgnoreCase) || ed.StartsWith("IoTEnterprise", StringComparison.OrdinalIgnoreCase)
+                        ? $"Tu Windows es {ed}: aquí el nivel 0 (seguridad) sí se respeta."
+                        : $"Tu Windows es {(ed.Length > 0 ? ed : "Home/Pro")}: el mínimo que acepta es «datos obligatorios», no cero.";
+                case "gpu-high":
+                    var g = Gpus();
+                    return g.Count < 2 ? $"Este PC tiene una sola tarjeta gráfica{(g.Count == 1 ? $" ({g[0]})" : "")}: no hay a cuál cambiar." : $"Tarjetas encontradas: {string.Join(", ", g)}.";
+            }
+        }
+        catch { }
+        return null;
     }
 
     static bool? Matches(JsonObject op)
@@ -124,7 +172,6 @@ public static class Tweaks
         {
             "power-ultimate" => CpuAwake(),
             "hibernate-off" => RegRead(@"HKLM\SYSTEM\CurrentControlSet\Control\Power", "HibernateEnabled").value is int h ? h == 0 : null,
-            "dynamictick" => Regex.IsMatch(Run("bcdedit.exe", "/enum {current}").output, @"disabledynamictick\s+(Yes|S[ií])", RegexOptions.IgnoreCase),
             _ => null,
         };
     }
@@ -133,8 +180,6 @@ public static class Tweaks
     {
         // Riesgo bajo: un valor de registro, servicio o tarea con copia exacta del original. Lo demás, primero en la VM.
         if (d.Risk != "bajo" && !d.Tested && !Lab) return "Primero hay que probarlo en la máquina virtual.";
-        if (d.Ops.Any(o => (string?)o!["special"] == "dynamictick") && BitLockerOn())
-            return "BitLocker está activo en C:. Cambiar el arranque pediría la clave de recuperación.";
         return null;
     }
 
@@ -294,15 +339,16 @@ public static class Tweaks
                     case "hibernate-off":
                         if (s is not null) Must(Run("powercfg.exe", (bool?)s["on"] == true ? "/hibernate on" : "/hibernate off"), "cambiar la hibernación");
                         break;
-                    case "dynamictick":
-                        if (s is not null) Must(Run("bcdedit.exe", (bool?)s["set"] == true ? "/set {current} disabledynamictick yes" : "/deletevalue {current} disabledynamictick"), "cambiar el arranque");
-                        break;
                     case "power-ultimate":
                         if ((string?)s?["active"] is { Length: > 0 } prev) Must(Run("powercfg.exe", $"/setactive {prev}"), "volver al plan de energía de la copia");
                         break;
                     default: RevertOp(ops[i], saved, i); break;
                 }
             }
+            // copias de antes de separar el ajuste en dos: esa parte vuelve con las operaciones del ajuste nuevo
+            foreach (var (from, oi, to, oj) in Moved)
+                if (from == id && saved[oi.ToString()] is JsonObject sv && All().FirstOrDefault(x => x.Id == to) is { } nd && oj < nd.Ops.Count)
+                    RevertOp(nd.Ops[oj]!.AsObject(), new JsonObject { [oj.ToString()] = sv.DeepClone() }, oj);
             var bk = LoadBackup();
             if (StateOf(d) == "off") bk.Remove(id);
             else if (!bk.ContainsKey(id) && it["orig"] is JsonObject orig) bk[id] = orig.DeepClone();
@@ -330,7 +376,6 @@ public static class Tweaks
             else if (op["power"] is not null && Active() is { } pg && PowerAc(op) is { } pv) o[i.ToString()] = new JsonObject { ["scheme"] = pg.ToString(), ["ac"] = pv };
             else if ((string?)op["special"] == "power-ultimate") o[i.ToString()] = new JsonObject { ["active"] = ActiveScheme() };
             else if ((string?)op["special"] == "hibernate-off") o[i.ToString()] = new JsonObject { ["on"] = Matches(op) == false };
-            else if ((string?)op["special"] == "dynamictick") o[i.ToString()] = new JsonObject { ["set"] = Matches(op) == true };
         }
         return o;
     }
@@ -372,7 +417,6 @@ public static class Tweaks
                 Must(Run("powercfg.exe", $"/setactive {guid}"), "activar el plan de energía");
                 break;
             case "hibernate-off": Must(Run("powercfg.exe", "/hibernate off"), "apagar la hibernación"); break;
-            case "dynamictick": Must(Run("bcdedit.exe", "/set {current} disabledynamictick yes"), "cambiar el arranque"); break;
             case "mouse-refresh": MouseRefresh(); break;
         }
     }
@@ -407,7 +451,6 @@ public static class Tweaks
                 if ((string?)saved["createdPlan"] is { Length: > 0 } made) Run("powercfg.exe", $"-delete {made}");
                 break;
             case "hibernate-off": if ((bool?)s?["on"] == true) Must(Run("powercfg.exe", "/hibernate on"), "encender la hibernación"); break;
-            case "dynamictick": if ((bool?)s?["set"] != true) Must(Run("bcdedit.exe", "/deletevalue {current} disabledynamictick"), "restaurar el arranque"); break;
             case "mouse-refresh": MouseRefresh(); break;
         }
     }
@@ -553,7 +596,6 @@ public static class Tweaks
     }
 
     static readonly Regex GuidRx = new(@"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", RegexOptions.IgnoreCase);
-    static readonly Regex UltimateName = new(@"M.ximo rendimiento|Ultimate Performance", RegexOptions.IgnoreCase);
     static string ActiveScheme() => GuidRx.Match(Run("powercfg.exe", "/getactivescheme").output).Value;
     // Lo que importa del plan no es el nombre: es que el procesador no baje del 100 % enchufado.
     // Así cuentan Alto rendimiento, Máximo rendimiento y los planes propios (de la placa o de otro programa).
@@ -604,19 +646,6 @@ public static class Tweaks
     static readonly Regex VigiaName = new(@"\(Vig.a\)\s*\*?\s*$", RegexOptions.IgnoreCase);
     static string? FindVigia() => Run("powercfg.exe", "/list").output.Split('\n').Where(l => VigiaName.IsMatch(l.Trim()))
         .Select(l => GuidRx.Match(l).Value).FirstOrDefault(g => g.Length > 0);
-    static string? FindUltimate() => Run("powercfg.exe", "/list").output.Split('\n').Where(l => UltimateName.IsMatch(l))
-        .Select(l => GuidRx.Match(l).Value).FirstOrDefault(g => g.Length > 0);
-
-    static bool BitLockerOn()
-    {
-        try
-        {
-            using var s = new ManagementObjectSearcher(@"root\CIMV2\Security\MicrosoftVolumeEncryption",
-                "SELECT ProtectionStatus FROM Win32_EncryptableVolume WHERE DriveLetter='C:'");
-            return s.Get().Cast<ManagementObject>().Any(v => Convert.ToInt32(v["ProtectionStatus"]) == 1);
-        }
-        catch { return false; }
-    }
 
     [DllImport("user32.dll", SetLastError = true)] static extern bool SystemParametersInfo(uint action, uint param, int[] vparam, uint winIni);
     /// <summary>Aplica la aceleración del ratón al momento, sin cerrar sesión.</summary>
@@ -644,7 +673,32 @@ public static class Tweaks
     // ---------- copia y registro ----------
     static JsonObject LoadBackup()
     {
-        try { return JsonNode.Parse(File.ReadAllText(BackupPath))!.AsObject(); } catch { return new JsonObject(); }
+        JsonObject bk;
+        try { bk = JsonNode.Parse(File.ReadAllText(BackupPath))!.AsObject(); } catch { return new JsonObject(); }
+        Migrate(bk);
+        return bk;
+    }
+
+    /// <summary>Valores que cambiaron de ajuste al separar uno en dos: (ajuste viejo, operación) → (ajuste nuevo, operación).
+    /// Así quien aplicó la versión vieja puede revertir las dos partes por separado.</summary>
+    internal static readonly (string From, int I, string To, int J)[] Moved =
+    [
+        ("activity-off", 3, "location-off", 0), ("activity-off", 4, "location-off", 1),
+        ("update-control", 1, "wu-drivers-off", 0),
+    ];
+
+    internal static bool Migrate(JsonObject bk)
+    {
+        var changed = false;
+        foreach (var (from, i, to, j) in Moved)
+        {
+            if (bk[from] is not JsonObject old || old[i.ToString()] is not JsonNode v) continue;
+            old.Remove(i.ToString());
+            if (bk[to] is not JsonObject nu) bk[to] = nu = new JsonObject { ["at"] = (string?)old["at"] };
+            if (!nu.ContainsKey(j.ToString())) nu[j.ToString()] = v;
+            changed = true;
+        }
+        return changed;
     }
 
     static void SaveBackup(JsonObject o)
@@ -679,6 +733,17 @@ public static class Tweaks
         Check(bad.Count == 0, $"modo simple sin experimentales ni retirados ({plan.Count} propuestos{(bad.Count > 0 ? ": " + string.Join(", ", bad) : "")})");
         foreach (var id in (string[])["responsiveness", "services-unused", "svchost-split", "power-ultimate", "wer-off", "hibernate-off", "mmcss-games", "update-control"])
             Check(!plan.Contains(id), $"modo simple no propone {id}");
+        Check(Simple.Build(new Simple.Answers()).Stages.First(s => s.Id == "apps").Apps.Count == 0 && Simple.Build(new Simple.Answers(Xbox: false, KeepApps: [])).Stages.First(s => s.Id == "apps").Apps.All(id => !id.Contains("Xbox") && id != "Microsoft.GamingApp"),
+            "modo simple: sin lista no quita apps, y nunca las de Xbox");
+        string OpsOf(string id) => all.FirstOrDefault(d => d.Id == id)?.Ops.ToJsonString() ?? "";
+        Check(!OpsOf("activity-off").Contains("location") && !OpsOf("activity-off").Contains("lfsvc") && OpsOf("location-off").Contains("lfsvc"), "historial de actividad no apaga la ubicación (va aparte)");
+        Check(!OpsOf("update-control").Contains("ExcludeWUDrivers") && OpsOf("wu-drivers-off").Contains("ExcludeWUDrivers"), "reinicios y drivers de Windows Update por separado");
+        Check(!plan.Contains("location-off") && !plan.Contains("wu-drivers-off") && !plan.Contains("gpu-high"), "ubicación, drivers y GPU nunca en el modo simple");
+        Check(all.Where(d => !d.Retired).All(d => !System.Text.RegularExpressions.Regex.IsMatch(d.Detail + d.Title, @"\b(NVIDIA|Ryzen|Intel|Radeon)\b") || d.Id == "nvidia-telemetry"), "textos sin dar por hecho una marca de hardware");
+        var old = JsonNode.Parse("""{"activity-off":{"at":"x","0":{"a":1},"3":{"loc":1},"4":{"svc":1}},"update-control":{"0":{"r":1},"1":{"d":1}}}""")!.AsObject();
+        Check(Migrate(old) && old["activity-off"]!.AsObject().Count == 2 && old["location-off"]?["0"]?["loc"] is not null && old["location-off"]?["1"]?["svc"] is not null
+              && old["wu-drivers-off"]?["0"]?["d"] is not null && old["update-control"]!.AsObject().ContainsKey("0") && !Migrate(old),
+            "copias viejas: ubicación y drivers pasan a su ajuste nuevo, y siguen pudiéndose revertir");
         return string.Join(Environment.NewLine, log);
     }
 

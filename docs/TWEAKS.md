@@ -2,7 +2,7 @@
 
 Generated from `app/Vigia/tweaks.json` by `node tools/tweaks-doc.js`. Do not edit by hand.
 
-42 entries: 7 experimental, 7 deprecated, 26 optional, 2 recommended; 24 with an official source.
+44 entries: 9 experimental, 7 deprecated, 26 optional, 2 recommended; 26 with an official source.
 
 **Statuses.** `recommended`: documented and safe for most PCs. `optional`: documented, depends on the user. `experimental`: effect depends on hardware or game; measure before and after; never in Simple mode or "Apply all". `deprecated`: retired; only its undo remains, so earlier users can get their original values back.
 
@@ -29,12 +29,14 @@ Generated from `app/Vigia/tweaks.json` by `node tools/tweaks-doc.js`. Do not edi
 | `suggestions-off` | No ads or suggested apps | optional | no | no | — |
 | `telemetry-off` | Windows telemetry at minimum | optional | yes | no | [link](https://learn.microsoft.com/en-us/windows/privacy/configure-windows-diagnostic-data-in-your-organization) |
 | `telemetry-tasks` | Data-collection scheduled tasks | optional | no | no | — |
-| `activity-off` | No activity history or location | optional | no | no | [link](https://learn.microsoft.com/en-us/windows/client-management/mdm/policy-csp-privacy) |
+| `activity-off` | No activity history | optional | no | no | [link](https://learn.microsoft.com/en-us/windows/client-management/mdm/policy-csp-privacy) |
+| `location-off` | Turn off Windows location | experimental | no | no | [link](https://learn.microsoft.com/en-us/windows/client-management/mdm/policy-csp-privacy) |
 | `services-unused` | Services almost nobody uses | deprecated | yes | no | — |
 | `print-off` | Turn off printing | optional | yes | no | [link](https://msrc.microsoft.com/update-guide/vulnerability/CVE-2021-34527) |
 | `services-xbox` | Xbox services | deprecated | yes | yes | — |
 | `search-off` | Search indexer | deprecated | yes | yes | — |
-| `update-control` | Windows Update without surprises | optional | no | no | [link](https://learn.microsoft.com/en-us/windows/deployment/update/waas-wu-settings) |
+| `update-control` | Windows Update doesn't restart while you're signed in | optional | no | no | [link](https://learn.microsoft.com/en-us/windows/deployment/update/waas-wu-settings) |
+| `wu-drivers-off` | Windows Update without drivers | experimental | no | no | [link](https://learn.microsoft.com/en-us/windows/deployment/update/waas-wu-settings) |
 | `gpu-high` | Games on the powerful graphics card | experimental | no | no | — |
 | `windowed-opt` | Optimizations for windowed games | optional | no | no | — |
 | `hags` | Hardware-accelerated GPU scheduling | optional | yes | no | [link](https://devblogs.microsoft.com/directx/hardware-accelerated-gpu-scheduling/) |
@@ -42,7 +44,7 @@ Generated from `app/Vigia/tweaks.json` by `node tools/tweaks-doc.js`. Do not edi
 | `animations-off` | Fewer Windows animations | optional | yes | no | — |
 | `startup-delay` | Startup programs without delay | experimental | yes | no | — |
 | `boot-info` | See what Windows does at startup and shutdown | optional | no | no | [link](https://learn.microsoft.com/en-us/troubleshoot/windows-server/performance/enable-verbose-startup-shutdown-logon-logoff-status-messages) |
-| `smb1-off` | Turn off old file sharing (SMB1) | recommended | yes | no | [link](https://learn.microsoft.com/en-us/windows-server/storage/file-server/troubleshoot/detect-enable-and-disable-smbv1-v2-v3) |
+| `smb1-off` | Turn off the SMB1 server (old file sharing) | recommended | yes | no | [link](https://learn.microsoft.com/en-us/windows-server/storage/file-server/troubleshoot/detect-enable-and-disable-smbv1-v2-v3) |
 | `browsers-bg` | Chrome and Edge actually close | optional | no | no | [link](https://learn.microsoft.com/en-us/deployedge/microsoft-edge-policies) |
 | `ad-id-off` | No advertising ID | optional | no | no | [link](https://learn.microsoft.com/en-us/windows/client-management/mdm/policy-csp-privacy) |
 | `firefox-telemetry` | Firefox without sending usage data | optional | no | no | [link](https://mozilla.github.io/policy-templates/) |
@@ -278,15 +280,25 @@ Generated from `app/Vigia/tweaks.json` by `node tools/tweaks-doc.js`. Do not edi
 - **Reboot needed:** no
 - **Evidence:** no official source yet; treat as unverified
 
-### `activity-off` — No activity history or location
+### `activity-off` — No activity history
 
 - **Status:** optional
 - **Group:** Privacy
-- **What it does:** Windows stops saving what you open and stops giving your location to apps.
+- **What it does:** Windows stops saving and uploading the list of what you open (activity history). It doesn't touch location.
 - **Changes:**
   - `HKLM\SOFTWARE\Policies\Microsoft\Windows\System\EnableActivityFeed` = `0` (dword)
   - `HKLM\SOFTWARE\Policies\Microsoft\Windows\System\PublishUserActivities` = `0` (dword)
   - `HKLM\SOFTWARE\Policies\Microsoft\Windows\System\UploadUserActivities` = `0` (dword)
+- **Undo:** the exact previous value (or its absence) is restored
+- **Reboot needed:** no
+- **Evidence:** <https://learn.microsoft.com/en-us/windows/client-management/mdm/policy-csp-privacy>
+
+### `location-off` — Turn off Windows location
+
+- **Status:** experimental
+- **Group:** Privacy
+- **What it does:** No app, and not Windows, can use your location. “Find my device”, automatic time zone and apps that use it (maps, weather) stop working. Turn it back on in Settings > Privacy > Location or with “Undo”.
+- **Changes:**
   - `HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\location\Value` = `Deny` (string)
   - service `lfsvc` start = 4
 - **Undo:** the exact previous value (or its absence) is restored; the previous start type is restored
@@ -348,13 +360,23 @@ Generated from `app/Vigia/tweaks.json` by `node tools/tweaks-doc.js`. Do not edi
 - **Reboot needed:** yes
 - **Evidence:** no official source yet; treat as unverified
 
-### `update-control` — Windows Update without surprises
+### `update-control` — Windows Update doesn't restart while you're signed in
 
 - **Status:** optional
 - **Group:** Updates
-- **What it does:** It doesn't restart on its own while you're signed in and doesn't replace your NVIDIA driver. Security updates keep coming.
+- **What it does:** Windows waits until you sign out to restart after an update. Updates (driver ones included) keep arriving as usual.
 - **Changes:**
   - `HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU\NoAutoRebootWithLoggedOnUsers` = `1` (dword)
+- **Undo:** the exact previous value (or its absence) is restored
+- **Reboot needed:** no
+- **Evidence:** <https://learn.microsoft.com/en-us/windows/deployment/update/waas-wu-settings>
+
+### `wu-drivers-off` — Windows Update without drivers
+
+- **Status:** experimental
+- **Group:** Updates
+- **What it does:** Windows Update stops installing ANY driver (graphics, sound, network, chipset, Bluetooth…), not just the graphics one. You'll have to update them yourself from the maker's website. Only useful if Windows replaces a driver that was working; by default, better not.
+- **Changes:**
   - `HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\ExcludeWUDriversInQualityUpdate` = `1` (dword)
 - **Undo:** the exact previous value (or its absence) is restored
 - **Reboot needed:** no
@@ -364,7 +386,7 @@ Generated from `app/Vigia/tweaks.json` by `node tools/tweaks-doc.js`. Do not edi
 
 - **Status:** experimental
 - **Group:** Games
-- **What it does:** Asks Windows for the high-performance GPU for every program. It only changes something on machines with two GPUs (laptops with integrated and dedicated graphics); on a PC with a single GPU it does nothing. Better to pick the GPU per game in Windows Settings > Graphics.
+- **What it does:** Asks Windows for the high-performance graphics card for every program. It only helps on machines with two cards (integrated and dedicated, typical on laptops); with a single one it doesn't apply. What you pick per game in Settings > System > Display > Graphics takes priority.
 - **Changes:**
   - `HKCU\Software\Microsoft\DirectX\UserGpuPreferences` → `DirectXUserGlobalSettings`: key `GpuPreference=2` inside the string
 - **Undo:** the exact previous value (or its absence) is restored
@@ -386,7 +408,7 @@ Generated from `app/Vigia/tweaks.json` by `node tools/tweaks-doc.js`. Do not edi
 
 - **Status:** optional
 - **Group:** Games
-- **What it does:** The graphics card manages its own memory and Windows does less work per frame. Needed for DLSS frame generation.
+- **What it does:** The graphics card manages its own video memory instead of Windows. It's required for DLSS frame generation; beyond that, the effect depends on the card and driver: sometimes nothing changes and with some drivers it stutters. Measure with Frametimes before and after. If the card or driver doesn't support it, Windows ignores it.
 - **Changes:**
   - `HKLM\SYSTEM\CurrentControlSet\Control\GraphicsDrivers\HwSchMode` = `2` (dword)
 - **Undo:** the exact previous value (or its absence) is restored
@@ -442,11 +464,11 @@ Generated from `app/Vigia/tweaks.json` by `node tools/tweaks-doc.js`. Do not edi
 - **Reboot needed:** no
 - **Evidence:** <https://learn.microsoft.com/en-us/troubleshoot/windows-server/performance/enable-verbose-startup-shutdown-logon-logoff-status-messages>
 
-### `smb1-off` — Turn off old file sharing (SMB1)
+### `smb1-off` — Turn off the SMB1 server (old file sharing)
 
 - **Status:** recommended
 - **Group:** Windows
-- **What it does:** A '90s protocol that WannaCry used. Only very old NAS boxes or printers need it.
+- **What it does:** A '90s protocol WannaCry used. This tweak turns off the SMB1 server; the client is part of Windows' “SMB 1.0/CIFS File Sharing Support” component, and Vigía tells you if it's still installed. Only very old NAS boxes or printers need it.
 - **Changes:**
   - `HKLM\SYSTEM\CurrentControlSet\Services\LanmanServer\Parameters\SMB1` = `0` (dword)
 - **Undo:** the exact previous value (or its absence) is restored
