@@ -43,7 +43,8 @@ $P --sign "$TMPDIR/sig-test.txt" "$USERPROFILE/.vigia/release-key.dpapi" && $P -
 
 ### Current state found (2026-10-29)
 
-* `release-key.pem` is plaintext, permissions inherited from the profile: SYSTEM, Administrators, your account (full) and the local group `CodexSandboxUsers` (read). Any process in that group can read the key. Recommended: steps above, or at least remove the inherited entries from `%USERPROFILE%\.vigia`. **Not changed** — touching the key requires your authorization.
+* `release-key.pem` is plaintext. Its folder `%USERPROFILE%\.vigia` has an **explicit** (not inherited) entry `CodexSandboxUsers:(OI)(CI)(RX)`, so the key inherits *read* for that local group. Its members are the Codex sandbox accounts `CodexSandboxOffline` and `CodexSandboxOnline` — the second one has network access, so a sandboxed process could read the key and send it out. Everything else is SYSTEM, Administrators and your account (full).
+* Recommended, in this order: (1) remove that entry — `icacls "%USERPROFILE%\.vigia" /remove:g CodexSandboxUsers /t` — and check with `icacls`; (2) the `.dpapi` steps above. If Codex needs to read something in `.vigia` (e.g. `vm-cred.txt`), move that file elsewhere first rather than keeping the key readable. **Not changed** — it touches the key's permissions and possibly how Codex works, so it needs your OK.
 * `%USERPROFILE%\.vigia` also holds other files (`vm-cred.txt`, `host-backup`); they were not opened.
 
 ## Signing a release without exposing the key

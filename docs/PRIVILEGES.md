@@ -30,7 +30,7 @@ mientras hace falta y solo habla con la ventana que lo abrió. Vigía no necesit
 
 ## Clasificación de operaciones
 
-### Con administrador (pasan por el ayudante) — 40
+### Con administrador (pasan por el ayudante) — 41
 
 | Área | Operaciones | Por qué necesita administrador |
 |---|---|---|
@@ -39,7 +39,7 @@ mientras hace falta y solo habla con la ventana que lo abrió. Vigía no necesit
 | Apps (Debloat) | `appsScan`, `appsPreview`, `appsRun`, `appsCancel`, `appsRestore`, `bloatRemove`, `simpleRun` | Inventario de todos los usuarios y aprovisionadas; quitar aprovisionamiento |
 | Seguridad | `secEnable`, `secScan`, `secGet` | Defender, SmartScreen y TPM solo se leen/cambian con administrador |
 | Discos | `optRun`, `optAnalyze`, `optCancel` | `defrag` / TRIM |
-| Limpieza | `cleanRun` | Carpetas del sistema (caché de Windows Update, temporales de Windows) |
+| Limpieza | `cleanRun`, `cleanScan` | Carpetas del sistema (caché de Windows Update, temporales de Windows): tu usuario no puede ni listarlas |
 | Memoria | `memFree`, `memAuto` | Vaciar la lista de espera (`SeProfileSingleProcessPrivilege`) |
 | Procesos | `procClose` | Cerrar procesos de otros usuarios o elevados (solo los de la última lista mostrada) |
 | Copias | `backupRestore`, `restorePoint` | Restaurar HKLM/servicios; punto de restauración del sistema |
@@ -50,19 +50,21 @@ mientras hace falta y solo habla con la ventana que lo abrió. Vigía no necesit
 | Driver | `pawnInstall` | Instalar PawnIO (solo si respondes «Sí» en el aviso del Monitor) |
 | Control | `ping` | Comprobar que el ayudante responde |
 
-Las «suaves» (`appsScan`, `appsPreview`, `telemetry`, `memAuto`, `undoRetired`, `healthScan`, `diagRun`, `secGet` y los
+Las «suaves» (`appsScan`, `appsPreview`, `telemetry`, `memAuto`, `undoRetired`, `healthScan`, `diagRun`, `secGet`, `cleanScan` y los
 `*Cancel`) no abren el aviso de UAC por su cuenta: si el ayudante no está abierto, se hace la versión sin permisos
 o se espera a que lo abra una acción tuya.
 
 Sin permisos, las lecturas no inventan resultados: «Reloj del sistema» y «TPM» dicen *«Solo se puede leer con permisos
-de administrador; esta vez no se pudo revisar»* en lugar de «todo por defecto» o «no hay TPM».
+de administrador; esta vez no se pudo revisar»* en lugar de «todo por defecto» o «no hay TPM». En Limpieza, una carpeta
+que tu cuenta no puede listar sale como *«Sin permisos para mirar»* (se puede elegir igual; limpiar la hace el ayudante), no
+como «0 bytes».
 
-### Sin administrador (en la ventana, como tu usuario) — 49
+### Sin administrador (en la ventana, como tu usuario) — 48
 
 | Área | Operaciones |
 |---|---|
-| Ajustes de Vigía | `settingsGet`, `settingsSet`, `version`, `supportGet`, `openSource`, `openUrl` |
-| Lecturas | `cleanScan`, `suggest`, `tweaksList`, `bloatList`, `startupList`, `simplePlan`, `backupsList`, `optStatus`, `rates`, `drift`, `gamesGet`, `biosGet`, `biosSupport`, `displayStatus`, `toolsList`, `procWatch` |
+| Ajustes de Vigía | `settingsGet`, `settingsSet`, `version`, `supportGet`, `openSource`, `openUrl` (solo HTTPS a la lista de sitios; en GitHub solo `github.com/JcperezDev/…`) |
+| Lecturas | `suggest`, `tweaksList`, `bloatList`, `startupList`, `simplePlan`, `backupsList`, `optStatus`, `rates`, `drift`, `gamesGet`, `biosGet`, `biosSupport`, `displayStatus`, `toolsList`, `procWatch` |
 | Tu usuario | `autoStartSet` (Run de HKCU), `wallGet`, `wallSet`, `displayStretch`, `displayKeep`, `displayRestore` (pantalla con `CDS_UPDATEREGISTRY`, sin `CDS_GLOBAL`), `fortniteApply` (.ini en tu perfil), `rigKeep`, `fpsDelete`, `appsExport`, `appsSettings` |
 | Diálogos | `isoPick`, `isoSaveAs`, `usbPickIso`, `isoShow`, `procReveal`, `secOpen`, `toolOpen` |
 | Descargas | `isoGetWindows`, `isoDlCancel` (ISO oficial de Microsoft a tu carpeta), `usbCancel` |
