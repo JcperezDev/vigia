@@ -317,7 +317,7 @@
       else { txt('lv before m', ty + step, L.a); txt('lv after m', ty + step, L.b); }
       if (L.copy) txt('lc after m', ty + step * 2 - 2, L.copy);
     });
-    board.appendChild(labels);
+    if (!small.matches) board.appendChild(labels);
   }
   small.addEventListener?.('change', drawBoard);
 
