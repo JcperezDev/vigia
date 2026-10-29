@@ -211,9 +211,14 @@ static partial class Program
             var exe = Path.Combine(k?.GetValue("InstallLocation") as string ?? "", "uninstall.exe");
             if (!File.Exists(exe)) return;
             using var p = Process.Start(new ProcessStartInfo(exe, "-uninstall -silent") { UseShellExecute = false, CreateNoWindow = true });
-            p?.WaitForExit(120_000);
+            var code = p is not null && p.WaitForExit(120_000) ? p.ExitCode : -1;
+            // Si su desinstalador no terminó, la marca se queda: sigue siendo nuestro y otro intento lo puede quitar.
+            using (var still = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\PawnIO"))
+                if (code != 0 || still is not null) { Log($"PawnIO: su desinstalador no terminó (código {code}); se deja como estaba"); return; }
             File.Delete(mark);
-            Log("PawnIO quitado");
+            // Su desinstalador oficial deja el driver registrado (parado, solo arranca si alguien lo pide) y en el almacén de Windows.
+            using var svc = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(@"SYSTEM\CurrentControlSet\Services\PawnIO");
+            Log(svc is null ? "PawnIO quitado" : "PawnIO quitado; Windows conserva su driver registrado y parado");
         }
         catch { }
     }
