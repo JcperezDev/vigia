@@ -11,7 +11,7 @@ public static class Simple
         bool Visual = true, bool Privacy = true, bool MemAuto = true, bool Clean = true, string[]? KeepApps = null);
 
     public record Stage(string Id, string Title, List<string> Tweaks, List<string> Apps);
-    public record Plan(List<Stage> Stages, bool Clean, bool MemAuto, int Changes);
+    public record Plan(List<Stage> Stages, bool Clean, bool MemAuto, int Changes, List<string>? Names = null);
     public record Step(int Index, string Id, string State, string? Detail);
     public record Report(bool Ok, int Applied, int Already, int Failed, int AppsRemoved, double CleanedMb, double FreedMb, bool NeedsReboot, List<string> Problems);
 
@@ -58,7 +58,10 @@ public static class Simple
         };
         try { if (Wallpaper.Status().Ours) stages.RemoveAll(s => s.Id == "wallpaper"); } catch { }
         if (!a.Clean) stages.RemoveAll(s => s.Id == "clean");
-        return new(stages, a.Clean, a.MemAuto, stages.Sum(s => s.Tweaks.Count + s.Apps.Count));
+        // nombres de lo que se va a tocar, iguales a los de Ajustes, para decirlo en la pantalla
+        var names = stages.SelectMany(s => s.Tweaks.Select(id => Tweaks.TitleOf(id) ?? s.Title)
+            .Concat(s.Apps.Count > 0 ? [s.Title] : Array.Empty<string>())).Distinct().ToList();
+        return new(stages, a.Clean, a.MemAuto, stages.Sum(s => s.Tweaks.Count + s.Apps.Count), names);
     }
 
     /// <summary>Corre el plan en orden. Una etapa que falla no frena las demás; todo queda en el informe.</summary>

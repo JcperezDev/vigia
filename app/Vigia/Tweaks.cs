@@ -32,6 +32,9 @@ public static class Tweaks
     static List<Def>? _catalog;
     internal static Func<List<JsonObject>>? CatalogOverride;   // para --selftest
 
+    /// <summary>El título de un ajuste, como sale en Ajustes.</summary>
+    public static string? TitleOf(string id) { try { return Catalog().FirstOrDefault(d => d.Id == id)?.Title; } catch { return null; } }
+
     static List<Def> Catalog()
     {
         if (CatalogOverride is not null) return CatalogOverride().Select(ToDef).ToList();

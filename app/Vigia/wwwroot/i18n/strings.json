@@ -2136,5 +2136,15 @@
  "Juegos: «Resolución» a secas y sin la medida de FPS.",
  "Modo simple: sin el fondo detrás de la app; el fondo de VigíaOS se pone en el escritorio al optimizar.",
  "Inicio de Windows más limpio",
- "Inicio de Windows: sin los avisos naranjas debajo de cada programa."
+ "Inicio de Windows: sin los avisos naranjas debajo de cada programa.",
+ "Lo seguro ya está aplicado",
+ "Queda 1 que depende de lo que uses. Está en «Elegir uno por uno».",
+ "Quedan {0} que dependen de lo que uses. Están en «Elegir uno por uno».",
+ "Se hará 1 cambio: {0}. Con copia de seguridad antes.",
+ "Se harán {0} cambios: {1}. Con copia de seguridad antes.",
+ "Se hará 1 cambio, con copia de seguridad antes.",
+ "Se harán {0} cambios, con copia de seguridad antes.",
+ "Modo simple y Ajustes más claros",
+ "Modo simple dice qué va a cambiar, con el mismo nombre que en Ajustes.",
+ "Ajustes ya no dice «Todo aplicado» si quedan ajustes por elegir uno por uno."
 ]

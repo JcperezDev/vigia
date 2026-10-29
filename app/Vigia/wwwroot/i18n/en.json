@@ -2063,5 +2063,15 @@
  "Juegos: «Resolución» a secas y sin la medida de FPS.": "Games: just “Resolution”, and no FPS measuring.",
  "Modo simple: sin el fondo detrás de la app; el fondo de VigíaOS se pone en el escritorio al optimizar.": "Simple mode: no wallpaper behind the app; the VigíaOS wallpaper is set on the desktop when optimizing.",
  "Inicio de Windows más limpio": "Cleaner Windows startup",
- "Inicio de Windows: sin los avisos naranjas debajo de cada programa.": "Windows startup: no more orange notes under each program."
+ "Inicio de Windows: sin los avisos naranjas debajo de cada programa.": "Windows startup: no more orange notes under each program.",
+ "Lo seguro ya está aplicado": "The safe ones are already applied",
+ "Queda 1 que depende de lo que uses. Está en «Elegir uno por uno».": "1 left that depends on what you use. It's under “Choose one by one”.",
+ "Quedan {0} que dependen de lo que uses. Están en «Elegir uno por uno».": "{0} left that depend on what you use. They're under “Choose one by one”.",
+ "Se hará 1 cambio: {0}. Con copia de seguridad antes.": "1 change will be made: {0}. With a backup first.",
+ "Se harán {0} cambios: {1}. Con copia de seguridad antes.": "{0} changes will be made: {1}. With a backup first.",
+ "Se hará 1 cambio, con copia de seguridad antes.": "1 change will be made, with a backup first.",
+ "Se harán {0} cambios, con copia de seguridad antes.": "{0} changes will be made, with a backup first.",
+ "Modo simple y Ajustes más claros": "Clearer Simple mode and Tweaks",
+ "Modo simple dice qué va a cambiar, con el mismo nombre que en Ajustes.": "Simple mode says what it will change, with the same name as in Tweaks.",
+ "Ajustes ya no dice «Todo aplicado» si quedan ajustes por elegir uno por uno.": "Tweaks no longer says “All applied” if some are left to choose one by one."
 }

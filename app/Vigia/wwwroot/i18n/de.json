@@ -2063,5 +2063,15 @@
  "Juegos: «Resolución» a secas y sin la medida de FPS.": "Spiele: nur „Auflösung“ und ohne FPS-Messung.",
  "Modo simple: sin el fondo detrás de la app; el fondo de VigíaOS se pone en el escritorio al optimizar.": "Einfacher Modus: kein Hintergrund mehr hinter der App; das VigíaOS-Hintergrundbild wird beim Optimieren auf den Desktop gesetzt.",
  "Inicio de Windows más limpio": "Aufgeräumter Windows-Autostart",
- "Inicio de Windows: sin los avisos naranjas debajo de cada programa.": "Windows-Autostart: keine orangefarbenen Hinweise mehr unter jedem Programm."
+ "Inicio de Windows: sin los avisos naranjas debajo de cada programa.": "Windows-Autostart: keine orangefarbenen Hinweise mehr unter jedem Programm.",
+ "Lo seguro ya está aplicado": "Das Sichere ist schon angewendet",
+ "Queda 1 que depende de lo que uses. Está en «Elegir uno por uno».": "1 bleibt übrig, das davon abhängt, was du nutzt. Es ist unter „Einzeln auswählen“.",
+ "Quedan {0} que dependen de lo que uses. Están en «Elegir uno por uno».": "{0} bleiben übrig, die davon abhängen, was du nutzt. Sie sind unter „Einzeln auswählen“.",
+ "Se hará 1 cambio: {0}. Con copia de seguridad antes.": "1 Änderung wird vorgenommen: {0}. Vorher mit Sicherung.",
+ "Se harán {0} cambios: {1}. Con copia de seguridad antes.": "{0} Änderungen werden vorgenommen: {1}. Vorher mit Sicherung.",
+ "Se hará 1 cambio, con copia de seguridad antes.": "1 Änderung wird vorgenommen, vorher mit Sicherung.",
+ "Se harán {0} cambios, con copia de seguridad antes.": "{0} Änderungen werden vorgenommen, vorher mit Sicherung.",
+ "Modo simple y Ajustes más claros": "Einfacher Modus und Einstellungen klarer",
+ "Modo simple dice qué va a cambiar, con el mismo nombre que en Ajustes.": "Der einfache Modus sagt, was er ändert, mit demselben Namen wie in Einstellungen.",
+ "Ajustes ya no dice «Todo aplicado» si quedan ajustes por elegir uno por uno.": "Einstellungen zeigt nicht mehr „Alles angewendet“, wenn noch welche einzeln zu wählen sind."
 }
