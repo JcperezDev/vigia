@@ -8,7 +8,7 @@ public record MemStatus(double TotalGb, double UsedGb, double AvailGb, int LoadP
 public record MemStep(string Name, bool Ok, string? Error);
 public record MemResult(double FreedMb, MemStatus Before, MemStatus After, MemStep[] Steps, bool Auto);
 
-/// <summary>Opciones de liberación. Las mismas operaciones que usan Mem Reduct o ISLC.</summary>
+/// <summary>Opciones de liberación. Son funciones públicas de Windows (NtSetSystemInformation).</summary>
 public record MemOptions(bool WorkingSets = true, bool Modified = true, bool Standby = true, bool StandbyLowOnly = false,
     bool FileCache = true, bool Combine = true);
 
@@ -57,7 +57,7 @@ public static class Memory
                 {
                     var g = At(5 + p) * ps / GB;
                     standby += g;
-                    if (p <= 4) standbyLow += g;   // prioridades 0-4: caché de baja prioridad (lo que purga ISLC)
+                    if (p <= 4) standbyLow += g;   // prioridades 0-4: caché de baja prioridad (lo que se puede soltar sin tirones)
                 }
             }
         }
@@ -83,7 +83,7 @@ public static class Memory
                 }
                 catch (Exception e) { steps.Add(new(name, false, e.Message)); }
             }
-            // Orden de Mem Reduct: primero sacar páginas de los procesos, luego escribir las modificadas, luego vaciar la caché.
+            // Orden: primero sacar páginas de los procesos, luego escribir las modificadas, luego vaciar la caché.
             if (o.WorkingSets) Do("Memoria de los procesos", () => { int c = MemoryEmptyWorkingSets; return NtSetSystemInformation(SystemMemoryListInformation, ref c, 4); });
             if (o.FileCache) Do("Caché de archivos del sistema", () => SetSystemFileCacheSize(new IntPtr(-1), new IntPtr(-1), 0) ? 0 : unchecked((int)0xC0000001));
             if (o.Modified) Do("Páginas modificadas", () => { int c = MemoryFlushModifiedList; return NtSetSystemInformation(SystemMemoryListInformation, ref c, 4); });
@@ -101,7 +101,7 @@ public static class Memory
         }
     }
 
-    /// <summary>Modo automático: solo la caché en espera de baja prioridad (como ISLC), nunca la memoria de los procesos
+    /// <summary>Modo automático: solo la caché en espera de baja prioridad nunca la memoria de los procesos
     /// mientras se juega, para no provocar tirones.</summary>
     public static MemResult? AutoTick(Settings s)
     {
