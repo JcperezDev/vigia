@@ -172,19 +172,51 @@ public static class Tweaks
             {
                 if (BlockedReason(d) is string why) { results.Add(new(d.Id, false, StateOf(d), why)); continue; }
                 if (StateOf(d) == "na") { results.Add(new(d.Id, true, "na", null)); continue; }   // no aplica en este PC: no se toca
+                var ops = d.Ops.Select(x => x!.AsObject()).ToList();
+                bool fresh = false; JsonObject? before = null; int done = -1; string? plan0 = null;
                 try
                 {
-                    if (!bk.ContainsKey(d.Id)) { bk[d.Id] = Capture(d); SaveBackup(bk); }   // el original, solo la primera vez
-                    foreach (var op in d.Ops.Select(x => x!.AsObject())) ApplyOp(op, bk[d.Id]!.AsObject());
+                    if (!bk.ContainsKey(d.Id)) { bk[d.Id] = Capture(d); SaveBackup(bk); fresh = true; }   // el original, solo la primera vez
+                    before = fresh ? bk[d.Id]!.AsObject() : Capture(d);   // cómo estaba justo antes de este intento
+                    plan0 = (string?)bk[d.Id]!["createdPlan"];
+                    for (int i = 0; i < ops.Count; i++) { done = i; ApplyOp(ops[i], bk[d.Id]!.AsObject()); }
                     SaveBackup(bk);
                     var st = StateOf(d);
                     Log($"aplicar {d.Id}: {st}");
                     results.Add(new(d.Id, st is "applied" or "na", st, st is "applied" or "na" ? null : "Algunos valores no quedaron como se esperaba."));
                 }
-                catch (Exception e) { Log($"aplicar {d.Id}: ERROR {e.Message}"); results.Add(new(d.Id, false, StateOf(d), e.Message)); }
+                catch (Exception e)
+                {
+                    // falló a mitad: lo que ya se cambió en este intento vuelve a como estaba, para no dejar el ajuste a medias
+                    var undone = before is not null && Undo(d, ops, done, before, bk, fresh, plan0);
+                    SaveBackup(bk);
+                    Log($"aplicar {d.Id}: ERROR {e.Message}; {(undone ? "deshecho" : "no se pudo deshacer todo")}");
+                    results.Add(new(d.Id, false, StateOf(d), undone
+                        ? $"{e.Message.TrimEnd('.')}. No se cambió nada: quedó como estaba."
+                        : $"{e.Message.TrimEnd('.')}. No se pudo dejar todo como estaba; usa Revertir o la copia de seguridad."));
+                }
             }
             return new(results.All(r => r.Ok), rp, results.ToArray(), defs.Any(d => d.Reboot && results.Any(r => r.Id == d.Id && r.Ok)));
         }
+    }
+
+    /// <summary>Deshace las operaciones 0..<paramref name="last"/> de un intento fallido, de la última a la primera.</summary>
+    static bool Undo(Def d, List<JsonObject> ops, int last, JsonObject before, JsonObject bk, bool fresh, string? plan0)
+    {
+        var ok = true;
+        var snap = (JsonObject)before.DeepClone();
+        // si este intento creó el plan de energía de Vigía, RevertOp lo borra; si ya existía antes, se queda
+        var made = (string?)bk[d.Id]?["createdPlan"];
+        if (made is { Length: > 0 } && made != plan0) snap["createdPlan"] = made; else snap.Remove("createdPlan");
+        for (int j = last; j >= 0; j--)
+        {
+            try { RevertOp(ops[j], snap, j); }
+            catch (Exception e) { ok = false; Log($"deshacer {d.Id} op {j}: ERROR {e.Message}"); }
+        }
+        if (made is { Length: > 0 } && made != plan0 && ok) bk[d.Id]!.AsObject().Remove("createdPlan");
+        // si la copia se hizo en este intento y todo volvió, no queda nada aplicado que revertir
+        if (fresh && ok && StateOf(d) == "off") bk.Remove(d.Id);
+        return ok;
     }
 
     public static TweakBatch Revert(IEnumerable<string> ids)
@@ -684,6 +716,18 @@ public static class Tweaks
             Check((string?)RegRead(K, "lista").value == "SwapEffectUpgradeEnable=1;VRROptimizeEnable=0;", $"lista restaurada ({RegRead(K, "lista").value})");
             Check(!LoadBackup().ContainsKey("st"), "copia eliminada tras revertir");
             Check(Revert(["st"]).Results[0].Error is not null, "revertir sin copia avisa en vez de inventar");
+
+            // falla a mitad (tercera operación con un tipo que no existe): las dos primeras tienen que volver
+            CatalogOverride = () => [JsonNode.Parse($$"""
+                {"id":"stx","group":"t","title":"t","detail":"t","tested":true,"ops":[
+                  {"reg":"{{K.Replace("\\", "\\\\")}}","name":"existente","type":"dword","value":0},
+                  {"reg":"{{K.Replace("\\", "\\\\")}}","name":"nuevo","type":"dword","value":5},
+                  {"reg":"{{K.Replace("\\", "\\\\")}}","name":"texto","type":"bogus","value":"x"}]}
+                """)!.AsObject()];
+            var px = Apply(["stx"]);
+            Check(!px.Ok && px.Results[0].Error is { } pe && pe.Contains("quedó como estaba"), $"fallo a mitad: avisa ({px.Results[0].Error})");
+            Check(RegRead(K, "existente").value is 7 && RegRead(K, "nuevo").value is null, "fallo a mitad: lo ya cambiado vuelve (7 y sin «nuevo»)");
+            Check(!LoadBackup().ContainsKey("stx") && List()[0].State == "off", "fallo a mitad: no queda como aplicado ni con copia colgando");
 
             // ajuste del plan de energía: «apagar la pantalla tras…» (inofensivo), +60 s y de vuelta
             var vop = new JsonObject { ["power"] = "7516b95f-f776-4464-8c53-06167f40cc99/3c0bc021-c8a8-4e07-a973-6b14cbcb2b7e", ["ac"] = 0 };

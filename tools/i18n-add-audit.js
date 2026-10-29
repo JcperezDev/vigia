@@ -117,6 +117,8 @@ const T = {
   'El instalador de PawnIO no es el original.': ['The PawnIO installer is not the original one.', 'O instalador do PawnIO não é o original.', 'Le programme d\u2019installation de PawnIO n\u2019est pas l\u2019original.', 'Das PawnIO-Installationsprogramm ist nicht das Original.'],
   'El instalador de PawnIO no terminó.': ['The PawnIO installer did not finish.', 'O instalador do PawnIO não terminou.', 'Le programme d\u2019installation de PawnIO ne s\u2019est pas terminé.', 'Das PawnIO-Installationsprogramm wurde nicht beendet.'],
   'El instalador de PawnIO terminó con código {0}.': ['The PawnIO installer exited with code {0}.', 'O instalador do PawnIO terminou com código {0}.', 'Le programme d\u2019installation de PawnIO s\u2019est terminé avec le code {0}.', 'Das PawnIO-Installationsprogramm endete mit Code {0}.'],
+  '{0}. No se cambió nada: quedó como estaba.': ['{0}. Nothing was changed: it was left as it was.', '{0}. Nada foi alterado: ficou como estava.', '{0}. Rien n\u2019a été modifié : tout est resté comme avant.', '{0}. Nichts wurde geändert: alles blieb wie vorher.'],
+  '{0}. No se pudo dejar todo como estaba; usa Revertir o la copia de seguridad.': ['{0}. Not everything could be put back; use Revert or the backup.', '{0}. Não foi possível deixar tudo como estava; use Reverter ou o backup.', '{0}. Impossible de tout remettre comme avant ; utilisez Annuler ou la sauvegarde.', '{0}. Nicht alles konnte zurückgesetzt werden; nutze Rückgängig oder die Sicherung.'],
 };
 const langs = ['en', 'pt', 'fr', 'de'];
 for (const [i, lang] of langs.entries()) {
