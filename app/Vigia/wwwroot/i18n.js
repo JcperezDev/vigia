@@ -58,7 +58,8 @@
         if (!m) continue;
         const parts = p.order.map((_, i) => m[i + 1]);
         // un patrón corto («{0} de {1}») no debe tragarse un resumen « · » ni varias frases: eso se parte abajo
-        if (p.fixed < 12 && parts.some((x) => x.includes(' · ') || /[.!?] [A-ZÁÉÍÓÚ¿]/.test(x))) continue;
+        // (salvo que ese trozo sea entero una clave del diccionario: «Qué hacer: <consejo de dos frases>»)
+        if (p.fixed < 12 && parts.some((x) => (x.includes(' · ') || /[.!?] [A-ZÁÉÍÓÚ¿]/.test(x)) && !Object.prototype.hasOwnProperty.call(dict, x.trim()))) continue;
         const done = parts.map((x) => tr(x.trim(), depth + 1));
         // una parte larga que no se pudo traducir = el patrón agarró una frase que no es la suya
         // (las fechas y cifras no se traducen y pueden ser largas: «Oct 27, 10:17 PM»)

@@ -278,4 +278,154 @@ public static class Security
         using (root) using (var k = root.OpenSubKey(sub, true) ?? throw new InvalidOperationException("no existe"))
             k.SetValue(name, v, RegistryValueKind.DWord);
     }
+
+    // ---------- estado de seguridad de Windows (solo lectura) ----------
+    /// <summary>Una comprobación: level ok/warn/info; Managed = lo fija una directiva; Open = página de Windows para cambiarlo.</summary>
+    public record Pos(string Key, string Level, string Label, string Detail, bool Managed, string? Open, string[]? Items = null);
+
+    // Páginas de Windows que se pueden abrir desde aquí. Lista cerrada: el frontend solo manda la clave.
+    static readonly Dictionary<string, string> Pages = new()
+    {
+        ["threat"] = "windowsdefender://threatsettings", ["apps"] = "windowsdefender://appbrowser", ["network"] = "windowsdefender://network",
+        ["device"] = "windowsdefender://devicesecurity", ["update"] = "ms-settings:windowsupdate", ["bitlocker"] = "ms-settings:deviceencryption",
+    };
+
+    /// <summary>Abre la página de Windows correspondiente. Vigía no cambia estos ajustes por su cuenta.</summary>
+    public static bool OpenPage(string key)
+    {
+        try
+        {
+            if (key == "uac") { Process.Start(new ProcessStartInfo(Path.Combine(Environment.SystemDirectory, "UserAccountControlSettings.exe")) { UseShellExecute = true })?.Dispose(); return true; }
+            if (!Pages.TryGetValue(key, out var uri)) return false;
+            Process.Start(new ProcessStartInfo(uri) { UseShellExecute = true })?.Dispose(); return true;
+        }
+        catch { return false; }
+    }
+
+    static List<System.Management.ManagementBaseObject> Wmi(string ns, string q)
+    {
+        var r = new List<System.Management.ManagementBaseObject>();
+        try { using var s = new System.Management.ManagementObjectSearcher(ns, q); foreach (var o in s.Get()) r.Add(o); } catch { }
+        return r;
+    }
+    static bool KeyExists(string path) { var (root, sub) = Split(path); using (root) using (var k = root.OpenSubKey(sub)) return k is not null; }
+    static int? Dw(string path, string name) => Get(path, name) is int v ? v : null;
+
+    /// <summary>Lee cómo está protegido Windows. No cambia nada.</summary>
+    public static List<Pos> Posture()
+    {
+        var r = new List<Pos>();
+        var st = Wmi(@"root\Microsoft\Windows\Defender", "SELECT IsTamperProtected, AMServiceEnabled FROM MSFT_MpComputerStatus").FirstOrDefault();
+        bool defOn = st?["AMServiceEnabled"] is true;
+        if (st?["IsTamperProtected"] is bool tp)
+            r.Add(tp ? new("tamper", "ok", "Protección contra alteraciones", "Activada: ningún programa puede cambiar Defender a escondidas.", false, "threat")
+                     : new("tamper", defOn ? "warn" : "info", "Protección contra alteraciones", "Apagada: un programa podría cambiar la configuración de Defender sin que te enteres.", false, "threat"));
+
+        // SmartScreen para apps y archivos descargados
+        var ssPol = Dw(@"HKLM\SOFTWARE\Policies\Microsoft\Windows\System", "EnableSmartScreen");
+        var ss = Get(@"HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer", "SmartScreenEnabled") as string;
+        bool ssOff = ssPol is 0 || (ssPol is null && string.Equals(ss, "Off", StringComparison.OrdinalIgnoreCase));
+        r.Add(ssOff ? new("smartscreen", "warn", "SmartScreen", "Apagado: Windows no avisa antes de abrir programas descargados que no conoce.", ssPol is not null, "apps")
+                    : new("smartscreen", "ok", "SmartScreen", "Activado: avisa antes de abrir programas descargados que no conoce.", ssPol is not null, "apps"));
+
+        // Control de cuentas
+        const string sys = @"HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System";
+        var lua = Dw(sys, "EnableLUA"); var cpa = Dw(sys, "ConsentPromptBehaviorAdmin");
+        r.Add(lua is 0 ? new("uac", "warn", "Control de cuentas (UAC)", "Apagado: cualquier programa corre como administrador sin preguntar. Al encenderlo hay que reiniciar.", false, "uac")
+            : cpa is 0 ? new("uac", "warn", "Control de cuentas (UAC)", "Encendido, pero no pregunta: los programas toman permisos de administrador sin avisar.", false, "uac")
+            : new("uac", "ok", "Control de cuentas (UAC)", "Activado: Windows pregunta antes de que un programa cambie el equipo.", false, "uac"));
+
+        // Firewall por tipo de red. Si hay otro firewall registrado, él manda.
+        var fwOther = Wmi(@"root\SecurityCenter2", "SELECT displayName FROM FirewallProduct").Any();
+        bool fwSvcOff = Dw(@"HKLM\SYSTEM\CurrentControlSet\Services\mpssvc", "Start") is 4;
+        foreach (var (key, pol, local, label) in new[] { ("fw-domain", "DomainProfile", "DomainProfile", "Firewall: red de empresa (dominio)"),
+                     ("fw-private", "PrivateProfile", "StandardProfile", "Firewall: red privada"), ("fw-public", "PublicProfile", "PublicProfile", "Firewall: red pública") })
+        {
+            var pv = Dw($@"HKLM\SOFTWARE\Policies\Microsoft\WindowsFirewall\{pol}", "EnableFirewall");
+            var on = !fwSvcOff && (pv ?? Dw($@"HKLM\SYSTEM\CurrentControlSet\Services\SharedAccess\Parameters\FirewallPolicy\{local}", "EnableFirewall")) is not 0;
+            r.Add(on ? new(key, "ok", label, "Activado.", pv is not null, "network")
+                : fwOther ? new(key, "info", label, "El de Windows está apagado; lo cubre otro firewall instalado.", pv is not null, "network")
+                : new(key, key == "fw-domain" ? "info" : "warn", label, key == "fw-domain" ? "Apagado. Solo cuenta en redes de empresa." : "Apagado: nada filtra las conexiones que entran por esta red.", pv is not null, "network"));
+        }
+
+        // Integridad de memoria (HVCI): 2 = integridad de código protegida por el hipervisor
+        var dg = Wmi(@"root\Microsoft\Windows\DeviceGuard", "SELECT SecurityServicesRunning, SecurityServicesConfigured FROM Win32_DeviceGuard").FirstOrDefault();
+        bool Has(object? o) => o is Array a && a.Cast<object>().Any(x => Convert.ToInt32(x) == 2);
+        bool hvciPol = KeyExists(@"HKLM\SOFTWARE\Policies\Microsoft\Windows\DeviceGuard");
+        if (dg is not null)
+            r.Add(Has(dg["SecurityServicesRunning"]) ? new("hvci", "ok", "Integridad de memoria", "Activada: protege el núcleo de Windows de drivers manipulados.", hvciPol, "device")
+                : Has(dg["SecurityServicesConfigured"]) ? new("hvci", "info", "Integridad de memoria", "Configurada pero no está corriendo: falta reiniciar o algún driver lo impide.", hvciPol, "device")
+                : new("hvci", "info", "Integridad de memoria", "Apagada. Microsoft la recomienda; algunos drivers viejos no la soportan. Se cambia en Seguridad del dispositivo.", hvciPol, "device"));
+
+        // Windows Update: solo cuenta lo que lo bloquea de verdad (Vigía también escribe aquí reglas de reinicio, que no bloquean nada)
+        const string wuPol = @"HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate";
+        bool wuSvcOff = Dw(@"HKLM\SYSTEM\CurrentControlSet\Services\wuauserv", "Start") is 4;
+        bool wuNoAuto = Dw(wuPol + @"\AU", "NoAutoUpdate") is 1, wuNoAccess = Dw(wuPol, "DisableWindowsUpdateAccess") is 1;
+        var pd = Get(@"HKLM\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings", "PauseUpdatesExpiryTime") is string pe
+                 && DateTime.TryParse(pe, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.AdjustToUniversal | System.Globalization.DateTimeStyles.AssumeUniversal, out var t) ? t : DateTime.MinValue;
+        bool paused = pd > DateTime.UtcNow;
+        r.Add(wuSvcOff ? new("wu", "warn", "Windows Update", "Su servicio está deshabilitado: el equipo no recibe parches de seguridad.", false, "update")
+            : wuNoAuto || wuNoAccess ? new("wu", "warn", "Windows Update", "Una directiva no deja que Windows se actualice solo.", true, "update")
+            // Windows deja pausar como mucho 5 semanas; una pausa más larga la puso otra herramienta y deja el equipo sin parches
+            : paused && pd > DateTime.UtcNow.AddDays(36) ? new("wu", "warn", "Windows Update", string.Format(WuLongPause, pd.Year), false, "update")
+            : paused ? new("wu", "info", "Windows Update", "Las actualizaciones están en pausa.", false, "update")
+            : new("wu", "ok", "Windows Update", "Funciona.", false, "update"));
+
+        // Arranque seguro: sin la clave State el equipo arranca en modo antiguo (Legacy/CSM)
+        var sb = Dw(@"HKLM\SYSTEM\CurrentControlSet\Control\SecureBoot\State", "UEFISecureBootEnabled");
+        r.Add(sb is 1 ? new("secureboot", "ok", "Arranque seguro", "Activado.", false, null)
+            : new("secureboot", "info", "Arranque seguro", sb is 0 ? "Apagado. Algunos antitrampas y Windows 11 lo piden. Se cambia en la BIOS; Vigía no toca la BIOS."
+                                                              : "No disponible: Windows arranca en modo antiguo (Legacy/CSM).", false, null));
+
+        // TPM
+        var tpm = Wmi(@"root\cimv2\Security\MicrosoftTpm", "SELECT IsEnabled_InitialValue, IsActivated_InitialValue, SpecVersion FROM Win32_Tpm").FirstOrDefault();
+        bool tpmOn = tpm?["IsEnabled_InitialValue"] is true && tpm?["IsActivated_InitialValue"] is true;
+        var spec = (tpm?["SpecVersion"] as string ?? "").Split(',')[0].Trim();
+        r.Add(tpmOn && spec.StartsWith("2.") ? new("tpm", "ok", "TPM", "TPM 2.0 activo.", false, "device")
+            : tpmOn ? new("tpm", "info", "TPM", "Hay TPM, pero no es 2.0: Windows 11 pide 2.0.", false, "device")
+            : new("tpm", "info", "TPM", "No se encontró o está apagado en la BIOS (fTPM en AMD, PTT en Intel). Windows 11 y algunos antitrampas lo piden.", false, "device"));
+
+        // BitLocker en la unidad de Windows
+        var drive = Path.GetPathRoot(Environment.SystemDirectory)?.TrimEnd('\\') ?? "C:";
+        var bl = Wmi(@"root\cimv2\Security\MicrosoftVolumeEncryption", $"SELECT ProtectionStatus, ConversionStatus FROM Win32_EncryptableVolume WHERE DriveLetter='{drive}'").FirstOrDefault();
+        bool blPol = KeyExists(@"HKLM\SOFTWARE\Policies\Microsoft\FVE");
+        int? prot = bl?["ProtectionStatus"] is { } pv2 ? Convert.ToInt32(pv2) : null, conv = bl?["ConversionStatus"] is { } cv ? Convert.ToInt32(cv) : null;
+        r.Add(bl is null ? new("bitlocker", "info", "BitLocker", "No disponible en esta edición de Windows o no se pudo leer.", blPol, "bitlocker")
+            : prot is 1 ? new("bitlocker", "ok", "BitLocker", "Activado en la unidad de Windows: si te roban el disco no lo pueden leer. Ten guardada la clave de recuperación.", blPol, "bitlocker")
+            : conv is > 0 ? new("bitlocker", "info", "BitLocker", "La unidad está cifrada, pero la protección está en pausa.", blPol, "bitlocker")
+            : new("bitlocker", "info", "BitLocker", "Apagado en la unidad de Windows.", blPol, "bitlocker"));
+
+        // Exclusiones de Defender: se enseñan, no se quitan
+        var pref = Wmi(@"root\Microsoft\Windows\Defender", "SELECT ExclusionPath, ExclusionExtension, ExclusionProcess FROM MSFT_MpPreference").FirstOrDefault();
+        if (pref is not null)
+        {
+            static IEnumerable<string> Vals(object? o) => o is string[] a ? a.Where(x => !string.IsNullOrWhiteSpace(x)) : [];
+            var raw = Vals(pref["ExclusionPath"]).Select(x => ("Carpeta o archivo", x)).Concat(Vals(pref["ExclusionExtension"]).Select(x => ("Extensión", x)))
+                .Concat(Vals(pref["ExclusionProcess"]).Select(x => ("Proceso", x))).ToList();
+            bool hidden = raw.Any(x => x.Item2.StartsWith("N/A", StringComparison.OrdinalIgnoreCase));
+            var items = raw.Where(x => !x.Item2.StartsWith("N/A", StringComparison.OrdinalIgnoreCase)).Select(x => $"{x.Item1}: {x.Item2}").ToArray();
+            bool exPol = KeyExists(@"HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\Exclusions");
+            r.Add(hidden ? new("exclusions", "info", "Exclusiones de Defender", "Windows no deja verlas sin permiso de administrador.", exPol, "threat")
+                : items.Length == 0 ? new("exclusions", "ok", "Exclusiones de Defender", "Ninguna: Defender revisa todo.", exPol, "threat")
+                : new("exclusions", "info", "Exclusiones de Defender", items.Length == 1 ? ExclOne : string.Format(ExclMany, items.Length), exPol, "threat", items));
+        }
+        return r;
+    }
+    internal const string WuLongPause = "En pausa hasta {0}: Windows solo deja pausar 5 semanas, así que la alargó otro programa. Mientras siga así no llegan parches de seguridad.";
+    internal const string ExclOne = "Defender no revisa 1 cosa. Una exclusión no es mala por sí sola (juegos y programas de desarrollo las piden), pero un virus también puede ponerse una. Mira que la reconozcas; Vigía no la quita.";
+    internal const string ExclMany = "Defender no revisa {0} cosas. Una exclusión no es mala por sí sola (juegos y programas de desarrollo las piden), pero un virus también puede ponerse una. Mira que las reconozcas todas; Vigía no las quita.";
+
+    public static string SelfTest()
+    {
+        var o = new List<string>();
+        void Check(bool ok, string what) => o.Add($"{(ok ? "OK  " : "FAIL")} {what}");
+        var p = Posture();
+        foreach (var k in new[] { "smartscreen", "uac", "fw-domain", "fw-private", "fw-public", "wu", "secureboot", "tpm", "bitlocker" })
+            Check(p.Any(x => x.Key == k), $"seguridad: se lee {k}");
+        Check(p.All(x => x.Level is "ok" or "warn" or "info"), "seguridad: cada lectura tiene un nivel válido");
+        Check(p.All(x => x.Open is null || x.Open == "uac" || Pages.ContainsKey(x.Open)), "seguridad: los botones solo abren páginas de Windows de la lista");
+        Check(!OpenPage("file:///C:/Windows/System32/cmd.exe") && !OpenPage("ms-settings:../../x"), "seguridad: una clave desconocida no abre nada");
+        o.Add("     (en este PC) " + string.Join(" · ", p.Select(x => $"{x.Key}={x.Level}{(x.Managed ? "*" : "")}")));
+        return string.Join(Environment.NewLine, o);
+    }
 }

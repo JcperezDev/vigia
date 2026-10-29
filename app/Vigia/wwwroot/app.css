@@ -449,6 +449,10 @@ dd { margin: 0; font: 500 14px "JBMono", monospace; font-variant-numeric: tabula
 .sec-h { color: var(--fg-2); margin-top: 10px !important; }
 .sec-why { margin: 4px 0 0; padding-left: 18px; color: var(--fg-2); }
 .sec-why li + li { margin-top: 2px; }
+.secpos { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 8px; }
+.secpos > li p { margin: 2px 0 0 18px !important; color: var(--fg-2); }
+.secpos > li .btn { margin: 6px 0 0 18px; }
+.secpos .sec-why { margin-left: 18px; word-break: break-all; }
 .sec-acts { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
 .sec-msg { color: var(--fg-2); min-height: 0; }
 .sec-msg:empty { display: none; }

@@ -291,6 +291,7 @@ static class Program
                 + Environment.NewLine + "--- antitrampas" + Environment.NewLine + AntiCheat.SelfTest()
                 + Environment.NewLine + "--- memoria" + Environment.NewLine + Memory.SelfTest()
                 + Environment.NewLine + "--- discos" + Environment.NewLine + Optimize.SelfTest()
+                + Environment.NewLine + "--- seguridad de Windows (solo lectura)" + Environment.NewLine + Security.SelfTest()
                 + Environment.NewLine + "--- versiones" + Environment.NewLine + Updates.SelfTest()
                 + Environment.NewLine + "--- apps de Windows (lectura de PowerShell)" + Environment.NewLine + Debloat.SelfTest()
                 + Environment.NewLine + "--- ISO (cuentas)" + Environment.NewLine + IsoBuild.SelfTest()
@@ -678,6 +679,11 @@ sealed partial class MainForm : Form
                     break;
                 case "secGet":
                     Send("sec", await Task.Run(Security.Status));
+                    Send("secPos", await Task.Run(Security.Posture));
+                    break;
+                case "secOpen":
+                    // solo una clave de la lista cerrada de Security.Pages; nunca una ruta ni una URL del frontend
+                    Security.OpenPage((string?)msg["page"] ?? "");
                     break;
                 case "secEnable":
                 case "secScan":

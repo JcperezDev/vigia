@@ -331,6 +331,32 @@
     box.replaceChildren(el('strong', null, 'Antivirus'), ...body, acts, msg);
   }
 
+  // Estado de seguridad de Windows: solo lectura. Los botones abren la página de Windows donde se cambia; Vigía no lo cambia solo.
+  const SEC_OPEN = { threat: 'Abrir protección antivirus', apps: 'Abrir control de aplicaciones', network: 'Abrir firewall', device: 'Abrir seguridad del dispositivo', update: 'Abrir Windows Update', bitlocker: 'Abrir cifrado', uac: 'Abrir control de cuentas' };
+  function renderSecPos(list) {
+    const box = $('secpos'); if (!list || !list.length) { box.hidden = true; return; }
+    box.hidden = false;
+    const warn = list.filter((x) => x.level === 'warn').length;
+    box.className = `card sec ${warn ? 'lv-warn' : 'lv-ok'}`;
+    const ul = el('ul', 'secpos');
+    list.forEach((x) => {
+      const li = el('li', `crash lv-${x.level}`);
+      const head = el('div', 'crash-head');
+      head.append(el('span', 'dot'), el('strong', null, x.label));
+      if (x.managed) head.append(el('span', 'crash-kind', 'Lo fija una directiva'));
+      li.append(head, el('p', null, x.detail));
+      if (x.items && x.items.length) { const il = el('ul', 'sec-why'); x.items.slice(0, 30).forEach((i) => il.append(el('li', null, i))); li.append(il); }
+      if (x.open && x.level !== 'ok') {
+        const b = el('button', 'btn', SEC_OPEN[x.open] || 'Abrir');
+        b.addEventListener('click', () => send({ cmd: 'secOpen', page: x.open }));
+        li.append(b);
+      }
+      ul.append(li);
+    });
+    box.replaceChildren(el('strong', null, 'Seguridad de Windows'),
+      el('p', 'src', 'Solo se lee: Vigía no cambia estos ajustes. Los botones abren la página de Windows donde se cambian.'), ul);
+  }
+
   function renderCrashes(list, days) {
     $('crashes').hidden = false;
     if (!list || !list.length) {
@@ -347,7 +373,7 @@
       const body = el('div', 'crash-body');
       body.append(el('p', null, c.why));
       if (c.hardware) body.append(el('p', 'crash-hw', 'A esa misma hora Windows registró un error de hardware (WHEA), así que lo más probable es que la causa sea el equipo y no el programa.'));
-      body.append(el('p', 'crash-fix', `Qué hacer: ${c.fix}`));
+      const fx = el('p', 'crash-fix'); fx.append(el('b', null, 'Qué hacer'), ' ', el('span', null, c.fix)); body.append(fx);   // en dos nodos: cada uno se traduce
       if (c.tech.length) {
         const det = el('details'); det.append(el('summary', null, 'Datos técnicos'));
         const ul = el('ul'); c.tech.forEach((x) => ul.append(el('li', null, x))); det.append(ul); body.append(det);
@@ -1342,6 +1368,7 @@
     if (act === 'run' && view === 'storage') setTimeout(() => document.querySelector('.vol .btn')?.click(), 2500);
     if (act === 'run' && view === 'mem') setTimeout(() => $('m-free').click(), 2500);
     if (act === 'excl') setTimeout(() => { document.querySelector('.excluded').open = true; }, 500);
+    if (act === 'sec' && view === 'diag') send({ cmd: 'secGet' });   // solo lectura
     if (act === 'all' && view === 'tweaks') setTimeout(() => document.querySelectorAll('.view:not([hidden]) details').forEach((d) => { d.open = true; }), 2500);
     // 'simple-demo' / 'simple-done': solo para capturas; pinta el progreso sin mandar nada al backend
     if (view === 'simple' && (act === 'demo' || act === 'done')) setTimeout(() => {
@@ -1660,6 +1687,7 @@
     else if (type === 'healthScan') renderHealth(payload);
     else if (type === 'diagRun') renderDiag(payload);
     else if (type === 'sec') renderSec(payload);
+    else if (type === 'secPos') renderSecPos(payload);
     else if (type === 'secProgress') { const m = $('sec-msg'); if (m) m.textContent = payload; }
     else if (type === 'secDone') { secBusy = false; const m = $('sec-msg'); if (m) { m.textContent = payload.message; m.dataset.keep = '1'; m.className = `sec-msg ${payload.ok ? 'ok' : 'bad'}`; } }
     else if (type === 'suggest') renderSug(payload);
