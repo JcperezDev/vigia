@@ -57,7 +57,7 @@ static class Program
             return 0;
         }
         // «Apagar todos los programas» por consola, solo en laboratorio (VIGIA_LAB=1): Vigia.exe --startup-offall <salida.json>
-        if (args.Length >= 2 && args[0] == "--startup-offall" && Tweaks.Lab)
+        if (args.Length >= 2 && args[0] == "--startup-offall" && LabGuard.Allowed)
         {
             File.WriteAllText(args[1], JsonSerializer.Serialize(new { done = Startup.OffAll(), after = Startup.List() }, new JsonSerializerOptions(Json) { WriteIndented = true }));
             return 0;
@@ -141,7 +141,7 @@ static class Program
             ApplicationConfiguration.Initialize();
             return IsoDownloadProbe.Run(args[1]);
         }
-        if (args.Length >= 2 && args[0] == "--simple-run" && Environment.GetEnvironmentVariable("VIGIA_LAB") == "1")   // solo en la VM de pruebas
+        if (args.Length >= 2 && args[0] == "--simple-run" && LabGuard.Allowed)   // solo en la VM de pruebas
         {
             var tr = args[1] + ".trace.txt";
             void T(string m) { try { File.AppendAllText(tr, $"{DateTime.Now:HH:mm:ss.fff} {m}\r\n"); } catch { } }
@@ -214,6 +214,7 @@ static class Program
         {
             object res;
             IEnumerable<string> Ids(IEnumerable<string> all) => args[2] == "all" ? all : args[2].Split(',');
+            if (args[1] is "apply" or "revert" or "debloat" && !LabGuard.Allowed) { Console.Error.WriteLine(LabGuard.Refusal); return 3; }
             switch (args[1])
             {
                 case "apply": res = Tweaks.Apply(Ids(Tweaks.List().Select(t => t.Id)).ToList(), restorePoint: false); break;
@@ -320,7 +321,8 @@ static class Program
                 + Environment.NewLine + "--- permisos (operaciones de administrador)" + Environment.NewLine + AdminOps.SelfTest()
                 + Environment.NewLine + "--- enlaces externos" + Environment.NewLine + Support.SelfTest()
                 + Environment.NewLine + "--- inicio con Windows" + Environment.NewLine + AutoStart.SelfTest()
-                + Environment.NewLine + "--- copias (restauración)" + Environment.NewLine + BackupGuard.SelfTest();
+                + Environment.NewLine + "--- copias (restauración)" + Environment.NewLine + BackupGuard.SelfTest()
+                + Environment.NewLine + "--- comandos de laboratorio (solo en VM)" + Environment.NewLine + LabGuard.SelfTest();
             try { Directory.Delete(testKeys, true); } catch { }
             BackupGuard.KeyDirOverride = null;
             File.WriteAllText(args[1], report);
