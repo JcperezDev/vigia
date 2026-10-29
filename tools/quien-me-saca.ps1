@@ -1,4 +1,4 @@
-# Quién me saca del juego: anota cada ventana que se pone delante, con su programa y la hora.
+﻿# Quién me saca del juego: anota cada ventana que se pone delante, con su programa y la hora.
 # Uso: clic derecho > "Ejecutar con PowerShell", minimizar esta ventana y jugar. Al volver, cerrar esta ventana.
 # El resultado queda en el Escritorio: quien-me-saca.txt. No cambia nada del PC ni manda nada a internet.
 $out = Join-Path ([Environment]::GetFolderPath('Desktop')) 'quien-me-saca.txt'
