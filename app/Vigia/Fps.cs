@@ -15,7 +15,7 @@ namespace Vigia;
 public static class Fps
 {
     /// <summary>Una medición. Los campos del final son nuevos: en mediciones viejas de fps.json quedan en null.
-    /// Ojo: se cuentan llamadas Present (DXGI) del juego, no fotogramas que de verdad llegaron a la pantalla.</summary>
+    /// Source: "present" (DXGI: DX10/11/12) o "d3d9". Ojo: se cuentan llamadas Present del juego, no fotogramas que de verdad llegaron a la pantalla.</summary>
     public record Result(string Id, string At, string Game, string Exe, double Seconds, double Avg, double Low1, double Max,
         int Frames, string Label, Dictionary<string, string> Setup,
         double? Low01 = null, double? AvgMs = null, double? P95Ms = null, double? P99Ms = null, double? P999Ms = null,
@@ -24,6 +24,18 @@ public static class Fps
 
     static readonly Guid DxgiProvider = new("CA11C036-0102-4A2D-A6AD-F03CFED5D3C9");
     const int PresentStart = 42;   // Present_Start
+    // DX9: el runtime de Direct3D 9 tiene su propio proveedor; evento 1 = Present (inicio).
+    static readonly Guid D3d9Provider = new("783ACA0A-790E-4D7F-8451-AA850511C6B9");
+    const int D3d9PresentStart = 1;
+    // Núcleo gráfico de Windows: no se usa para medir, solo para saber si el juego dibuja por otra vía (Vulkan, OpenGL…)
+    // y decir «no se pudo medir» en vez de dar un número falso. Palabra clave «Present» (0x8000000); eventos Blit, Flip,
+    // PresentHistory (inicio) y Present, que salen en el contexto del proceso que dibuja.
+    static readonly Guid DxgKrnlProvider = new("802EC45A-1E99-4B83-9920-87C98277BA9D");
+    const ulong DxgKrnlPresentKeyword = 0x8000000;
+    static readonly HashSet<int> KernelPresentIds = [166, 168, 171, 184];
+    /// <summary>El juego estaba delante y dibujaba, pero con una API que Vigía no cuenta: no es 0 FPS, es que no hay medida.</summary>
+    public sealed class ApiNotSupported(string message) : Exception(message);
+    internal const string ApiNotSupportedMsg = "Este juego dibuja con una API que Vigía todavía no mide (probablemente Vulkan u OpenGL). No hay medición: no es que vaya a 0 FPS.";
     const string SessionName = "Vigia-FPS";
 
     /// <summary>Juegos conocidos: nombre de proceso → nombre bonito. El resto se reconoce si está a pantalla completa.</summary>
@@ -36,14 +48,14 @@ public static class Fps
         ["RocketLeague"] = "Rocket League",
         ["RainbowSix"] = "Rainbow Six Siege", ["RainbowSix_Vulkan"] = "Rainbow Six Siege",
         ["Overwatch"] = "Overwatch 2",
-        ["cod"] = "Call of Duty", ["MarvelRivals_Launcher"] = "Marvel Rivals", ["Marvel-Win64-Shipping"] = "Marvel Rivals",
+        ["cod"] = "Call of Duty", ["Marvel-Win64-Shipping"] = "Marvel Rivals",
         ["Minecraft.Windows"] = "Minecraft",
     };
 
     static readonly HashSet<string> NotGames = new(StringComparer.OrdinalIgnoreCase)
     {
         "explorer", "Vigia", "msedgewebview2", "msedge", "chrome", "firefox", "opera", "brave", "Discord", "steam", "steamwebhelper",
-        "EpicGamesLauncher", "dwm", "ShellExperienceHost", "SearchHost", "StartMenuExperienceHost", "TextInputHost", "ApplicationFrameHost",
+        "EpicGamesLauncher", "MarvelRivals_Launcher", "RiotClientServices", "Battle.net", "EADesktop", "upc", "EpicWebHelper", "dwm", "ShellExperienceHost", "SearchHost", "StartMenuExperienceHost", "TextInputHost", "ApplicationFrameHost",
         "LockApp", "obs64", "Spotify", "Code", "WindowsTerminal", "powershell", "cmd", "Taskmgr", "mpc-hc64", "vlc",
     };
 
@@ -142,21 +154,28 @@ public static class Fps
     public static Result? Measure(int pid, string exe, string game, int seconds, string label, CancellationToken ct, bool requireForeground = true)
     {
         if (!(TraceEventSession.IsElevated() ?? false)) throw new InvalidOperationException("Medir FPS necesita permisos de administrador.");
-        var stamps = new List<double>(seconds * 300);
+        var stamps = new List<double>(seconds * 300);   // DXGI (DX10/11/12)
+        var stamps9 = new List<double>();                // DX9
+        int kernel = 0;                                  // presentaciones vistas por el núcleo, de cualquier API
         var gate = new object();
         bool counting = !requireForeground;
         using var session = new TraceEventSession(SessionName) { StopOnDispose = true };
         session.EnableProvider(DxgiProvider, TraceEventLevel.Informational, ulong.MaxValue);
+        session.EnableProvider(D3d9Provider, TraceEventLevel.Informational, ulong.MaxValue);
+        try { session.EnableProvider(DxgKrnlProvider, TraceEventLevel.Informational, DxgKrnlPresentKeyword); } catch { }   // solo para el aviso
         session.Source.AllEvents += e =>
         {
-            if ((int)e.ID != PresentStart || e.ProcessID != pid || e.ProviderGuid != DxgiProvider) return;
-            lock (gate) if (counting) stamps.Add(e.TimeStampRelativeMSec);
+            if (e.ProcessID != pid) return;
+            int id = (int)e.ID; var g = e.ProviderGuid;
+            if (g == DxgiProvider && id == PresentStart) { lock (gate) if (counting) stamps.Add(e.TimeStampRelativeMSec); }
+            else if (g == D3d9Provider && id == D3d9PresentStart) { lock (gate) if (counting) stamps9.Add(e.TimeStampRelativeMSec); }
+            else if (g == DxgKrnlProvider && KernelPresentIds.Contains(id)) { lock (gate) if (counting) kernel++; }
         };
         var pump = new Thread(() => { try { session.Source.Process(); } catch { } }) { IsBackground = true, Name = "vigia-fps" };
         pump.Start();
 
         // segundos de juego: se marca cada corte (cambio de ventana) para no medir el hueco
-        var cuts = new List<int>();
+        var cuts = new List<int>(); var cuts9 = new List<int>();
         int done = 0, lastReport = -1;
         var sw = Stopwatch.StartNew();
         while (!ct.IsCancellationRequested && done < seconds)
@@ -166,7 +185,7 @@ public static class Fps
             var front = !requireForeground || ForegroundPid() == pid;
             lock (gate)
             {
-                if (front && !counting) cuts.Add(stamps.Count);   // vuelve a contar: el primer intervalo tras el corte no vale
+                if (front && !counting) { cuts.Add(stamps.Count); cuts9.Add(stamps9.Count); }   // vuelve a contar: el primer intervalo tras el corte no vale
                 counting = front;
             }
             if (front) done++;
@@ -177,24 +196,42 @@ public static class Fps
         pump.Join(3000);
         if (done < Math.Min(20, seconds)) return null;
 
-        double[] ts; int[] cutArr;
-        lock (gate) { ts = stamps.ToArray(); cutArr = cuts.ToArray(); }
+        double[] ts; int[] cutArr; int k; string source = "present";
+        lock (gate)
+        {
+            // misma metodología con las dos: llamadas Present del juego. DXGI manda si hay de las dos (DX9 sobre DXGI).
+            bool dx9 = stamps.Count < 10 && stamps9.Count >= 10;
+            ts = (dx9 ? stamps9 : stamps).ToArray(); cutArr = (dx9 ? cuts9 : cuts).ToArray(); k = kernel;
+            if (dx9) source = "d3d9";
+        }
         var st = Stats(ts, cutArr, done);
-        if (st.Frames < 10) return null;
+        if (st.Frames < 10)
+        {
+            if (Unsupported(st.Frames, k, done)) throw new ApiNotSupported(ApiNotSupportedMsg);
+            return null;
+        }
         return new Result($"{DateTime.Now:yyyyMMdd-HHmmss}", DateTime.Now.ToString("s"), game, exe, done, st.Avg, st.Low1, st.Max, st.Frames,
-            label, Setup(exe), st.Low01, st.AvgMs, st.P95Ms, st.P99Ms, st.P999Ms, st.Stutters, st.StutterMs);
+            label, Setup(exe), st.Low01, st.AvgMs, st.P95Ms, st.P99Ms, st.P999Ms, st.Stutters, st.StutterMs, source);
     }
+
+    /// <summary>Sin Present de DXGI ni de DX9 pero el núcleo vio al juego dibujar al menos una vez por segundo: API que no medimos.</summary>
+    internal static bool Unsupported(int frames, int kernelPresents, int seconds) => frames < 10 && seconds > 0 && kernelPresents >= seconds;
 
     /// <summary>Prueba: cuántos Present hace cada proceso durante unos segundos.</summary>
     public static string Probe(int seconds)
     {
-        var counts = new Dictionary<int, int>();
+        var counts = new Dictionary<int, int>(); var c9 = new Dictionary<int, int>(); var ck = new Dictionary<int, int>();
         using var session = new TraceEventSession(SessionName + "-probe") { StopOnDispose = true };
         session.EnableProvider(DxgiProvider, TraceEventLevel.Informational, ulong.MaxValue);
+        session.EnableProvider(D3d9Provider, TraceEventLevel.Informational, ulong.MaxValue);
+        try { session.EnableProvider(DxgKrnlProvider, TraceEventLevel.Informational, DxgKrnlPresentKeyword); } catch { }
         session.Source.AllEvents += e =>
         {
-            if ((int)e.ID != PresentStart || e.ProviderGuid != DxgiProvider) return;
-            lock (counts) counts[e.ProcessID] = counts.GetValueOrDefault(e.ProcessID) + 1;
+            int id = (int)e.ID; var g = e.ProviderGuid;
+            var d = g == DxgiProvider && id == PresentStart ? counts : g == D3d9Provider && id == D3d9PresentStart ? c9
+                : g == DxgKrnlProvider && KernelPresentIds.Contains(id) ? ck : null;
+            if (d is null) return;
+            lock (counts) d[e.ProcessID] = d.GetValueOrDefault(e.ProcessID) + 1;
         };
         var pump = new Thread(() => { try { session.Source.Process(); } catch { } }) { IsBackground = true };
         pump.Start();
@@ -202,10 +239,11 @@ public static class Fps
         session.Stop(); pump.Join(3000);
         var lines = new List<string>();
         lock (counts)
-            foreach (var (pid, n) in counts.OrderByDescending(x => x.Value))
+            foreach (var pid in counts.Keys.Union(c9.Keys).Union(ck.Keys).OrderByDescending(p => ck.GetValueOrDefault(p) + counts.GetValueOrDefault(p)))
             {
                 string name; try { using var p = Process.GetProcessById(pid); name = p.ProcessName; } catch { name = "?"; }
-                lines.Add($"{pid}\t{name}\t{n} presents\t{n / (double)seconds:F1}/s");
+                int n = counts.GetValueOrDefault(pid);
+                lines.Add($"{pid}\t{name}\t{n} presents\t{n / (double)seconds:F1}/s\tdx9 {c9.GetValueOrDefault(pid)}\tnúcleo {ck.GetValueOrDefault(pid)}");
             }
         return lines.Count == 0 ? "sin presents" : string.Join(Environment.NewLine, lines);
     }
@@ -341,6 +379,8 @@ public static class Fps
         // percentil por rango más cercano
         var asc = new List<double> { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 };
         Check(Percentile(asc, 0.5) == 5 && Percentile(asc, 0.95) == 10 && Percentile(asc, 0.1) == 1 && Percentile([], 0.5) == 0, "percentil por rango");
+        Check(Unsupported(0, 3600, 60) && !Unsupported(0, 20, 60) && !Unsupported(5000, 6000, 60), "API sin medir: el núcleo la ve dibujar y no hay Present -> aviso, no 0 FPS");
+        Check(!Known.ContainsKey("MarvelRivals_Launcher") && Known["Marvel-Win64-Shipping"] == "Marvel Rivals" && NotGames.Contains("MarvelRivals_Launcher"), "Marvel Rivals: cuenta el juego, no el lanzador");
         return string.Join(Environment.NewLine, o);
     }
 }

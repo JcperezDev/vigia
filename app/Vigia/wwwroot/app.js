@@ -947,7 +947,8 @@
       body.append(el('strong', null, `${r.game} · ${fpsFmt(r.avg)} FPS`),
         el('p', null, `1 % bajos ${fpsFmt(r.low1)} · máximo ${fpsFmt(r.max)} · ${Math.round(r.seconds / 60 * 10) / 10} min medidos`),
         // mediciones nuevas: frametimes y tirones (las viejas no los tienen y no se inventan)
-        ...(r.p99Ms != null ? [el('p', 'src', `0,1 % bajos ${r.low01 != null ? fpsFmt(r.low01) : 'sin muestras suficientes'} · frametime P99 ${r.p99Ms} ms · ${plural(r.stutters || 0, 'tirón', 'tirones')}`)] : []),
+        ...(r.p99Ms != null ? [el('p', 'src', `0,1 % bajos ${r.low01 != null ? fpsFmt(r.low01) : 'sin muestras suficientes'} · frametime medio ${r.avgMs} ms · P95 ${r.p95Ms} ms · P99 ${r.p99Ms} ms · ${plural(r.stutters || 0, 'tirón', 'tirones')}`)] : []),
+        ...(r.source === 'd3d9' ? [el('p', 'src', 'Medido en DirectX 9.')] : []),
         el('p', 'src', `${d.toLocaleDateString(window.vigiaI18n.locale(), { day: 'numeric', month: 'short' })}, ${d.toLocaleTimeString(window.vigiaI18n.locale(), { hour: '2-digit', minute: '2-digit' })} · ${gmSetup(r.setup || {})}`));
       const acts = el('div', 'gm-acts');
       const isBase = (gmBase(r.game) || fps.history.find((x) => x.game === r.game)?.id) === r.id;
