@@ -108,6 +108,12 @@ static class Program
             Console.WriteLine($"{r.Ok} {r.Message} {string.Join("; ", r.Errors)}");
             return r.Ok ? 0 : 1;
         }
+        // Deshace ya los ajustes retirados que Vigía puso antes: Vigia.exe --undo-retired salida.json
+        if (args.Length >= 2 && args[0] == "--undo-retired")
+        {
+            File.WriteAllText(args[1], JsonSerializer.Serialize((object?)Tweaks.UndoRetired() ?? new { nothing = true }, new JsonSerializerOptions(Json) { WriteIndented = true }));
+            return 0;
+        }
         if (args.Length >= 2 && args[0] == "--simple-plan")   // solo lectura: qué haría el modo simple con las respuestas por defecto
         {
             var ans = args.Length >= 3 ? JsonSerializer.Deserialize<Simple.Answers>(File.ReadAllText(args[2]), Json)! : new Simple.Answers();
@@ -373,6 +379,7 @@ sealed partial class MainForm : Form
         {
             if (_snapPath is null) InitTray();   /* --bench mide con el icono puesto */
             await InitAsync();
+            if (_snapPath is null) _ = UndoRetiredAsync();
             if (_startHidden)
             {
                 Hide(); ShowInTaskbar = true; Opacity = 1; CenterToScreen();
@@ -471,6 +478,21 @@ sealed partial class MainForm : Form
 
     [System.Runtime.InteropServices.DllImport("kernel32.dll")]
     static extern bool SetProcessWorkingSetSize(IntPtr proc, nint min, nint max);
+
+    /// <summary>
+    /// Los ajustes con riesgo ya no están en Vigía. A quien los tenía puestos se le devuelven a como estaban,
+    /// con copia de seguridad antes. Espera a que el PC esté tranquilo y nunca en mitad de un juego.
+    /// </summary>
+    async Task UndoRetiredAsync()
+    {
+        try
+        {
+            await Task.Delay(TimeSpan.FromSeconds(30));
+            while (AutoStart.Busy()) await Task.Delay(TimeSpan.FromMinutes(5));
+            await Task.Run(Tweaks.UndoRetired);
+        }
+        catch { }
+    }
 
     async Task BenchAsync()
     {

@@ -32,8 +32,6 @@ public static class Simple
         if (a.Privacy) priv.AddRange(["telemetry-off", "telemetry-tasks", "activity-off", "ad-id-off", "firefox-telemetry", "wer-off"]);
 
         var svc = new List<string> { "services-unused", "smb1-off", "update-control" };
-        if (!a.Xbox) svc.Add("services-xbox");
-        if (!a.Search) svc.Add("search-off");
         if (!a.Printer) svc.Add("print-off");
 
         var net = new List<string> { "responsiveness", "p2p-updates-off" };

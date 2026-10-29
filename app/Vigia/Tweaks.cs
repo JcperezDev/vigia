@@ -27,24 +27,43 @@ public static class Tweaks
     public static bool Lab => Environment.GetEnvironmentVariable("VIGIA_LAB") == "1" || File.Exists(Path.Combine(Settings.Dir, "lab.flag"));
 
     // ---------- catálogo ----------
-    sealed record Def(string Id, string Group, string Title, string Detail, string Risk, string Source, bool Reboot, bool Tested, JsonArray Ops);
+    sealed record Def(string Id, string Group, string Title, string Detail, string Risk, string Source, bool Reboot, bool Tested, JsonArray Ops, bool Retired = false);
 
-    static List<Def>? _catalog;
+    static List<Def>? _all;
     internal static Func<List<JsonObject>>? CatalogOverride;   // para --selftest
 
     /// <summary>El título de un ajuste, como sale en Ajustes.</summary>
-    public static string? TitleOf(string id) { try { return Catalog().FirstOrDefault(d => d.Id == id)?.Title; } catch { return null; } }
+    public static string? TitleOf(string id) { try { return All().FirstOrDefault(d => d.Id == id)?.Title; } catch { return null; } }
 
-    static List<Def> Catalog()
+    /// <summary>Los ajustes que se ofrecen. Los retirados (los que tenían riesgo) ya no salen ni se pueden aplicar.</summary>
+    static List<Def> Catalog() => All().Where(d => !d.Retired).ToList();
+
+    /// <summary>Todos, retirados incluidos: hacen falta para devolver a su valor original lo que Vigía puso en versiones anteriores.</summary>
+    static List<Def> All()
     {
         if (CatalogOverride is not null) return CatalogOverride().Select(ToDef).ToList();
-        if (_catalog is not null) return _catalog;
+        if (_all is not null) return _all;
         var root = JsonNode.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "tweaks.json")))!.AsArray();
-        return _catalog = root.Select(n => ToDef(n!.AsObject())).ToList();
+        return _all = root.Select(n => ToDef(n!.AsObject())).ToList();
     }
 
     static Def ToDef(JsonObject o) => new((string)o["id"]!, (string)o["group"]!, (string)o["title"]!, (string)o["detail"]!,
-        (string?)o["risk"] ?? "bajo", (string?)o["source"] ?? "", (bool?)o["reboot"] ?? false, (bool?)o["tested"] ?? false, o["ops"]!.AsArray());
+        (string?)o["risk"] ?? "bajo", (string?)o["source"] ?? "", (bool?)o["reboot"] ?? false, (bool?)o["tested"] ?? false, o["ops"]!.AsArray(),
+        (bool?)o["retired"] ?? false);
+
+    /// <summary>
+    /// Deshace los ajustes retirados que Vigía aplicó antes (solo esos: los que tienen copia del valor original).
+    /// Hace copia de seguridad antes, como cualquier «Revertir». Si no hay nada que deshacer, no toca nada.
+    /// </summary>
+    public static TweakBatch? UndoRetired()
+    {
+        string[] ids;
+        lock (Gate) { var bk = LoadBackup(); ids = All().Where(d => d.Retired && bk.ContainsKey(d.Id)).Select(d => d.Id).ToArray(); }
+        if (ids.Length == 0) return null;
+        var r = Revert(ids);
+        Log($"retirados deshechos: {string.Join(", ", ids)} -> {(r.Ok ? "ok" : "con errores")}");
+        return r;
+    }
 
     public static List<TweakView> List()
     {
@@ -165,12 +184,12 @@ public static class Tweaks
         lock (Gate)
         {
             var bk = LoadBackup();
-            var undo = Catalog().Where(d => ids.Contains(d.Id) && bk.ContainsKey(d.Id)).ToList();
+            var undo = All().Where(d => ids.Contains(d.Id) && bk.ContainsKey(d.Id)).ToList();
             if (undo.Count > 0 && CatalogOverride is null &&
                 Backups.Save("ajustes", undo.Count == 1 ? $"Revertir: {undo[0].Title}" : $"Revertir {undo.Count} ajustes", undo.Select(SnapshotOf)) is null)
                 return new(false, null, undo.Select(d => new TweakResult(d.Id, false, StateOf(d), "No pude guardar la copia de seguridad; no cambié nada.")).ToArray(), false);
             var results = new List<TweakResult>();
-            foreach (var d in Catalog().Where(d => ids.Contains(d.Id)))
+            foreach (var d in All().Where(d => ids.Contains(d.Id)))
             {
                 if (bk[d.Id] is not JsonObject saved)
                 {
@@ -189,7 +208,7 @@ public static class Tweaks
                 }
                 catch (Exception e) { Log($"revertir {d.Id}: ERROR {e.Message}"); results.Add(new(d.Id, false, StateOf(d), e.Message)); }
             }
-            return new(results.All(r => r.Ok), null, results.ToArray(), Catalog().Any(d => d.Reboot && ids.Contains(d.Id)));
+            return new(results.All(r => r.Ok), null, results.ToArray(), All().Any(d => d.Reboot && ids.Contains(d.Id)));
         }
     }
 
@@ -199,7 +218,7 @@ public static class Tweaks
 
     internal static JsonObject? SnapshotItem(string id)
     {
-        lock (Gate) return Catalog().FirstOrDefault(d => d.Id == id) is { } d ? SnapshotOf(d) : null;
+        lock (Gate) return All().FirstOrDefault(d => d.Id == id) is { } d ? SnapshotOf(d) : null;
     }
 
     /// <summary>Estado actual de todos los ajustes del catálogo (para la copia «original»).</summary>
@@ -220,7 +239,7 @@ public static class Tweaks
         lock (Gate)
         {
             var id = (string)it["id"]!;
-            var d = Catalog().FirstOrDefault(x => x.Id == id) ?? throw new InvalidOperationException("Ese ajuste ya no está en el catálogo.");
+            var d = All().FirstOrDefault(x => x.Id == id) ?? throw new InvalidOperationException("Ese ajuste ya no está en el catálogo.");
             var saved = it["saved"]!.AsObject();
             var ops = d.Ops.Select(x => x!.AsObject()).ToList();
             for (int i = ops.Count - 1; i >= 0; i--)

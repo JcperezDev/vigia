@@ -1148,8 +1148,7 @@
   const SM_Q = [
     { k: 'games', q: '¿Juegas en esta PC?', h: 'Prioridad para juegos, GPU potente, modo juego y ratón sin aceleración.', def: true },
     { k: 'printer', q: '¿Usas impresora o «Imprimir a PDF»?', h: 'Si dices que no, se apaga la cola de impresión.', def: true },
-    { k: 'xbox', q: '¿Usas Xbox, Game Pass o la barra Win+G?', h: 'Si no, se quitan las apps y servicios de Xbox.', def: false },
-    { k: 'search', q: '¿Buscas archivos desde el menú Inicio?', h: 'Si no, se apaga el indexador y deja de leer el disco por detrás.', def: true },
+    { k: 'xbox', q: '¿Usas Xbox, Game Pass o la barra Win+G?', h: 'Si no, se quitan las apps de Xbox y la grabación de fondo.', def: false },
     { k: 'laptop', q: '¿Es una laptop que usas con batería?', h: 'Si es laptop, no se pone el plan de energía de Vigía ni se apaga la hibernación.', def: false },
     { k: 'visual', q: '¿Quitar transparencias y animaciones?', h: 'Windows se ve más simple y responde más rápido.', def: true },
     { k: 'privacy', q: '¿Apagar telemetría y anuncios de Windows?', h: 'Menos datos a Microsoft y nada de apps sugeridas.', def: true },
@@ -1368,7 +1367,7 @@
     }, 2500);
     // 'simple-choices': para capturas; pinta la lista de ajustes con datos de ejemplo
     if (view === 'simple' && act === 'choices') setTimeout(() => smPlan({ changes: 3, names: ['Servicios de Xbox', 'Windows Update sin sorpresas', 'Apagar la hibernación'], stages: smStages, choices: [
-      { id: 'services-xbox', title: 'Servicios de Xbox', detail: 'Fortnite y Steam no los usan. Rompe Xbox Game Pass, los logros de Xbox y Minecraft de la Tienda.' },
+      { id: 'smb1-off', title: 'Apagar el compartir archivos antiguo (SMB1)', detail: 'Protocolo de los 90 que usó WannaCry. Solo lo necesitan NAS o impresoras muy viejas.' },
       { id: 'update-control', title: 'Windows Update sin sorpresas', detail: 'No reinicia solo con la sesión abierta y no reemplaza tu driver de NVIDIA. Las actualizaciones de seguridad siguen llegando.' },
       { id: 'hibernate-off', title: 'Apagar la hibernación', detail: 'Borra hiberfil.sys (ocupa casi lo mismo que tu RAM en C:). También desactiva el inicio rápido.' }] }) ?? $('sm-twlist').scrollIntoView({ block: 'center' }), 4000);
   };

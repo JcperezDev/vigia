@@ -104,7 +104,7 @@
     ]
   },
   {
-    "id": "input-queue", "group": "Ratón y teclado", "risk": "medio", "reboot": true,
+    "id": "input-queue", "retired": true, "group": "Ratón y teclado", "risk": "medio", "reboot": true,
     "title": "Cola corta de ratón y teclado",
     "detail": "Baja el búfer de entrada de 100 a 20 eventos. Con ratones de 4000-8000 Hz puede perder movimientos: pruébalo antes.",
     "source": "",
@@ -114,7 +114,7 @@
     ]
   },
   {
-    "id": "shutdown-fast", "tested": true, "group": "Windows", "risk": "medio", "reboot": false,
+    "id": "shutdown-fast", "retired": true, "tested": true, "group": "Windows", "risk": "medio", "reboot": false,
     "title": "Cerrar programas colgados sin esperar",
     "detail": "Menús sin retardo y apagado más rápido. Al apagar, los programas que no respondan se cierran solos: guarda antes.",
     "source": "",
@@ -213,7 +213,7 @@
     "ops": [{ "svc": "Spooler", "start": 4 }]
   },
   {
-    "id": "services-xbox", "tested": true, "group": "Servicios", "risk": "medio", "reboot": true,
+    "id": "services-xbox", "retired": true, "tested": true, "group": "Servicios", "risk": "medio", "reboot": true,
     "title": "Servicios de Xbox",
     "detail": "Fortnite y Steam no los usan. Rompe Xbox Game Pass, los logros de Xbox y Minecraft de la Tienda.",
     "source": "",
@@ -224,7 +224,7 @@
     ]
   },
   {
-    "id": "search-off", "tested": true, "group": "Servicios", "risk": "medio", "reboot": true,
+    "id": "search-off", "retired": true, "tested": true, "group": "Servicios", "risk": "medio", "reboot": true,
     "title": "Indexador de búsqueda",
     "detail": "Menos lecturas de disco en segundo plano. A cambio, buscar en Inicio y en el Explorador es mucho más lento.",
     "source": "",
