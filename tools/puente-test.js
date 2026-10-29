@@ -177,6 +177,16 @@ try {
     check(r.code !== 0 && JSON.stringify(state(A)) === before && !fs.existsSync(path.join(A.root, 'versiones', '0.21.2')) && !fs.existsSync(path.join(A.root, 'versiones', '0.21.3')),
       what + ' se rechaza y no se instala nada', r.out);
   }
+  {   // relevo de clave: un Puente que confía en la actual y en la nueva acepta lo firmado con la nueva; uno que no, no
+    const pubB = genB.out.trim().split(/\r?\n/).pop();
+    const R = newPc();
+    const relay = { env: { ...env(R.root, R.local), PUENTE_TEST_PUBKEY: pub + ';' + pubB } };
+    const rr = sh(PT, ['--offline', P.otherKey, '--quiet', '--yes'], relay);
+    check(rr.code === 0 && state(R).current === '0.21.2', 'relevo de clave: con la clave nueva en la lista, lo firmado con ella se instala', rr.out);
+    const S = newPc();
+    const rs = sh(PT, ['--offline', P.otherKey, '--quiet', '--yes'], { env: env(S.root, S.local) });
+    check(rs.code !== 0 && !state(S).current, 'sin la clave nueva en la lista, lo mismo se rechaza', rs.out);
+  }
   r = install(A, noManifest);
   check(r.code !== 0 && JSON.stringify(state(A)) === before, 'una versión sin manifiesto firmado (formato viejo) no se instala', r.out);
   const dl = path.join(A.root, '.descargas');

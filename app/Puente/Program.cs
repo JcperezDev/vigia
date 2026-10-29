@@ -29,6 +29,10 @@ static partial class Program
 
     // Clave pública de publicación. La privada está solo en el PC donde se publican las versiones.
     const string PublicKey = "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE2sn60BucOhX4a3HZt59BBg3gWbZ77dyDNEdmP0/+cFAaUg7jSEjaywk5q54fPIZKzpuUtQlsS01dcTNdbv0muA==";
+    // Claves de relevo para cambiar de clave sin dejar tiradas las instalaciones: una versión que confía en la actual y
+    // en la nueva se firma con la actual; la siguiente ya puede venir firmada con la nueva. Hoy no hay relevo: vacío.
+    // Solo claves públicas (base64 SubjectPublicKeyInfo); nunca se leen de archivos ni del entorno en la versión publicada.
+    static readonly string[] NextKeys = [];
 
     static string LogFile => Native.IsAdmin ? Path.Combine(Layout.LogDir, "puente.log")
         : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Vigia", "puente.log");
@@ -418,31 +422,36 @@ static partial class Program
     }
 
 #if PUENTE_TEST
-    // solo en la compilación de pruebas: una clave de prueba hecha en la carpeta temporal (nunca la de publicar)
-    static string Key => Environment.GetEnvironmentVariable("PUENTE_TEST_PUBKEY") is { Length: > 40 } k ? k : PublicKey;
+    // solo en la compilación de pruebas: claves de prueba hechas en la carpeta temporal (nunca la de publicar),
+    // separadas por ';' para probar el relevo de claves
+    static string[] Keys => Environment.GetEnvironmentVariable("PUENTE_TEST_PUBKEY") is { Length: > 40 } k
+        ? k.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries) : [PublicKey, .. NextKeys];
 #else
-    static string Key => PublicKey;
+    static string[] Keys => [PublicKey, .. NextKeys];
 #endif
 
-    static bool VerifyBytes(byte[] data, string sigB64)
-    {
-        if (PublicKey.StartsWith("__")) throw new InvalidOperationException("este Puente se compiló sin clave pública.");
-        using var ec = ECDsa.Create();
-        ec.ImportSubjectPublicKeyInfo(Convert.FromBase64String(Key), out _);
-        byte[] sig;
-        try { sig = Convert.FromBase64String(sigB64.Trim()); } catch (FormatException) { return false; }
-        return ec.VerifyData(data, sig, HashAlgorithmName.SHA256);
-    }
+    static bool VerifyBytes(byte[] data, string sigB64) => VerifyWith(sigB64, ec => ec.VerifyData(data, SigBytes(sigB64)!, HashAlgorithmName.SHA256));
 
-    static bool Verify(string file, string sigB64)
+    static bool Verify(string file, string sigB64) => VerifyWith(sigB64, ec =>
+    {
+        using var fs = File.OpenRead(file);
+        return ec.VerifyData(fs, SigBytes(sigB64)!, HashAlgorithmName.SHA256);
+    });
+
+    static byte[]? SigBytes(string b64) { try { return Convert.FromBase64String(b64.Trim()); } catch (FormatException) { return null; } }
+
+    /// <summary>Vale si la firma es de cualquiera de las claves de confianza (la actual o una de relevo).</summary>
+    static bool VerifyWith(string sigB64, Func<ECDsa, bool> check)
     {
         if (PublicKey.StartsWith("__")) throw new InvalidOperationException("este Puente se compiló sin clave pública.");
-        using var ec = ECDsa.Create();
-        ec.ImportSubjectPublicKeyInfo(Convert.FromBase64String(Key), out _);
-        byte[] sig;
-        try { sig = Convert.FromBase64String(sigB64.Trim()); } catch (FormatException) { return false; }
-        using var fs = File.OpenRead(file);
-        return ec.VerifyData(fs, sig, HashAlgorithmName.SHA256);
+        if (SigBytes(sigB64) is null) return false;
+        foreach (var k in Keys)
+        {
+            using var ec = ECDsa.Create();
+            ec.ImportSubjectPublicKeyInfo(Convert.FromBase64String(k), out _);
+            if (check(ec)) return true;
+        }
+        return false;
     }
 
     static int GenKey(string privPath)

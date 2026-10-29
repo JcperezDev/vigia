@@ -125,10 +125,13 @@ public static class Updates
         {   // clave de usar y tirar, solo para ver que una firma buena sí pasa y que cambiar un byte la rompe
             var pub = Convert.ToBase64String(k.ExportSubjectPublicKeyInfo());
             var good = Convert.ToBase64String(k.SignData(fake, System.Security.Cryptography.HashAlgorithmName.SHA256));
-            Check(PuenteSigOk(fake, good, pub), "Puente con firma buena: sí");
+            Check(PuenteSigOk(fake, good, [pub]), "Puente con firma buena: sí");
             var bad = (byte[])fake.Clone(); bad[^1] ^= 1;
-            Check(!PuenteSigOk(bad, good, pub), "Puente con un byte cambiado: no");
+            Check(!PuenteSigOk(bad, good, [pub]), "Puente con un byte cambiado: no");
             Check(!PuenteSigOk(fake, good), "firma de otra clave contra la clave de Vigía: no");
+            Check(PuenteSigOk(fake, good, [PublicKey, pub]), "relevo de clave: con la vieja y la nueva de confianza, una firma de la nueva pasa");
+            Check(!PuenteSigOk(fake, good, [PublicKey]), "sin la clave nueva en la lista, esa misma firma no pasa");
+            Check(NextKeys.Length == 0, "esta versión no trae claves de relevo (no hay rotación en curso)");
         }
         return string.Join(Environment.NewLine, log);
     }
@@ -166,6 +169,8 @@ public static class Updates
     const string PuenteUrl = "https://github.com/JcperezDev/vigia/releases/latest/download/Puente.exe";
     // la misma clave pública que lleva Puente: solo se instala un Puente firmado por nosotros
     const string PublicKey = "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE2sn60BucOhX4a3HZt59BBg3gWbZ77dyDNEdmP0/+cFAaUg7jSEjaywk5q54fPIZKzpuUtQlsS01dcTNdbv0muA==";
+    // claves de relevo, las mismas que lleva Puente (ver Puente/Program.cs): hoy vacío
+    static readonly string[] NextKeys = [];
 
     /// <summary>Si falta Puente, lo baja de GitHub y comprueba la firma antes de dejarlo en su carpeta. Devuelve null si está listo.</summary>
     /// <param name="fresh">Para actualizar: se baja y se comprueba otra vez aunque ya exista, así nunca se abre un Puente
@@ -213,14 +218,19 @@ public static class Updates
     /// <summary>Puente pesa unos pocos MB; nada de lo que se publique debería pasar de esto.</summary>
     internal const long MaxPuenteBytes = 64L * 1024 * 1024;
 
-    internal static bool PuenteSigOk(byte[] exe, string sig, string? publicKey = null)
+    /// <param name="keys">Solo para la autocomprobación; por defecto la clave de Vigía y las de relevo.</param>
+    internal static bool PuenteSigOk(byte[] exe, string sig, IReadOnlyList<string>? keys = null)
     {
         if (exe.Length == 0 || exe.Length > MaxPuenteBytes) return false;
         byte[] s;
         try { s = Convert.FromBase64String(sig.Trim()); } catch (FormatException) { return false; }
-        using var ec = System.Security.Cryptography.ECDsa.Create();
-        ec.ImportSubjectPublicKeyInfo(Convert.FromBase64String(publicKey ?? PublicKey), out _);
-        return ec.VerifyData(exe, s, System.Security.Cryptography.HashAlgorithmName.SHA256);
+        foreach (var k in keys ?? [PublicKey, .. NextKeys])
+        {
+            using var ec = System.Security.Cryptography.ECDsa.Create();
+            ec.ImportSubjectPublicKeyInfo(Convert.FromBase64String(k), out _);
+            if (ec.VerifyData(exe, s, System.Security.Cryptography.HashAlgorithmName.SHA256)) return true;
+        }
+        return false;
     }
 
     static Version? FileVer(string path)
