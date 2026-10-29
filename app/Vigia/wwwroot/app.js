@@ -361,7 +361,8 @@
       const body = el('div'); body.append(el('p', null, i.detail));
       if (i.examples.length) {
         const det = el('details'); det.append(el('summary', null, `Ver ${plural(i.examples.length, 'detalle', 'detalles')}`));
-        const ul = el('ul'); i.examples.forEach((x) => ul.append(el('li', null, x))); det.append(ul); body.append(det);
+        // «qué pasó» arriba y, si Vigía sabe qué es, la explicación en simple debajo (separadas por un salto de línea)
+        const ul = el('ul'); i.examples.forEach((x) => { const [what, why] = x.split('\n'); const li = el('li', null, what); if (why) li.append(el('span', 'ex-why', why)); ul.append(li); }); det.append(ul); body.append(det);
       }
       li.append(el('span', 'dot'), el('strong', null, i.title), body);
       return li;
@@ -847,7 +848,7 @@
   }
 
 
-  // ---------- juegos: FPS antes y después + perfil de Fortnite ----------
+  // ---------- juegos ----------
   const fpsFmt = (n) => (Math.round(n * 10) / 10).toLocaleString(window.vigiaI18n.locale(), { maximumFractionDigits: n >= 100 ? 0 : 1 });
   const gmBase = (game) => localStorage.getItem('vigia.fpsBase.' + game);
   function gmSetup(s) {
@@ -919,65 +920,6 @@
       li.append(el('span', `state ${isBase ? '' : 'applied'}`, isBase ? 'Antes' : 'Después'), body, acts);
       return li;
     }) : [el('li', 'empty', 'Todavía no hay mediciones. Mide una partida ahora, antes de optimizar: esa será tu referencia.')]));
-  }
-  const fnLevel = ['Bajo', 'Medio', 'Alto', 'Épico', 'Cinemático'];
-  function fnValue(s) {
-    const v = s.value;
-    if (/^(true|false)$/i.test(v)) return /^true$/i.test(v) ? 'Sí' : 'No';
-    if (s.key.startsWith('sg.') && s.key !== 'sg.ResolutionQuality') return fnLevel[+v] ?? v;
-    if (s.key === 'sg.ResolutionQuality') return `${Math.round(+v)} %`;
-    if (/FrameRateLimit$/.test(s.key)) return +v === 0 ? 'Sin límite' : `${Math.round(+v)} FPS`;
-    return v;
-  }
-  // «Tu PC para jugar»: pantallas, RAM, Resizable BAR, modo juego, HAGS y energía
-
-  function renderFortnite(f) {
-    const box = $('gm-fn');
-    if (!f.found) { box.replaceChildren(el('p', 'empty', 'No encontré Fortnite en este PC. Si lo tienes, ábrelo una vez para que cree su configuración.')); return; }
-    const head = el('div', 'gm-fn-head');
-    head.append(el('p', null, `Modo de render: ${f.mode}.`));
-    if (f.profileApplied) head.append(el('p', null, 'Perfil competitivo de Vigía puesto.'));
-    if (f.running) head.append(el('p', 'src why', 'Fortnite está abierto. Ciérralo para cambiar algo: si no, al salir guarda encima.'));
-    if (f.readOnly) head.append(el('p', 'src why', 'El archivo está en «solo lectura»: Fortnite no puede guardar lo que cambies dentro del juego. Cualquier cambio de aquí lo quita.'));
-    const acts = el('div', 'gm-ctl');
-    const prof = el('button', 'btn primary', 'Aplicar perfil competitivo');
-    prof.hidden = f.profileApplied;
-    prof.disabled = f.running;
-    prof.addEventListener('click', () => { busyBtn(prof, true, 'Aplicando…'); send({ cmd: 'fortniteApply', profile: true }); });
-    const perf = f.mode.startsWith('Rendimiento');
-    const mode = el('button', 'btn', perf ? 'Cambiar a DirectX 12' : 'Cambiar a modo Rendimiento');
-    mode.disabled = f.running;
-    mode.addEventListener('click', () => { busyBtn(mode, true, 'Cambiando…'); send({ cmd: 'fortniteApply', profile: false, mode: perf ? 'dx12' : 'perf' }); });
-    acts.append(prof, mode);
-    if (f.readOnly && f.profileApplied) {
-      const un = el('button', 'btn', 'Permitir que Fortnite guarde');
-      un.disabled = f.running;
-      un.addEventListener('click', () => { busyBtn(un, true, 'Cambiando…'); send({ cmd: 'fortniteApply', profile: false }); });
-      acts.append(un);
-    }
-    const tip = el('p', 'src', perf
-      ? 'Rendimiento suele dar más FPS cuando el procesador es el límite; DirectX 12 se ve mejor. Mide una partida con cada uno y quédate con el que gane.'
-      : 'El modo Rendimiento quita detalle gráfico a cambio de FPS. Mide una partida antes y otra después de cambiar para saber si te conviene.');
-    // dos bloques compactos: lo que toca el perfil y lo que eliges tú; solo se marca lo que cambiaría
-    const table = (title, rows) => {
-      const sec = el('div', 'gm-tbl');
-      sec.append(el('h3', null, title));
-      const dl = el('dl');
-      rows.forEach((s) => {
-        const dd = el('dd', s.want != null && !s.ok ? 'chg' : null, s.want != null && !s.ok ? `${fnValue(s)} → ${fnValue({ ...s, value: s.want })}` : fnValue(s));
-        dl.append(el('dt', null, s.label), dd);
-      });
-      sec.append(dl);
-      return sec;
-    };
-    const rx = f.settings.find((s) => s.key === 'ResolutionSizeX'), ry = f.settings.find((s) => s.key === 'ResolutionSizeY');
-    const list = f.settings.filter((s) => s !== ry).map((s) => (s === rx && ry ? { ...s, label: 'Resolución', value: `${rx.value} × ${ry.value}`, key: 'res' } : s));
-    const mine = list.filter((s) => s.want != null), yours = list.filter((s) => s.want == null);
-    const pending = mine.filter((s) => !s.ok).length;
-    const ul = el('div', 'gm-tbls');
-    ul.append(table(pending ? `Perfil competitivo: ${pending} por cambiar` : 'Perfil competitivo: todo en su sitio', mine), table('Lo eliges tú', yours));
-    box.replaceChildren(head, acts, tip, ul,
-      el('p', 'src', 'Vigía solo cambia el archivo de configuración de Fortnite en tu usuario, con el juego cerrado y con copia en «Copias de seguridad». No toca distancia de visión, texturas, resolución ni tu límite de FPS.'));
   }
   $('gm-reload').addEventListener('click', () => { busyBtn($('gm-reload'), true, 'Recargando…'); send({ cmd: 'gamesGet' }); });
 
@@ -1350,7 +1292,7 @@
     }, 9000);
     if (v === 'welcome') { tourStart(true); return; }
     if (v.startsWith('tour')) { tourFrom = 'monitor'; tourShow(Number(v.split('-')[1] || 1) - 1); return; }
-    const [page, anchor] = v.split('#');   // 'games#gm-fn' = abrir Juegos y bajar hasta Fortnite
+    const [page, anchor] = v.split('#');   // 'pagina#ancla' = abrir la página y bajar hasta esa parte
     const [view, act] = page.split('-');
     document.querySelector(`.nav[data-view="${view}"]`)?.click();
     if (anchor) setTimeout(() => $(anchor)?.scrollIntoView(), 2500);
@@ -1719,7 +1661,7 @@
     else if (type === 'startup') { renderStartup(payload); suAllShow(payload); }
     else if (type === 'startupAll') suAllDone(payload);
     else if (type === 'autoStart') bootDone(payload);
-    else if (type === 'games') { busyBtn($('gm-reload'), false, 'Analizar'); renderFps(payload.fps); renderFortnite(payload.fortnite); }
+    else if (type === 'games') { busyBtn($('gm-reload'), false, 'Analizar'); renderFps(payload.fps); }
     else if (type === 'sugDone') sugDone_(payload);
     else if (type === 'gameDone') $('gm-result').textContent = payload.message;
     else if (type === 'fpsState') renderFpsState(payload);
