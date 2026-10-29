@@ -1,8 +1,8 @@
 [
   {
     "id": "power-ultimate", "tested": true, "group": "Rendimiento", "risk": "bajo", "reboot": false,
-    "title": "Plan de energía Máximo rendimiento",
-    "detail": "Crea y activa el plan oculto de Windows. La CPU no baja de frecuencia entre fotogramas. Gasta algo más en reposo.",
+    "title": "Plan de energía de Vigía",
+    "detail": "Crea el plan «Vigía» y lo activa: enchufado, el procesador no baja de velocidad entre fotogramas. Gasta algo más en reposo. Tu plan de antes vuelve con «Deshacer».",
     "source": "",
     "ops": [ { "special": "power-ultimate" } ]
   },

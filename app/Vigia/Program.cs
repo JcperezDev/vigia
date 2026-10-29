@@ -819,6 +819,13 @@ sealed partial class MainForm : Form
                     var burl = (await Task.Run(Bios.Get)).Fw.SupportUrl;
                     if (burl is not null) System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(burl) { UseShellExecute = true });
                     break;
+                case "rebootNow":   // solo desde el botón «Reiniciar ahora» del modo simple; da 20 s y se puede cancelar
+                    Send("rebootState", new { on = Tweaks.Run("shutdown.exe", "/r /t 20 /c \"Vigía: reinicio para terminar la optimización\"").exit == 0 });
+                    break;
+                case "rebootCancel":
+                    Tweaks.Run("shutdown.exe", "/a");
+                    Send("rebootState", new { on = false });
+                    break;
                 case "biosReboot":
                     Send("biosDone", await Task.Run(Bios.RebootToFirmware));
                     break;
