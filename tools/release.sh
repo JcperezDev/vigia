@@ -13,7 +13,12 @@
 # bien no se vuelven a subir; uno distinto se borra del borrador y se sube de nuevo). Nunca toca versiones publicadas.
 #
 # La clave de firma: %USERPROFILE%\.vigia\release-key.dpapi (cifrada con tu cuenta de Windows, ver docs/SIGNING.md);
-# si solo existe el .pem se usa con aviso. Nunca se copia, no se imprime y no va al repo ni a out/.
+# si solo existe el .pem se usa con aviso. Nunca se copia, no se imprime y no va al repo ni a out/. Si otra cuenta o
+# grupo puede abrirla (permisos), no se firma.
+# Firma fuera de este entorno (recomendado, ver docs/SIGNING.md):
+#   VIGIA_RELEASE_SIGN=fuera   hace 1-4 (compila, prueba, arma y hace el manifiesto) y para, sin tocar la clave
+#   (en la cuenta de firma)    Puente.exe --sign-release out\<versión> <clave>
+#   VIGIA_RELEASE_SIGNED=1     no compila ni firma: comprueba lo firmado fuera (6) y publica (7-10)
 #
 # Uso (git-bash):  tools/release.sh "Qué trae esta versión"
 #   VIGIA_RELEASE_DRY=1     hace 1-6 y para: no toca la red ni git
@@ -38,17 +43,24 @@ case "$API" in
 esac
 DRY="${VIGIA_RELEASE_DRY:-0}"
 SKIP_BUILD=0; [ "$MOCK" = 1 ] && [ "${VIGIA_RELEASE_SKIP_BUILD:-0}" = 1 ] && SKIP_BUILD=1
+[ "${VIGIA_RELEASE_SIGNED:-0}" = 1 ] && SKIP_BUILD=1   # lo firmado fuera no se vuelve a compilar: cambiaría los bytes
 # contra GitHub de verdad los repos son fijos: una variable olvidada no puede publicar en otro sitio
 if [ "$MOCK" = 0 ] && { [ "$PUB_REPO" != JcperezDev/vigia ] || [ "$MIRROR_REPO" != JcperezDev/vigia-releases ]; }; then
   echo "VIGIA_RELEASE_REPO y VIGIA_RELEASE_MIRROR solo se pueden cambiar con el servidor de pruebas."; exit 1
 fi
 
-KEY="$USERPROFILE/.vigia/release-key.dpapi"
-[ -f "$KEY" ] || KEY="$USERPROFILE/.vigia/release-key.pem"
-if [ "$MOCK" = 1 ]; then KEY="${VIGIA_RELEASE_TEST_KEY:?con el servidor de pruebas hace falta una clave de prueba}"; fi
-[ -f "$KEY" ] || { echo "Falta la clave de firma (release-key.dpapi o .pem en %USERPROFILE%\\.vigia)."; exit 1; }
-case "$KEY" in *.pem) [ "$MOCK" = 1 ] || echo "Aviso: la clave de firma está sin cifrar (.pem). Ver docs/SIGNING.md para cifrarla con tu cuenta." ;; esac
-case "$(cd "$(dirname "$KEY")" && pwd -W)/" in "$ROOT"/*) echo "La clave de firma no puede estar dentro del repositorio."; exit 1 ;; esac
+SIGN="${VIGIA_RELEASE_SIGN:-aqui}"; SIGNED="${VIGIA_RELEASE_SIGNED:-0}"
+case "$SIGN" in aqui|fuera) ;; *) echo "VIGIA_RELEASE_SIGN solo puede ser aqui o fuera."; exit 1 ;; esac
+[ "$SIGNED" = 1 ] && [ "$SIGN" = fuera ] && { echo "VIGIA_RELEASE_SIGN=fuera y VIGIA_RELEASE_SIGNED=1 son pasos distintos: uno cada vez."; exit 1; }
+KEY=""
+if [ "$SIGN" = aqui ] && [ "$SIGNED" != 1 ]; then
+  KEY="$USERPROFILE/.vigia/release-key.dpapi"
+  [ -f "$KEY" ] || KEY="$USERPROFILE/.vigia/release-key.pem"
+  if [ "$MOCK" = 1 ]; then KEY="${VIGIA_RELEASE_TEST_KEY:?con el servidor de pruebas hace falta una clave de prueba}"; fi
+  [ -f "$KEY" ] || { echo "Falta la clave de firma (release-key.dpapi o .pem en %USERPROFILE%\\.vigia)."; exit 1; }
+  case "$KEY" in *.pem) [ "$MOCK" = 1 ] || echo "Aviso: la clave de firma está sin cifrar (.pem). Ver docs/SIGNING.md para cifrarla con tu cuenta." ;; esac
+  case "$(cd "$(dirname "$KEY")" && pwd -W)/" in "$ROOT"/*) echo "La clave de firma no puede estar dentro del repositorio."; exit 1 ;; esac
+fi
 
 V=$(sed -n 's|.*<Version>\(.*\)</Version>.*|\1|p' app/Vigia/Vigia.csproj)
 MV=$(grep -o 'assemblyIdentity version="[0-9.]*"' app/Vigia/app.manifest | grep -o '[0-9][0-9.]*')
@@ -63,12 +75,16 @@ OUT="$ROOT/out/$V"
 mkdir -p out
 DISCARD="$ROOT/out/.discard"  # mingw curl falla (23) al escribir en /dev/null
 P="$OUT/puente/Puente.exe"
-if [ "$SKIP_BUILD" = 1 ]; then
+if [ "$SKIP_BUILD" = 1 ] && [ "$MOCK" = 1 ]; then
   # solo con el servidor de pruebas (tools/release-test.js): artefactos de prueba en %TEMP% y Puente de prueba
   OUT="${VIGIA_RELEASE_OUT:-$OUT}"; P="${VIGIA_RELEASE_PUENTE:-$P}"
 fi
 ZIP="Vigia-$V-win-x64.zip"
 ASSETS=("$ZIP" "$ZIP.sig" Puente.exe Puente.exe.sig Vigia-Setup.exe Vigia-Setup.exe.sig vigia-manifest.json vigia-manifest.json.sig SHA256SUMS.txt)
+if [ "$SIGNED" = 1 ]; then
+  [ -x "$P" ] || { echo "Falta $P: primero VIGIA_RELEASE_SIGN=fuera tools/release.sh."; exit 1; }
+  ( cd "$OUT" && sha256sum "${ASSETS[@]:0:8}" > SHA256SUMS.txt ) 2>/dev/null || { echo "Faltan archivos firmados en $OUT."; exit 1; }
+fi
 
 if [ "$SKIP_BUILD" = 0 ]; then
 # ---------------------------------------------------------------- 1. compilar
@@ -100,6 +116,14 @@ cp "$OUT/Puente.exe" "$OUT/Vigia-Setup.exe"
 # ---------------------------------------------------------------- 4-5. huellas y firmas
 echo "== 4-5. manifiesto y firmas"
 "$P" --manifest "$OUT" "$V" "$MIN_VERSION" >/dev/null
+if [ "$SIGN" = fuera ]; then
+  ( cd "$OUT" && sha256sum "$ZIP" Puente.exe Vigia-Setup.exe vigia-manifest.json )
+  echo "Listo para firmar fuera (la clave no se tocó). En la cuenta de firma:"
+  echo "  Puente.exe --sign-release \"$(cd "$OUT" && pwd -W)\" <clave>"
+  echo "y luego aquí: VIGIA_RELEASE_SIGNED=1 tools/release.sh \"...\""
+  exit 0
+fi
+"$P" --key-check "$KEY" >/dev/null || { "$P" --key-check "$KEY"; echo "No se firma con una clave que otras cuentas pueden abrir. Ver docs/SIGNING.md."; exit 1; }
 for f in "$ZIP" Puente.exe Vigia-Setup.exe vigia-manifest.json; do "$P" --sign "$OUT/$f" "$KEY"; done
 ( cd "$OUT" && sha256sum "${ASSETS[@]:0:8}" > SHA256SUMS.txt )
 fi

@@ -30,7 +30,7 @@ const sh = (exe, args, env) => spawnSync(exe, args, { encoding: 'utf8', env: { .
 const KEY = path.join(TMP, 'clave-prueba.pem');
 const PUB = sh(PT, ['--genkey', KEY]).stdout.trim();
 const ENVP = { PUENTE_TEST_PUBKEY: PUB };
-function artifacts(dir) {
+function artifacts(dir, o = {}) {
   fs.mkdirSync(dir, { recursive: true });
   const zip = `Vigia-${V}-win-x64.zip`;
   const src = path.join(dir, 'src'); fs.mkdirSync(src);
@@ -41,10 +41,16 @@ function artifacts(dir) {
   fs.copyFileSync(PT, path.join(dir, 'Vigia-Setup.exe'));
   const m = sh(PT, ['--manifest', dir, V, ''], ENVP);
   if (m.status !== 0) throw new Error('manifest: ' + m.stderr);
-  for (const f of [zip, 'Puente.exe', 'Vigia-Setup.exe', 'vigia-manifest.json']) {
-    const s = sh(PT, ['--sign', path.join(dir, f), KEY], ENVP);
-    if (s.status !== 0) throw new Error('sign ' + f + ': ' + s.stderr);
+  if (o.signRelease) {   // firma fuera: un solo comando en la cuenta de firma
+    const s = sh(PT, ['--sign-release', dir, KEY], ENVP);
+    if (s.status !== 0) throw new Error('sign-release: ' + s.stdout + s.stderr);
+  } else if (!o.unsigned) {
+    for (const f of [zip, 'Puente.exe', 'Vigia-Setup.exe', 'vigia-manifest.json']) {
+      const s = sh(PT, ['--sign', path.join(dir, f), KEY], ENVP);
+      if (s.status !== 0) throw new Error('sign ' + f + ': ' + s.stderr);
+    }
   }
+  if (o.unsigned) return { dir, zip };
   const names = [zip, zip + '.sig', 'Puente.exe', 'Puente.exe.sig', 'Vigia-Setup.exe', 'Vigia-Setup.exe.sig', 'vigia-manifest.json', 'vigia-manifest.json.sig'];
   fs.writeFileSync(path.join(dir, 'SHA256SUMS.txt'), names.map((n) =>
     crypto.createHash('sha256').update(fs.readFileSync(path.join(dir, n))).digest('hex') + ' *' + n).join('\n') + '\n');
@@ -161,6 +167,25 @@ const writes = (mock, from) => mock.log.slice(from).filter((l) => l.method !== '
       r = await release(mock, D, 'prueba/d', '', { VIGIA_RELEASE_TEST_KEY: inRepo });
       check(r.code !== 0 && /no puede estar dentro del repositorio/.test(r.out), 'una clave dentro del repositorio se rechaza', r.out);
     } finally { fs.rmSync(inRepo, { force: true }); }
+
+    // ---- 8b. firma fuera de este entorno: release.sh no necesita la clave y publica lo firmado fuera
+    mock.seed('prueba/g', 'v0.20.17');
+    const G = artifacts(path.join(TMP, 'g'), { signRelease: true });
+    fs.rmSync(path.join(G.dir, 'SHA256SUMS.txt'));   // la hace release.sh
+    r = await release(mock, G, 'prueba/g', '', { VIGIA_RELEASE_SIGNED: '1', VIGIA_RELEASE_TEST_KEY: path.join(TMP, 'no-existe.pem') });
+    const relG = rels(mock, 'prueba/g')[0];
+    check(r.code === 0 && relG?.draft === false && relG.assets.length === G.names.length
+          && relG.assets.every((a) => Buffer.compare(a.data, fs.readFileSync(path.join(G.dir, a.name))) === 0),
+      'firmado fuera (--sign-release): release.sh lo publica sin tener la clave', r.out);
+    const H = artifacts(path.join(TMP, 'h'), { unsigned: true });
+    mock.seed('prueba/h', 'v0.20.17');
+    from = mock.log.length;
+    r = await release(mock, H, 'prueba/h', '', { VIGIA_RELEASE_SIGNED: '1' });
+    check(r.code !== 0 && mock.log.length === from, 'VIGIA_RELEASE_SIGNED=1 sin firmas: para antes de tocar la red', r.out);
+    r = await release(mock, G, 'prueba/g', '', { VIGIA_RELEASE_SIGN: 'fuera', VIGIA_RELEASE_SIGNED: '1' });
+    check(r.code !== 0 && /pasos distintos/.test(r.out), 'firmar fuera y publicar lo firmado no se mezclan en una pasada', r.out);
+    r = await release(mock, G, 'prueba/g', '', { VIGIA_RELEASE_SIGN: 'otra' });
+    check(r.code !== 0 && /solo puede ser aqui o fuera/.test(r.out), 'VIGIA_RELEASE_SIGN solo acepta aqui o fuera', r.out);
 
     // ---- 9. contra GitHub de verdad no se puede cambiar el repo. Sin red: DRY y un perfil vacío
     //         (si el control fallara, el script pararía por falta de clave, nunca con la real)

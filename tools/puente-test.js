@@ -356,6 +356,52 @@ try {
   check(fs.existsSync(path.join(target, 'canario.txt')), 'si la carpeta vieja es un junction, no se borra lo que hay detrás', r.out);
   try { fs.rmdirSync(path.join(L4.progs, 'Vigia')); } catch { }
 
+  // ---------------------------------------------------------------- clave de firma
+  console.log('--- clave de firma');
+  const kenv = { env: { ...process.env, PUENTE_TEST_PUBKEY: pub } };
+  r = sh(PT, ['--key-check', keyA]);
+  check(r.code === 0, '--genkey crea la clave con permisos propios: solo tu cuenta (no hereda los de la carpeta)', r.out);
+  const keyOpen = path.join(work, 'claves', 'abierta.pem');
+  fs.copyFileSync(keyA, keyOpen);
+  sh(path.join(process.env.SystemRoot, 'System32', 'icacls.exe'), [keyOpen, '/grant', '*S-1-5-32-545:R']);   // Usuarios: leer
+  r = sh(PT, ['--key-check', keyOpen]);
+  check(r.code === 3 && /otras cuentas/.test(r.out), 'una clave que otro grupo puede leer sale como NO protegida', r.out);
+  const sigProbe = path.join(work, 'probar-firma.txt'); fs.writeFileSync(sigProbe, 'x');
+  r = sh(PT, ['--sign', sigProbe, keyOpen]);
+  check(r.code === 3 && !fs.existsSync(sigProbe + '.sig'), 'no se firma con una clave que otro grupo puede leer', r.out);
+  r = sh(PT, ['--sign', sigProbe, keyA]);
+  check(r.code === 0 && fs.existsSync(sigProbe + '.sig'), 'con la clave protegida sí se firma', r.out);
+
+  function relDir(tag) {
+    const d = path.join(work, 'rel-' + tag); fs.mkdirSync(d);
+    fs.copyFileSync(path.join(P.v210, 'Vigia-0.21.0-win-x64.zip'), path.join(d, 'Vigia-0.21.0-win-x64.zip'));
+    fs.copyFileSync(PT, path.join(d, 'Puente.exe')); fs.copyFileSync(PT, path.join(d, 'Vigia-Setup.exe'));
+    const m = sh(PT, ['--manifest', d, '0.21.0'], kenv);
+    if (m.code !== 0) throw new Error('--manifest: ' + m.out);
+    return d;
+  }
+  const sigs = d => fs.readdirSync(d).filter(f => f.endsWith('.sig'));
+  let rd = relDir('bien');
+  r = sh(PT, ['--sign-release', rd, keyA], kenv);
+  check(r.code === 0 && sigs(rd).length === 4 && sh(PT, ['--verify-manifest', path.join(rd, 'vigia-manifest.json')], kenv).code === 0,
+    '--sign-release firma las cuatro piezas y comprueba el manifiesto', r.out);
+  r = sh(PT, ['--sign-release', rd, keyA], kenv);
+  check(r.code === 1 && /no se pisan/.test(r.out), '--sign-release no pisa firmas que ya existen', r.out);
+  rd = relDir('otra');
+  r = sh(PT, ['--sign-release', rd, keyB], kenv);
+  check(r.code === 1 && sigs(rd).length === 0, 'con una clave que no es la de Vigía no deja firmas a medias', r.out);
+  rd = relDir('abierta');
+  r = sh(PT, ['--sign-release', rd, keyOpen], kenv);
+  check(r.code === 3 && sigs(rd).length === 0, '--sign-release no usa una clave que otro grupo puede leer', r.out);
+  rd = relDir('setup');
+  fs.appendFileSync(path.join(rd, 'Vigia-Setup.exe'), 'x');
+  r = sh(PT, ['--sign-release', rd, keyA], kenv);
+  check(r.code === 1 && sigs(rd).length === 0, 'si Vigia-Setup.exe no es el mismo Puente, no se firma', r.out);
+  rd = relDir('zip');
+  fs.appendFileSync(path.join(rd, 'Vigia-0.21.0-win-x64.zip'), 'x');   // el paquete cambió después del manifiesto
+  r = sh(PT, ['--sign-release', rd, keyA], kenv);
+  check(r.code === 1 && sigs(rd).length === 0, 'si el paquete cambió después del manifiesto, se quitan las firmas', r.out);
+
   // ---------------------------------------------------------------- quitar
   console.log('--- desinstalar');
   r = puente(L.t, ['--uninstall', '--quiet']);

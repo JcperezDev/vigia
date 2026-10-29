@@ -21,7 +21,9 @@ The public key is compiled into `app/Puente/Program.cs` (`PublicKey`) and `app/V
 * `.dpapi` is the PEM encrypted with Windows DPAPI for the **current user account** plus a fixed application entropy. Another Windows account, another PC, or a copy of the file on its own cannot decrypt it. It is created with its own ACL (only your account, no inherited entries).
 * The key is never copied: `Puente.exe --sign` reads it directly, decrypts in memory and wipes the buffers after signing. `release.sh` passes only the path.
 * `release.sh` refuses a key located inside the repository, so it can never be committed or packed by accident.
-* The repository history was checked: no `.pem`/`.key` file and no `BEGIN … PRIVATE KEY` block in any commit.
+* **Permission gate:** `Puente.exe --sign` and `--sign-release` refuse a key that any account other than yours, SYSTEM or Administrators can open (direct or inherited ACL entry, or a key that is a link). Exit code 3, nothing signed. `Puente.exe --key-check <key>` shows the same check without opening the key.
+* `--genkey` and `--protect-key` create the file with its own ACL (only your account, no inherited entries), so a folder that grants read to other groups does not pass it on.
+* The repository history was checked (2026-10-29): no `.pem`/`.key` file and no fragment of the real key in any commit of any branch (`git log --all -p`, matched against the key's random part without printing it). Details: `SECURITY_KEY_REVIEW.md`.
 
 ### Moving from `.pem` to `.dpapi` (manual, needs your OK)
 
@@ -44,6 +46,7 @@ $P --sign "$TMPDIR/sig-test.txt" "$USERPROFILE/.vigia/release-key.dpapi" && $P -
 ### Current state found (2026-10-29)
 
 * `release-key.pem` is plaintext. Its folder `%USERPROFILE%\.vigia` has an **explicit** (not inherited) entry `CodexSandboxUsers:(OI)(CI)(RX)`, so the key inherits *read* for that local group. Its members are the Codex sandbox accounts `CodexSandboxOffline` and `CodexSandboxOnline` — the second one has network access, so a sandboxed process could read the key and send it out. Everything else is SYSTEM, Administrators and your account (full).
+* `Puente.exe --key-check` on the real key returns `NOT protected … CodexSandboxUsers (inherited from the folder)` (exit 3), so **`release.sh` will refuse to sign with it until this is fixed**.
 * Recommended, in this order: (1) remove that entry — `icacls "%USERPROFILE%\.vigia" /remove:g CodexSandboxUsers /t` — and check with `icacls`; (2) the `.dpapi` steps above. If Codex needs to read something in `.vigia` (e.g. `vm-cred.txt`), move that file elsewhere first rather than keeping the key readable. **Not changed** — it touches the key's permissions and possibly how Codex works, so it needs your OK.
 * `%USERPROFILE%\.vigia` also holds other files (`vm-cred.txt`, `host-backup`); they were not opened.
 
@@ -61,7 +64,22 @@ The strongest practical option for a solo project is to sign on a dedicated, off
 
 1. A separate local Windows account (or VM) that only builds and signs; the `.dpapi` key lives there.
 2. Build artifacts are copied in, signed, verified, copied out; the account has no browser, no mail, no dev tools that run third-party code.
-3. Upload from the normal account with `release.sh` (the signing steps can be skipped once the `.sig` files exist — future work).
+3. Upload from the normal account with `release.sh`. Implemented:
+
+```bash
+# dev account: build, test, package and write the manifest; stops before signing (the key is not touched)
+VIGIA_RELEASE_SIGN=fuera tools/release.sh "notes"
+# signing account / offline PC: copy out\<version> there, then (one command; refuses to overwrite signatures,
+# refuses a key other accounts can open, checks the manifest against the package and Puente with the public key
+# compiled into this Puente, and removes what it signed if anything does not match)
+Puente.exe --sign-release <copied out\<version> folder> <key.dpapi|key.pem>
+# copy the four .sig files back into out\<version>; dev account: verify locally (step 6) and publish (7-10)
+VIGIA_RELEASE_SIGNED=1 tools/release.sh "notes"
+```
+
+**Run a Puente.exe the signing account already trusts** (built there from a reviewed commit that already has `--sign-release`), never the `Puente.exe` inside the folder being signed: if the dev account were compromised, that file could read the key. The folder's `Puente.exe` is only data to be signed there.
+
+`--sign-release` prints the SHA-256 of what it signed; compare them with the ones printed by `VIGIA_RELEASE_SIGN=fuera` before publishing. With `VIGIA_RELEASE_SIGNED=1` nothing is rebuilt (rebuilding would change the bytes) and no key is needed on the dev account. Tested: `tools/puente-test.js` (section "clave de firma") and `tools/release-test.js` (case 8b).
 
 A hardware token (smart card / YubiKey PIV with a P-256 key) would keep the key non-exportable; `Puente --sign` would need a CNG/PKCS#11 path. Not implemented.
 

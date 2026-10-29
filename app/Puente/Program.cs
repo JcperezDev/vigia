@@ -40,6 +40,7 @@ static partial class Program
 
     static readonly HashSet<string> Commands = ["--render", "--genkey", "--sign", "--verify", "--check", "--zip-test", "--manifest",
         "--protect-key", "--verify-manifest", "--acl-test", "--state", "--fetch-test", "--rollback", "--uninstall",
+        "--key-check", "--sign-release",
 #if PUENTE_TEST
         "--as-user", "--lock-hold",
 #endif
@@ -90,7 +91,7 @@ static partial class Program
             return 0;
         }
         var cli = args.FirstOrDefault() is "--genkey" or "--sign" or "--verify" or "--check" or "--zip-test" or "--manifest"
-            or "--protect-key" or "--verify-manifest" or "--acl-test" or "--state"
+            or "--protect-key" or "--verify-manifest" or "--acl-test" or "--state" or "--key-check" or "--sign-release"
 #if PUENTE_TEST
             or "--as-user" or "--lock-hold"
 #endif
@@ -112,6 +113,8 @@ static partial class Program
                 case "--manifest": return MakeManifest(args[1], args[2], args.Length > 3 ? args[3] : null);
                 case "--verify-manifest": return VerifyManifest(args[1]);
                 case "--protect-key": return ProtectKey(args[1], args[2]);
+                case "--key-check": return KeyCheck(args[1]);
+                case "--sign-release": return SignRelease(args[1], args[2]);
                 case "--check": return await Check();
                 case "--state": return PrintState();
                 case "--acl-test": return AclTest();
@@ -442,13 +445,14 @@ static partial class Program
         if (File.Exists(privPath)) { Console.Error.WriteLine("Ya existe " + privPath + "; no se sobrescribe."); return 1; }
         using var ec = ECDsa.Create(ECCurve.NamedCurves.nistP256);
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(privPath))!);
-        File.WriteAllText(privPath, ec.ExportPkcs8PrivateKeyPem());
+        WriteOwnOnly(privPath, Encoding.ASCII.GetBytes(ec.ExportPkcs8PrivateKeyPem()));   // solo tu cuenta, sin heredar
         Console.WriteLine(Convert.ToBase64String(ec.ExportSubjectPublicKeyInfo()));
         return 0;
     }
 
     static int SignFile(string file, string privPath)
     {
+        if (KeyAclProblem(privPath) is { } kp) { Console.Error.WriteLine("No se firma: la clave " + kp + ". Ver docs/SIGNING.md."); return 3; }
         using var ec = ECDsa.Create();
         LoadKey(ec, privPath);   // .pem o .dpapi (cifrada con tu cuenta); nunca se escribe en otro sitio
         using var fs = File.OpenRead(file);

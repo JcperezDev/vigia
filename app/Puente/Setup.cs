@@ -935,20 +935,100 @@ static partial class Program
         try
         {
             using (var ec = ECDsa.Create()) ec.ImportFromPem(Encoding.ASCII.GetString(plain));   // que sea una clave de verdad
-            var blob = Native.Protect(plain);
-            // se crea ya con permisos propios (sin heredar): solo tu cuenta. DPAPI impide descifrarla desde otra cuenta,
-            // y así otras cuentas o grupos con lectura heredada en la carpeta ni siquiera pueden copiarla.
-            var acl = new System.Security.AccessControl.FileSecurity();
-            acl.SetAccessRuleProtection(true, false);
-            acl.AddAccessRule(new System.Security.AccessControl.FileSystemAccessRule(
-                System.Security.Principal.WindowsIdentity.GetCurrent().User!,
-                System.Security.AccessControl.FileSystemRights.FullControl, System.Security.AccessControl.AccessControlType.Allow));
-            using var fs = new FileInfo(outFile).Create(FileMode.CreateNew, System.Security.AccessControl.FileSystemRights.Write,
-                FileShare.None, 4096, FileOptions.None, acl);
-            fs.Write(blob);
+            // DPAPI impide descifrarla desde otra cuenta, y con permisos propios otras cuentas ni siquiera pueden copiarla
+            WriteOwnOnly(outFile, Native.Protect(plain));
         }
         finally { CryptographicOperations.ZeroMemory(plain); }
         Console.WriteLine("Clave cifrada en " + outFile);
+        return 0;
+    }
+
+    /// <summary>
+    /// Crea un archivo nuevo con permisos propios (sin heredar de la carpeta): solo tu cuenta. Así una carpeta que da
+    /// lectura a otros grupos (por ejemplo a cuentas de un sandbox) no se la pasa a la clave.
+    /// </summary>
+    internal static void WriteOwnOnly(string path, byte[] data)
+    {
+        var acl = new System.Security.AccessControl.FileSecurity();
+        acl.SetAccessRuleProtection(true, false);
+        acl.AddAccessRule(new System.Security.AccessControl.FileSystemAccessRule(
+            System.Security.Principal.WindowsIdentity.GetCurrent().User!,
+            System.Security.AccessControl.FileSystemRights.FullControl, System.Security.AccessControl.AccessControlType.Allow));
+        using var fs = new FileInfo(path).Create(FileMode.CreateNew, System.Security.AccessControl.FileSystemRights.Write,
+            FileShare.None, 4096, FileOptions.None, acl);
+        fs.Write(data);
+    }
+
+    /// <summary>
+    /// ¿Quién más puede abrir la clave? Mira dueño y permisos (no la abre). Solo valen tu cuenta, SYSTEM y Administradores:
+    /// cualquier otro permiso (lectura, cambiar permisos…) es un problema y no se firma con ella.
+    /// </summary>
+    internal static string? KeyAclProblem(string path)
+    {
+        var fi = new FileInfo(path);
+        if (!fi.Exists) return "no existe";
+        if ((fi.Attributes & FileAttributes.ReparsePoint) != 0) return "es un enlace, no el archivo de la clave";
+        var me = System.Security.Principal.WindowsIdentity.GetCurrent().User!;
+        var trusted = new HashSet<System.Security.Principal.SecurityIdentifier> { me,
+            new(System.Security.Principal.WellKnownSidType.LocalSystemSid, null),
+            new(System.Security.Principal.WellKnownSidType.BuiltinAdministratorsSid, null) };
+        static string Name(System.Security.Principal.SecurityIdentifier? s)
+        {
+            if (s is null) return "desconocido";
+            try { return s.Translate(typeof(System.Security.Principal.NTAccount)).Value; } catch { return s.Value; }
+        }
+        var sec = fi.GetAccessControl();
+        var bad = new List<string>();
+        var owner = sec.GetOwner(typeof(System.Security.Principal.SecurityIdentifier)) as System.Security.Principal.SecurityIdentifier;
+        if (owner is null || !trusted.Contains(owner)) bad.Add("dueño " + Name(owner));
+        foreach (System.Security.AccessControl.FileSystemAccessRule r in sec.GetAccessRules(true, true, typeof(System.Security.Principal.SecurityIdentifier)))
+            if (r.AccessControlType == System.Security.AccessControl.AccessControlType.Allow
+                && r.IdentityReference is System.Security.Principal.SecurityIdentifier s && !trusted.Contains(s))
+                bad.Add(Name(s) + (r.IsInherited ? " (heredado de la carpeta)" : ""));
+        return bad.Count == 0 ? null : "la pueden abrir otras cuentas o grupos: " + string.Join(", ", bad.Distinct());
+    }
+
+    static int KeyCheck(string path)
+    {
+        if (KeyAclProblem(path) is { } p) { Console.WriteLine("Clave NO protegida: " + p); return 3; }
+        Console.WriteLine("Clave protegida: solo tu cuenta, SYSTEM y Administradores pueden abrirla.");
+        return 0;
+    }
+
+    /// <summary>
+    /// Firma de una versión fuera del entorno que compila (otra cuenta de Windows o un PC sin conexión): firma las cuatro
+    /// piezas de la carpeta, comprueba con la clave pública de este Puente que el manifiesto cuadra con el paquete y
+    /// con Puente, y si algo no cuadra borra lo que acaba de firmar. No pisa firmas que ya existan.
+    /// </summary>
+    static int SignRelease(string dir, string key)
+    {
+        if (KeyAclProblem(key) is { } kp) { Console.Error.WriteLine("No se firma: la clave " + kp + "."); return 3; }
+        var man = Path.Combine(dir, "vigia-manifest.json");
+        var zips = Directory.GetFiles(dir, "Vigia-*-win-x64.zip");
+        var pu = Path.Combine(dir, "Puente.exe"); var setup = Path.Combine(dir, "Vigia-Setup.exe");
+        if (!File.Exists(man) || zips.Length != 1 || !File.Exists(pu) || !File.Exists(setup))
+        { Console.Error.WriteLine("Faltan piezas: hacen falta un Vigia-*-win-x64.zip, Puente.exe, Vigia-Setup.exe y vigia-manifest.json."); return 1; }
+        if (!File.ReadAllBytes(pu).AsSpan().SequenceEqual(File.ReadAllBytes(setup)))
+        { Console.Error.WriteLine("Vigia-Setup.exe no es el mismo archivo que Puente.exe: no se firma."); return 1; }
+        var files = new[] { zips[0], pu, setup, man };
+        if (files.Any(f => File.Exists(f + ".sig"))) { Console.Error.WriteLine("Ya hay firmas en esa carpeta; no se pisan."); return 1; }
+        using (var ec = ECDsa.Create())
+        {
+            LoadKey(ec, key);
+            foreach (var f in files)
+            {
+                using var fs = File.OpenRead(f);
+                File.WriteAllText(f + ".sig", Convert.ToBase64String(ec.SignData(fs, HashAlgorithmName.SHA256)));
+            }
+        }
+        if (VerifyManifest(man) != 0 || !files.All(f => Verify(f, File.ReadAllText(f + ".sig"))))
+        {
+            foreach (var f in files) File.Delete(f + ".sig");
+            Console.Error.WriteLine("Lo firmado no cuadra (manifiesto, paquete o clave que no es la de Vigía): se quitaron las firmas.");
+            return 1;
+        }
+        foreach (var f in files) Console.WriteLine(Sha256(f) + "  " + Path.GetFileName(f));
+        Console.WriteLine("Firmado. Compara estas huellas con las que muestre release.sh antes de publicar.");
         return 0;
     }
 
