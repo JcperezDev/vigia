@@ -38,6 +38,10 @@ case "$API" in
 esac
 DRY="${VIGIA_RELEASE_DRY:-0}"
 SKIP_BUILD=0; [ "$MOCK" = 1 ] && [ "${VIGIA_RELEASE_SKIP_BUILD:-0}" = 1 ] && SKIP_BUILD=1
+# contra GitHub de verdad los repos son fijos: una variable olvidada no puede publicar en otro sitio
+if [ "$MOCK" = 0 ] && { [ "$PUB_REPO" != JcperezDev/vigia ] || [ "$MIRROR_REPO" != JcperezDev/vigia-releases ]; }; then
+  echo "VIGIA_RELEASE_REPO y VIGIA_RELEASE_MIRROR solo se pueden cambiar con el servidor de pruebas."; exit 1
+fi
 
 KEY="$USERPROFILE/.vigia/release-key.dpapi"
 [ -f "$KEY" ] || KEY="$USERPROFILE/.vigia/release-key.pem"

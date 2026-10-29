@@ -139,6 +139,16 @@ const writes = (mock, from) => mock.log.slice(from).filter((l) => l.method !== '
       check(r.code !== 0 && /no puede estar dentro del repositorio/.test(r.out), 'una clave dentro del repositorio se rechaza', r.out);
     } finally { fs.rmSync(inRepo, { force: true }); }
 
+    // ---- 9. contra GitHub de verdad no se puede cambiar el repo. Sin red: DRY y un perfil vacío
+    //         (si el control fallara, el script pararía por falta de clave, nunca con la real)
+    const noHome = path.join(TMP, 'perfil-vacio');
+    fs.mkdirSync(noHome, { recursive: true });
+    from = mock.log.length;
+    r = await release(mock, D, 'prueba/otro', 'prueba/espejo',
+      { VIGIA_RELEASE_API: 'https://api.github.com', VIGIA_RELEASE_DRY: '1', USERPROFILE: noHome, HOME: noHome });
+    check(r.code !== 0 && /solo se pueden cambiar con el servidor de pruebas/.test(r.out), 'contra GitHub real el repo no se cambia con una variable', r.out);
+    check(mock.log.length === from, 'y para antes de tocar nada');
+
     check(mock.touchedPublished(seeds).length === 0, 'las versiones ya publicadas (v0.20.17) no se tocaron en ninguna prueba',
       JSON.stringify(mock.touchedPublished(seeds)));
     check(!mock.log.some((l) => /make_latest/.test(l.path)), 'no cambia la marca de «última» de nada existente');
