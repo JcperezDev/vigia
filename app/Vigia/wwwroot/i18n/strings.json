@@ -454,7 +454,7 @@
  "Caché en espera",
  "Caché en espera (baja prioridad)",
  "Cada ajuste dice qué hace en palabras simples. Marca los que quieras y pulsa Aplicar. Los que tienen riesgo vienen apagados y avisados.",
- "Cada cambio se guarda antes de hacerlo y, si Vigía no puede guardar la copia, no cambia nada. Los ajustes con riesgo se prueban primero en una máquina virtual y vienen apagados. Vigía no toca la BIOS, ni Defender, ni Windows Update.",
+ "No. Cada cambio se guarda antes de hacerlo y, si Vigía no puede guardar la copia, no cambia nada. Los ajustes con riesgo se prueban primero en una máquina virtual y vienen apagados. Vigía nunca escribe en la BIOS, no apaga Defender y no frena las actualizaciones de seguridad.",
  "Cada cambio se puede deshacer.",
  "Cada movimiento llega hasta {0} ms tarde.",
  "Calculado con la velocidad actual y los datos de fábrica del módulo. Windows no deja leer el CL exacto; míralo en la BIOS.",
@@ -2146,5 +2146,7 @@
  "Se harán {0} cambios, con copia de seguridad antes.",
  "Modo simple y Ajustes más claros",
  "Modo simple dice qué va a cambiar, con el mismo nombre que en Ajustes.",
- "Ajustes ya no dice «Todo aplicado» si quedan ajustes por elegir uno por uno."
+ "Ajustes ya no dice «Todo aplicado» si quedan ajustes por elegir uno por uno.",
+ "Ayuda más directa",
+ "Ayuda: «¿Puede romper Windows?» ahora responde «No» de entrada."
 ]

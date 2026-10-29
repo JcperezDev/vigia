@@ -1008,7 +1008,6 @@
  "Una copia por cada cambio, más la del estado de tu PC antes de instalar Vigía.": "One backup per change, plus your PC's state before Vigía was installed.",
  "Preguntas": "Questions",
  "¿Puede romper Windows?": "Can it break Windows?",
- "Cada cambio se guarda antes de hacerlo y, si Vigía no puede guardar la copia, no cambia nada. Los ajustes con riesgo se prueban primero en una máquina virtual y vienen apagados. Vigía no toca la BIOS, ni Defender, ni Windows Update.": "Every change is backed up before it's made, and if Vigía can't save the backup, it changes nothing. Risky tweaks are tested in a virtual machine first and come off. Vigía doesn't touch the BIOS, Defender or Windows Update.",
  "¿Gasta recursos mientras juego?": "Does it use resources while I play?",
  "Minimizada deja de dibujar y lee el PC muy de vez en cuando: en nuestras pruebas, unos 50 MB de RAM y menos del 0,2 % de un núcleo. Si la cierras, se queda junto al reloj gastando lo mismo.": "Minimized, it stops drawing and reads the PC only now and then: in our tests, about 50 MB of RAM and under 0.2% of one core. If you close it, it stays by the clock using the same.",
  "¿Hace falta una cuenta?": "Do I need an account?",
@@ -2073,5 +2072,8 @@
  "Se harán {0} cambios, con copia de seguridad antes.": "{0} changes will be made, with a backup first.",
  "Modo simple y Ajustes más claros": "Clearer Simple mode and Tweaks",
  "Modo simple dice qué va a cambiar, con el mismo nombre que en Ajustes.": "Simple mode says what it will change, with the same name as in Tweaks.",
- "Ajustes ya no dice «Todo aplicado» si quedan ajustes por elegir uno por uno.": "Tweaks no longer says “All applied” if some are left to choose one by one."
+ "Ajustes ya no dice «Todo aplicado» si quedan ajustes por elegir uno por uno.": "Tweaks no longer says “All applied” if some are left to choose one by one.",
+ "No. Cada cambio se guarda antes de hacerlo y, si Vigía no puede guardar la copia, no cambia nada. Los ajustes con riesgo se prueban primero en una máquina virtual y vienen apagados. Vigía nunca escribe en la BIOS, no apaga Defender y no frena las actualizaciones de seguridad.": "No. Every change is saved before it's made, and if Vigía can't save the backup, it changes nothing. Risky tweaks are tested in a virtual machine first and come turned off. Vigía never writes to the BIOS, doesn't turn off Defender and doesn't hold back security updates.",
+ "Ayuda más directa": "More direct Help",
+ "Ayuda: «¿Puede romper Windows?» ahora responde «No» de entrada.": "Help: “Can it break Windows?” now answers “No” right away."
 }
