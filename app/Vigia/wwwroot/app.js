@@ -182,7 +182,8 @@
       const cb = li.querySelector('input');
       const has = t.id === 'startup_left' ? t.files > 0 : t.bytes > 0;
       // lo «con precaución» (Papelera, shaders, volcados, informes de errores) no va marcado: lo decide cada uno
-      cb.checked = has && t.care !== 'care'; cb.disabled = !has; cb.dataset.id = t.id;
+      // sin permisos para mirar dentro (C:\Windows\Temp): no se marca, pero se puede elegir; limpiar lo hace el ayudante
+      cb.checked = has && t.care !== 'care'; cb.disabled = !has && !t.unread; cb.dataset.id = t.id;
       cb.addEventListener('change', updateTotal);
       li.querySelector('.tname').textContent = t.name;
       // en trozos: la ruta no se traduce, el contador y el aviso cada uno por su lado
@@ -190,7 +191,7 @@
         el('span', null, t.id === 'startup_left' ? `${t.files} entradas` : `${t.files} archivos`),
         );
       if (t.care === 'care') li.querySelector('.path').after(el('span', 'care-why', CARE_WHY[t.id] || 'Con precaución'));
-      li.querySelector('.size').textContent = t.id === 'startup_left' ? '' : gb(t.bytes);
+      li.querySelector('.size').textContent = t.id === 'startup_left' ? '' : t.unread ? 'Sin permisos para mirar' : gb(t.bytes);
       return li;
     }));
     updateTotal();

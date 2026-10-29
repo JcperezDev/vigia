@@ -26,7 +26,7 @@ public static class AdminOps
         "isoBuild", "isoCancel", "usbList", "usbWrite", "fpsStart", "fpsCancel",
         "pawnInstall", "restorePoint", "telemetry", "ping",
         // lecturas que sin permisos salen incompletas (arranque, TPM, SMART) o no se pueden hacer (montar la ISO)
-        "healthScan", "diagRun", "secGet", "isoInspect",
+        "healthScan", "diagRun", "secGet", "isoInspect", "cleanScan",
     };
 
     /// <summary>
@@ -36,7 +36,7 @@ public static class AdminOps
     public static readonly IReadOnlySet<string> Soft = new HashSet<string>(StringComparer.Ordinal)
     {
         "appsScan", "appsPreview", "telemetry", "optCancel", "appsCancel", "isoCancel", "fpsCancel", "memAuto", "undoRetired",
-        "healthScan", "diagRun", "secGet",
+        "healthScan", "diagRun", "secGet", "cleanScan",
     };
 
     static readonly Regex IdRx = new(@"^[a-z0-9][a-z0-9\-]{0,63}$", RegexOptions.CultureInvariant);
@@ -97,6 +97,9 @@ public static class AdminOps
                 Telemetry ht;
                 lock (TelGate) ht = _tel ??= new Telemetry();
                 emit("healthScan", await Task.Run(() => Health.Scan(ht)));
+                break;
+            case "cleanScan":
+                emit("cleanScan", await Task.Run(Cleanup.Scan));
                 break;
             case "diagRun":
                 emit("diagRun", await Task.Run(() => Diagnostics.Run(7)));

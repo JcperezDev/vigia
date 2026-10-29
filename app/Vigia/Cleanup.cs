@@ -4,7 +4,9 @@ namespace Vigia;
 
 /// <param name="Care">«safe»: temporales que nadie usa; «care»: se puede borrar pero tiene un costo (shaders que se
 /// recompilan, informes que sirven para diagnosticar, la Papelera). Lo «care» nunca va marcado ni lo borra el modo simple.</param>
-public sealed record CleanTarget(string Id, string Name, string Path, long Bytes, int Files, string Care = "safe");
+/// <param name="Unread">La carpeta existe pero esta cuenta no la puede listar (p. ej. C:\Windows\Temp sin permisos):
+/// el tamaño no es «0», es «no se sabe».</param>
+public sealed record CleanTarget(string Id, string Name, string Path, long Bytes, int Files, string Care = "safe", bool Unread = false);
 public sealed record CleanResult(long FreedBytes, int Deleted, int Skipped);
 
 /// <summary>
@@ -81,7 +83,7 @@ public static class Cleanup
         {
             long b = 0; int n = 0;
             foreach (var f in Files(r.path)) { try { b += f.Length; n++; } catch { } }
-            return new CleanTarget(r.id, r.name, r.path, b, n, CareOf(r.id));
+            return new CleanTarget(r.id, r.name, r.path, b, n, CareOf(r.id), Unreadable(r.path));
         }).ToList();
         var (rb, ri) = Recycle();
         list.Insert(0, new CleanTarget(RecycleId, "Papelera de reciclaje", "Todas las unidades", rb, (int)Math.Min(ri, int.MaxValue), "care"));
@@ -89,6 +91,14 @@ public static class Cleanup
         try { left = StartupLeft().Count; } catch { }
         list.Add(new CleanTarget(StartupId, "Restos de programas desinstalados", "Inicio de Windows", 0, left));
         return list;
+    }
+
+    static bool Unreadable(string dir, Func<string, IEnumerable<string>>? list = null)
+    {
+        if (!Directory.Exists(dir)) return false;
+        try { using var e = (list ?? Directory.EnumerateFileSystemEntries)(dir).GetEnumerator(); e.MoveNext(); return false; }
+        catch (UnauthorizedAccessException) { return true; }
+        catch (IOException) { return false; }
     }
 
     // ---------- Inicio: entradas de programas que ya no están en el disco ----------
@@ -166,6 +176,10 @@ public static class Cleanup
         CleanResult r;
         using (File.Open(Path.Combine(root, "bloqueado.tmp"), FileMode.Open, FileAccess.Read, FileShare.None))
             r = RunPaths(new[] { root });
+        // una carpeta que esta cuenta no puede listar se marca «sin permisos», no «0 bytes». El «acceso denegado» se
+        // simula: con una cuenta de administrador Windows deja listar aunque haya una regla que lo niegue.
+        bool unreadClosed = Unreadable(root, _ => throw new UnauthorizedAccessException());
+        bool otherErr = Unreadable(root, _ => throw new IOException());
         var checks = new (string what, bool ok)[]
         {
             ("viejo borrado", !File.Exists(Path.Combine(root, "viejo.tmp"))),
@@ -175,6 +189,8 @@ public static class Cleanup
             ("junction creada", Directory.Exists(link)),
             ("destino del junction intacto", File.Exists(Path.Combine(outside, "protegido.txt"))),
             ("conteo = 2 borrados / 2000 bytes", r.Deleted == 2 && r.FreedBytes == 2000),
+            ("carpeta sin permiso para listar = «sin permisos», no 0 bytes", unreadClosed && !otherErr),
+            ("carpeta normal o que no existe = se lee", !Unreadable(root) && !Unreadable(Path.Combine(root, "no-existe"))),
             // el modo simple usa TempIds: ni shaders, ni volcados, ni informes de errores, ni la Papelera
             ("modo simple sin cachés de shaders, volcados, informes ni Papelera",
                 !TempIds.Any(id => id is "d3d_cache" or "crash_dumps" or "wer" or RecycleId) && CareOf("d3d_cache") == "care" && CareOf("user_temp") == "safe"),
