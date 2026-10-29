@@ -75,6 +75,21 @@ public sealed class Telemetry : IDisposable
     }
 
     bool _cpuTempNote;
+    // Si el driver llega con Vigía ya abierta, el procesador se lee aparte: cerrar y reabrir todo LHM
+    // tocaría las librerías de la gráfica (ver _closed) y puede tumbar el proceso.
+    Computer? _cpuLate;
+
+    /// <summary>PawnIO recién instalado: empezar a leer los grados del procesador sin reiniciar Vigía.</summary>
+    public void CpuDriverReady()
+    {
+        lock (_lock)
+        {
+            if (_closed || _cpuLate is not null) return;
+            try { var c = new Computer { IsCpuEnabled = true }; c.Open(); _cpuLate = c; } catch { return; }
+            _notes.Remove("Para ver los grados del procesador hace falta el driver PawnIO, que no está instalado en este PC.");
+            _cpuTempNote = false;
+        }
+    }
 
     // Un sensor sin driver devuelve 0 en vez de nada: 0 °C (o 150+) no es una lectura real.
     static double? Temp(IHardware h, params string[] names)
@@ -86,10 +101,7 @@ public sealed class Telemetry : IDisposable
         return null;
     }
 
-    static bool PawnIoInstalled()
-    {
-        try { using var k = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(@"SYSTEM\CurrentControlSet\Services\PawnIO"); return k is not null; } catch { return false; }
-    }
+    static bool PawnIoInstalled() => Pawn.Installed();
 
     static double? S(IHardware h, SensorType t, params string[] names)
     {
@@ -136,7 +148,13 @@ public sealed class Telemetry : IDisposable
                 if (_baseMhz > 0) clock = Math.Round(_baseMhz.Value * perf / 100 / 1000, 2);
             }
             load ??= cpuH is null ? null : S(cpuH, SensorType.Load, "CPU Total");
-            double? temp = cpuH is null ? null : Temp(cpuH, "CPU Package", "Core (Tctl/Tdie)", "Core (Tdie)", "Core (Tctl)", "CCDs Max (Tdie)", "CCD1 (Tdie)", "Core Average", "Core Max");
+            string[] tnames = ["CPU Package", "Core (Tctl/Tdie)", "Core (Tdie)", "Core (Tctl)", "CCDs Max (Tdie)", "CCD1 (Tdie)", "Core Average", "Core Max"];
+            double? temp = cpuH is null ? null : Temp(cpuH, tnames);
+            if (temp is null && _cpuLate is not null)
+                foreach (var h in _cpuLate.Hardware.Where(h => h.HardwareType == HardwareType.Cpu))
+                {
+                    try { h.Update(); temp ??= Temp(h, tnames); } catch { }
+                }
             if (temp is null && !_cpuTempNote && cpuH is not null)
             {
                 // Sin el driver PawnIO, LibreHardwareMonitor deja los sensores del procesador en 0: mejor decir por qué que mostrar 0 °C.
@@ -244,7 +262,7 @@ public sealed class Telemetry : IDisposable
     }
 
     // Espera a que termine la lectura en curso antes de liberar las librerías nativas.
-    public void Dispose() { lock (_lock) { if (_closed) return; _closed = true; try { _pc.Close(); } catch { } _pdh?.Dispose(); } }
+    public void Dispose() { lock (_lock) { if (_closed) return; _closed = true; try { _pc.Close(); } catch { } try { _cpuLate?.Close(); } catch { } _pdh?.Dispose(); } }
 }
 
 /// <summary>Contadores de rendimiento de Windows (PDH), sin paquetes extra. Cada Read() mide desde la lectura anterior.</summary>

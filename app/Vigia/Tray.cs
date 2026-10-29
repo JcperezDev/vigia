@@ -121,7 +121,7 @@ sealed partial class MainForm
             normals.ForEach(Add);
             if (normals.Count > 0 && stretched.Count > 0) res.DropDownItems.Add(new ToolStripSeparator());
             stretched.ForEach(Add);
-            if (st.Options.Count == 0) res.DropDownItems.Add(new ToolStripMenuItem(Tr.T("noModes", l)) { Enabled = false });
+            if (normals.Count + stretched.Count == 0) res.DropDownItems.Add(new ToolStripMenuItem(Tr.T("noModes", l)) { Enabled = false });
             res.DropDownItems.Add(new ToolStripSeparator());
             var back = st.Saved ?? st.Native;
             res.DropDownItems.Add(new ToolStripMenuItem(Tr.T("normal", l) + (back is null ? "" : $"  ({back.Width} × {back.Height})"), null, (_, _) => QuickRestoreDisplay(l)) { Enabled = st.Stretched });

@@ -16,6 +16,7 @@
   <ItemGroup>
     <Content Include="vigia.ico" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="tweaks.json" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="drivers\PawnIO_setup.exe" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="assets\vigiaos.jpg" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
   <ItemGroup>

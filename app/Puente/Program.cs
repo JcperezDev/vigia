@@ -276,6 +276,7 @@ static class Program
         if (!Ask("¿Quitar Vigía de este PC?", "Tus ajustes y las copias de lo que cambió Vigía se quedan en " + DataDir + ".", "Quitar")) return 0;
         Ui.Show("Quitando Vigía", "", double.NaN);
         CloseVigia(null);
+        RemovePawnIfOurs();
         foreach (var d in new[] { AppDir, PrevDir, NewDir })
             if (Directory.Exists(d)) Directory.Delete(d, true);
         foreach (var l in LinkPaths()) if (File.Exists(l)) File.Delete(l);
@@ -287,6 +288,24 @@ static class Program
             Process.Start(new ProcessStartInfo("cmd.exe", $"/c timeout /t 3 >nul & rmdir /s /q \"{HomeDir}\"") { CreateNoWindow = true, UseShellExecute = false });
         Thread.Sleep(2500);
         return 0;
+    }
+
+    /// <summary>El driver de los grados del procesador se va con Vigía solo si lo puso Vigía (pawnio.json).</summary>
+    static void RemovePawnIfOurs()
+    {
+        try
+        {
+            var mark = Path.Combine(DataDir, "pawnio.json");
+            if (!File.Exists(mark) || !File.ReadAllText(mark).Contains("\"Ok\":true")) return;
+            using var k = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\PawnIO");
+            var exe = Path.Combine(k?.GetValue("InstallLocation") as string ?? "", "uninstall.exe");
+            if (!File.Exists(exe)) return;
+            using var p = Process.Start(new ProcessStartInfo(exe, "-uninstall -silent") { UseShellExecute = false, CreateNoWindow = true });
+            p?.WaitForExit(120_000);
+            File.Delete(mark);
+            Log("PawnIO quitado");
+        }
+        catch { }
     }
 
     // ---------------------------------------------------------------- piezas

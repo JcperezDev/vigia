@@ -380,6 +380,7 @@ sealed partial class MainForm : Form
             if (_snapPath is null) InitTray();   /* --bench mide con el icono puesto */
             await InitAsync();
             if (_snapPath is null) _ = UndoRetiredAsync();
+            if (_snapPath is null) _ = PawnAsync();
             if (_startHidden)
             {
                 Hide(); ShowInTaskbar = true; Opacity = 1; CenterToScreen();
@@ -483,6 +484,19 @@ sealed partial class MainForm : Form
     /// Los ajustes con riesgo ya no están en Vigía. A quien los tenía puestos se le devuelven a como estaban,
     /// con copia de seguridad antes. Espera a que el PC esté tranquilo y nunca en mitad de un juego.
     /// </summary>
+    /// <summary>Driver para los grados del procesador: si falta, se pone una vez, en silencio y sin juego abierto.</summary>
+    async Task PawnAsync()
+    {
+        try
+        {
+            if (Pawn.Installed()) return;
+            await Task.Delay(TimeSpan.FromSeconds(20));
+            while (AutoStart.Busy()) await Task.Delay(TimeSpan.FromMinutes(5));
+            if (await Task.Run(() => Pawn.InstallIfMissing(out _))) _tel.CpuDriverReady();
+        }
+        catch { }
+    }
+
     async Task UndoRetiredAsync()
     {
         try
