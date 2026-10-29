@@ -13,6 +13,10 @@ static class Program
     [STAThread]
     static int Main(string[] args)
     {
+        // El selftest aplica y revierte ajustes de prueba y crea copias: nunca en los datos reales del usuario.
+        // Va antes de cualquier uso de Settings (su carpeta se fija al cargar la clase).
+        if (args.Length >= 2 && args[0] == "--selftest" && string.IsNullOrEmpty(Environment.GetEnvironmentVariable("VIGIA_DATA")))
+            Environment.SetEnvironmentVariable("VIGIA_DATA", Path.Combine(Path.GetTempPath(), "vigia-selftest-datos-" + Guid.NewGuid().ToString("N")[..8]));
         // Modo sin ventana para verificación: Vigia.exe --probe salida.json
         // Ayudante con permisos (lo abre la propia Vigía con UAC). Lista cerrada de operaciones; ver Elevation.cs.
         if (args.Length >= 1 && args[0] == "--broker") return Elevation.RunBroker(args);
@@ -372,7 +376,7 @@ static class Program
         // La tarea vieja de inicio abría Vigía como administrador desde una carpeta que tu usuario puede cambiar.
         // Si nos abrió ella (o cualquier camino con permisos), se quita ya y el inicio pasa a Run sin permisos:
         // desde el próximo inicio de sesión Vigía abre como tu usuario. Solo la tarea de Vigía (nombre, carpeta y .exe).
-        if (Elevation.IsAdmin && !Elevation.InBroker) _ = Task.Run(() => { try { if (AutoStart.LegacyTask() is not null) AutoStart.Repair(); } catch { } });
+        if (Elevation.IsAdmin && !Elevation.InBroker && Updates.Installed && !(args.Length >= 1 && args[0] == "--snap")) _ = Task.Run(() => { try { if (AutoStart.LegacyTask() is not null) AutoStart.Repair(); } catch { } });
         // Verificación visual: Vigia.exe --snap salida.png [storage] -> captura la UI real tras ~8 s y sale
         // Consumo real: Vigia.exe --bench salida.json -> 30 s abierta, 60 s minimizada, y sale
         Application.Run(args.Length >= 2 && args[0] == "--snap" ? new MainForm(args[1], args.ElementAtOrDefault(2))
@@ -446,7 +450,7 @@ sealed partial class MainForm : Form
         {
             if (_snapPath is null) InitTray();   /* --bench mide con el icono puesto */
             await InitAsync();
-            if (_snapPath is null) _ = UndoRetiredAsync();
+            if (_snapPath is null && Updates.Installed) _ = UndoRetiredAsync();   // una copia de prueba no deshace ajustes del PC
             // La dependencia de sensores se prepara en Puente, nunca al abrir Monitor.
             if (_startHidden)
             {

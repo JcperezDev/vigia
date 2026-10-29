@@ -43,3 +43,25 @@
 - No instalación real en host, no cambio de clave, no push, merge ni release.
 
 Estado: IMPLEMENTED parcial + UNIT_TESTED; no VM_TESTED. NOT READY para publicar como solución universal de temperatura Ryzen.
+
+## Revisión independiente del servicio (Codex, solo lectura, 29 de octubre)
+
+Sin escalada de privilegios: el servicio no recibe órdenes ni lee datos de nadie, la ruta del ejecutable se limita a la
+instalación protegida y `sc.exe` se llama con ruta fija y argumentos separados. Siete hallazgos de robustez, contrastados
+uno a uno con el código (todos ciertos) y corregidos — **IMPLEMENTED, sin compilar todavía** (el usuario estaba jugando):
+
+| # | Gravedad | Hallazgo | Corrección |
+|---|---|---|---|
+| 1 | Media | Si un lector mantenía abierta la memoria, el servicio reiniciado encontraba el nombre ocupado y moría | Se reutiliza solo si su dueño es SYSTEM (la dejó la copia anterior); con otro dueño se rechaza. 5 reintentos de 2 s |
+| 2 | Media | El límite de 30 s de `sc.exe` se medía después de leer la salida | Lectura asíncrona de las dos salidas y límite desde el arranque |
+| 3 | Media | No se comprobaba que el servicio quedara parado antes de reapuntarlo | `StopSensors()` devuelve si quedó `STOPPED` (estado por número, no por texto traducido); sin parada no se reapunta |
+| 4 | Baja | Se anunciaba «activo» antes de poder publicar | `START_PENDING` → `RUNNING` solo tras crear la memoria; Puente confirma `RUNNING` |
+| 5 | Baja | Cualquier proceso llamado «Vigia» activaba la lectura | Solo cuenta una Vigía de la misma instalación |
+| 6 | Baja | Objetos `Process` sin liberar | Se liberan todos |
+| 7 | Baja | El aviso de Monitor no cambiaba con el estado del servicio | Se recalcula en cada lectura |
+
+Además: si `Computer.Open()` falla, se cierra lo abierto a medias.
+
+**Pendiente:** `CloseVigia` (Puente) sigue adelante aunque el servicio no se pare; el reemplazo de archivos fallaría y lo
+recoge la recuperación existente, pero no está probado en VM. Pruebas nuevas en el selftest: reutilizar el nombre del mismo
+dueño; rechazar en el publicador y en el lector un objeto creado por otro dueño.

@@ -15,8 +15,12 @@ prep = s[s.index('static void PrepareSensors'):s.index('const string ListName')]
 assert 'InstallSensors(exe);' in prep, 'install/update must register the read-only sensor service'
 un = s[s.index('static int UninstallFlow'):]
 assert un.index('RemoveSensors();') < un.index('CloseVigia(null);'), 'uninstall must remove the service before deleting files'
-close = s[s.index('static void CloseVigia'):]
+close = s[s.index('static bool CloseVigia'):]
 assert close.index('StopSensors();') < close.index('GetProcessesByName'), 'service must release version files before replacing them'
+assert 'return sensorsStopped;' in close and 'SessionId == 0' in close, 'CloseVigia reports a stuck service and never kills it'
+assert 'if (cur == m.Version && !CloseVigia(waitPid))' in s, 'repair must not move a folder the service still uses'
+assert 'static bool StopSensors()' in sv and 'SvcState(' in sv, 'stop waits for STOPPED by state number, not by localized label'
+assert 'if (!StopSensors())' in sv, 'service is not repointed while the old copy still runs'
 assert 'Layout.Under(exe, Layout.Root)' in sv, 'service may only point at the protected install'
 assert '"obj=", "LocalSystem"' in sv and '--sensor-service' in sv, 'service command shape'
 assert 'SensorHost.ReadCpu()' in t and '!Elevated' in t, 'unprivileged Vigía must read the service'

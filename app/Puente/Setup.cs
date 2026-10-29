@@ -311,7 +311,9 @@ static partial class Program
         {
             // la misma versión (reparar): se aparta y se guarda hasta que la nueva pase la prueba;
             // si está abierta, primero se cierra Vigía
-            if (cur == m.Version) CloseVigia(waitPid);
+            // si el servicio de sensores no se paró, sigue usando esta carpeta: no se aparta (Puente no mata un servicio)
+            if (cur == m.Version && !CloseVigia(waitPid))
+                throw new InvalidOperationException("el servicio Sensores de Vigía no se detuvo a tiempo; no se tocó nada. Inténtalo de nuevo en un momento.");
             Journal.Write("install", m.Version, cur, "apartando");
             MoveDir(target, aside);
         }
@@ -845,9 +847,10 @@ static partial class Program
         Process.Start(new ProcessStartInfo(Native.Sys("explorer.exe")) { ArgumentList = { exe }, UseShellExecute = false })?.Dispose();
     }
 
-    static void CloseVigia(int? waitPid)
+    /// <summary>Para el servicio de sensores y cierra Vigía. false si el servicio no se paró (sus archivos siguen en uso).</summary>
+    static bool CloseVigia(int? waitPid)
     {
-        StopSensors();   // el servicio corre desde la carpeta de la versión: suelta sus archivos antes de tocarlos
+        var sensorsStopped = StopSensors();   // el servicio corre desde la carpeta de la versión: suelta sus archivos antes de tocarlos
         if (waitPid is int pid)
         {
             try { using var p = Process.GetProcessById(pid); Ui.Show("Esperando a que se cierre Vigía", "", double.NaN); p.WaitForExit(30_000); }
@@ -860,10 +863,12 @@ static partial class Program
                 string? path = null;
                 try { path = p.MainModule?.FileName; } catch { }
                 if (path is null || !(Layout.Under(path, Layout.Root) || Layout.Under(path, Layout.LegacyApp))) continue;
+                if (p.SessionId == 0) continue;   // el servicio de sensores (sesión 0) lo para Windows, no se mata
                 Ui.Show("Cerrando Vigía", "", double.NaN);
                 try { p.CloseMainWindow(); if (!p.WaitForExit(10_000)) { p.Kill(); p.WaitForExit(5_000); } } catch { }
             }
         }
+        return sensorsStopped;
     }
 
     // ---------------------------------------------------------------- piezas

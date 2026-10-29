@@ -70,15 +70,14 @@ public static class SensorHost
         finally { CloseHandle(h); }
     }
 
-    static bool TrustedOwner(IntPtr h)
+    static bool TrustedOwner(IntPtr h) => Owner(h) is { } sid
+        && (sid.IsWellKnown(WellKnownSidType.LocalSystemSid) || sid.IsWellKnown(WellKnownSidType.BuiltinAdministratorsSid));
+
+    static SecurityIdentifier? Owner(IntPtr h)
     {
-        if (GetSecurityInfo(h, 6 /*SE_KERNEL_OBJECT*/, 1 /*OWNER*/, out var owner, out _, out _, out _, out var sd) != 0) return false;
-        try
-        {
-            var sid = new SecurityIdentifier(owner);
-            return sid.IsWellKnown(WellKnownSidType.LocalSystemSid) || sid.IsWellKnown(WellKnownSidType.BuiltinAdministratorsSid);
-        }
-        catch { return false; }
+        if (GetSecurityInfo(h, 6 /*SE_KERNEL_OBJECT*/, 1 /*OWNER*/, out var owner, out _, out _, out _, out var sd) != 0) return null;
+        try { return new SecurityIdentifier(owner); }
+        catch { return null; }
         finally { LocalFree(sd); }
     }
 
@@ -98,7 +97,13 @@ public static class SensorHost
     {
         readonly IntPtr _h, _v;
         long _seq;
-        public Publisher(IntPtr h, IntPtr v) { _h = h; _v = v; Marshal.WriteInt32(_v, 0, (int)Magic); Marshal.WriteInt32(_v, 4, Ver); }
+        public Publisher(IntPtr h, IntPtr v)
+        {
+            _h = h; _v = v;
+            _seq = Marshal.ReadInt64(_v, 8);   // reutilizada: sigue la secuencia (par = dato completo) para no confundir a un lector
+            if ((_seq & 1) != 0) _seq++;
+            Marshal.WriteInt32(_v, 0, (int)Magic); Marshal.WriteInt32(_v, 4, Ver);
+        }
 
         public void Write(double? temp, DateTime utc)
         {
@@ -114,11 +119,13 @@ public static class SensorHost
     }
 
     /// <summary>Crea la memoria compartida: escribe solo SYSTEM; leen Administradores y usuarios autenticados.
-    /// Si el nombre ya existía (otra copia, o alguien se adelantó) no se usa.</summary>
+    /// Si el nombre ya existía se reutiliza solo si su dueño es el mismo que pondría este proceso (la dejó la copia
+    /// anterior y un lector la mantenía abierta); con otro dueño se rechaza.</summary>
     static Publisher? Create(string name, out string? error)
     {
         error = null;
-        var owner = WindowsIdentity.GetCurrent().IsSystem ? "SY" : "BA";
+        var system = WindowsIdentity.GetCurrent().IsSystem;
+        var owner = system ? "SY" : "BA";
         if (!ConvertStringSecurityDescriptorToSecurityDescriptorW($"O:{owner}D:P(A;;GA;;;SY)(A;;GR;;;BA)(A;;GR;;;AU)", 1, out var sd, IntPtr.Zero))
         { error = "permisos: " + Marshal.GetLastWin32Error(); return null; }
         try
@@ -127,7 +134,8 @@ public static class SensorHost
             var h = CreateFileMappingW(new IntPtr(-1), ref sa, 0x04 /*PAGE_READWRITE*/, 0, Size, name);
             var err = Marshal.GetLastWin32Error();
             if (h == IntPtr.Zero) { error = "crear: " + err; return null; }
-            if (err == 183 /*ERROR_ALREADY_EXISTS*/) { CloseHandle(h); error = "el nombre ya existía"; return null; }
+            if (err == 183 /*ERROR_ALREADY_EXISTS*/ && Owner(h)?.IsWellKnown(system ? WellKnownSidType.LocalSystemSid : WellKnownSidType.BuiltinAdministratorsSid) != true)
+            { CloseHandle(h); error = "el nombre ya existía con otro dueño"; return null; }
             var v = MapViewOfFile(h, 0x02 /*FILE_MAP_WRITE*/, 0, 0, (UIntPtr)Size);
             if (v == IntPtr.Zero) { error = "mapear: " + Marshal.GetLastWin32Error(); CloseHandle(h); return null; }
             return new Publisher(h, v);
@@ -135,18 +143,35 @@ public static class SensorHost
         finally { LocalFree(sd); }
     }
 
+    /// <summary>¿Hay una Vigía de esta instalación abierta? Un proceso que solo se llame «Vigia» desde otra carpeta no cuenta.</summary>
     static bool VigiaOpen()
     {
         var me = Environment.ProcessId;
-        foreach (var p in Process.GetProcessesByName("Vigia")) using (p) if (p.Id != me) return true;
-        return false;
+        var root = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..")).TrimEnd('\\') + "\\";
+        var all = Process.GetProcessesByName("Vigia");
+        try
+        {
+            foreach (var p in all)
+            {
+                if (p.Id == me) continue;
+                string? exe = null;
+                try { exe = p.MainModule?.FileName; } catch { }
+                if (exe is not null && exe.StartsWith(root, StringComparison.OrdinalIgnoreCase)) return true;
+            }
+            return false;
+        }
+        finally { foreach (var p in all) p.Dispose(); }
     }
 
     /// <summary>Bucle del servicio. Sin una ventana de Vigía abierta no lee el hardware.</summary>
-    static int Loop(string name, WaitHandle stop, TimeSpan? limit, bool always)
+    static int Loop(string name, WaitHandle stop, TimeSpan? limit, bool always, Action? ready = null)
     {
-        using var pub = Create(name, out var error);
+        Publisher? made = null; string? error = null;
+        for (var i = 0; i < 5 && made is null; i++)
+            if ((made = Create(name, out error)) is null && stop.WaitOne(TimeSpan.FromSeconds(2))) break;
+        using var pub = made;
         if (pub is null) { Log("no se pudo publicar: " + error); return 5; }
+        ready?.Invoke();   // «en marcha» solo cuando ya se puede publicar
         Computer? pc = null;
         var misses = 0;
         var until = limit is { } l ? DateTime.UtcNow + l : DateTime.MaxValue;
@@ -155,7 +180,12 @@ public static class SensorHost
             while (!stop.WaitOne(TimeSpan.FromSeconds(2)) && DateTime.UtcNow < until)
             {
                 if (!always && !VigiaOpen()) { if (pc is not null) { try { pc.Close(); } catch { } pc = null; } continue; }
-                if (pc is null) { try { pc = new Computer { IsCpuEnabled = true }; pc.Open(); } catch (Exception e) { Log("abrir sensores: " + e.Message); pc = null; } }
+                if (pc is null)
+                {
+                    var c = new Computer { IsCpuEnabled = true };
+                    try { c.Open(); pc = c; }
+                    catch (Exception e) { Log("abrir sensores: " + e.Message); try { c.Close(); } catch { } }
+                }
                 double? t = null;
                 if (pc is not null)
                     foreach (var h in pc.Hardware.Where(h => h.HardwareType == HardwareType.Cpu))
@@ -203,9 +233,9 @@ public static class SensorHost
     {
         _status = RegisterServiceCtrlHandlerExW(ServiceName, _handler!, IntPtr.Zero);
         if (_status == IntPtr.Zero) return;
-        Report(4 /*RUNNING*/, 0);
+        Report(2 /*START_PENDING*/, 0);
         var rc = 0;
-        try { rc = Loop(MapName, Stop, null, always: false); } catch (Exception e) { Log(e.Message); rc = 1; }
+        try { rc = Loop(MapName, Stop, null, always: false, ready: () => Report(4 /*RUNNING*/, 0)); } catch (Exception e) { Log(e.Message); rc = 1; }
         Report(1 /*STOPPED*/, rc);
     }
 
@@ -226,7 +256,7 @@ public static class SensorHost
             dwServiceType = 0x10, dwCurrentState = state,
             dwControlsAccepted = state == 4 ? 1 | 4 : 0,
             dwWin32ExitCode = exit == 0 ? 0 : 1066 /*ERROR_SERVICE_SPECIFIC_ERROR*/, dwServiceSpecificExitCode = exit,
-            dwWaitHint = state == 3 ? 5000 : 0,
+            dwWaitHint = state == 3 ? 5000 : state == 2 ? 15000 : 0,
         };
         SetServiceStatus(_status, ref s);
     }
@@ -244,7 +274,26 @@ public static class SensorHost
         {
             Check(pub is not null, "se crea la memoria compartida " + (err ?? ""));
             if (pub is null) return string.Join(Environment.NewLine, log);
-            using (var again = Create(name, out _)) Check(again is null, "un nombre que ya existe no se reutiliza");
+            // Reabrir para escribir solo lo puede SYSTEM (la DACL da a Administradores solo lectura): el servicio que se reinicia
+            // reutiliza la memoria que dejó su copia anterior; un administrador u otro proceso, no.
+            using (var again = Create(name, out var againErr))
+                if (WindowsIdentity.GetCurrent().IsSystem) Check(again is not null, "SYSTEM reutiliza la memoria que dejó su copia anterior");
+                else Check(again is null && againErr is not null, "sin ser SYSTEM no se puede reabrir para escribir (" + againErr + ")");
+            var squat = $"{TestPrefix}Ajena{Environment.ProcessId}";
+            var me = WindowsIdentity.GetCurrent().User!.Value;
+            if (ConvertStringSecurityDescriptorToSecurityDescriptorW($"O:{me}D:P(A;;GA;;;WD)", 1, out var ssd, IntPtr.Zero))
+            {
+                var sa = new SECURITY_ATTRIBUTES { nLength = Marshal.SizeOf<SECURITY_ATTRIBUTES>(), lpSecurityDescriptor = ssd };
+                var sh = CreateFileMappingW(new IntPtr(-1), ref sa, 0x04, 0, Size, squat);
+                LocalFree(ssd);
+                try
+                {
+                    using (var taken = Create(squat, out var why)) Check(sh != IntPtr.Zero && taken is null && why!.Contains("otro dueño"), "un nombre creado por otro dueño (cualquiera puede escribir) no se usa");
+                    Check(ReadCpu(squat, DateTime.UtcNow).Item1 == Share.Untrusted, "y el lector tampoco se fía de él");
+                }
+                finally { if (sh != IntPtr.Zero) CloseHandle(sh); }
+            }
+            else Check(false, "no se pudo preparar el objeto ajeno de prueba");
             var now = DateTime.UtcNow;
             pub.Write(54.37, now);
             var (s, t) = ReadCpu(name, now);

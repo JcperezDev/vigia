@@ -14,23 +14,47 @@ static partial class Program
         var psi = new ProcessStartInfo(Native.Sys("sc.exe")) { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
         foreach (var a in args) psi.ArgumentList.Add(a);
         using var p = Process.Start(psi)!;
-        var o = p.StandardOutput.ReadToEnd() + p.StandardError.ReadToEnd();
-        if (!p.WaitForExit(30_000)) { try { p.Kill(); } catch { } return (-1, o); }
-        return (p.ExitCode, o);
+        // las dos salidas a la vez y un límite total de 30 s desde el arranque: sc.exe colgado no cuelga a Puente
+        var o = p.StandardOutput.ReadToEndAsync();
+        var e = p.StandardError.ReadToEndAsync();
+        if (!p.WaitForExit(30_000))
+        {
+            try { p.Kill(); p.WaitForExit(5_000); } catch { }
+            return (-1, "sc.exe no terminó a tiempo");
+        }
+        p.WaitForExit();
+        return (p.ExitCode, o.Result + e.Result);
     }
 
     static bool SensorSvcExists() => Sc("query", SensorSvc).Code == 0;
 
-    static void StopSensors()
+    // sc query escribe «STATE : 4  RUNNING»; la etiqueta se traduce («ESTADO»), el número y el nombre en mayúsculas no
+    static int SvcState(string output)
     {
-        if (Layout.Test) return;
+        var m = System.Text.RegularExpressions.Regex.Match(output,
+            @":\s*([1-7])\s+(STOPPED|START_PENDING|STOP_PENDING|RUNNING|CONTINUE_PENDING|PAUSE_PENDING|PAUSED)\b");
+        return m.Success ? m.Groups[1].Value[0] - '0' : 0;
+    }
+
+    /// <summary>Para el servicio y espera a verlo parado (hasta 10 s). true si no existe o quedó parado.</summary>
+    static bool StopSensors()
+    {
+        if (Layout.Test) return true;
         try
         {
-            if (!SensorSvcExists()) return;
+            var q = Sc("query", SensorSvc);
+            if (q.Code != 0) return true;
+            if (SvcState(q.Out) == 1) return true;
             Sc("stop", SensorSvc);
-            for (var i = 0; i < 40 && !Sc("query", SensorSvc).Out.Contains("STOPPED", StringComparison.Ordinal); i++) Thread.Sleep(250);
+            for (var i = 0; i < 40; i++)
+            {
+                if (SvcState(Sc("query", SensorSvc).Out) == 1) return true;
+                Thread.Sleep(250);
+            }
+            Log("sensores: el servicio no se paró a tiempo");
+            return false;
         }
-        catch (Exception e) { Log("sensores: parar: " + e.Message); }
+        catch (Exception e) { Log("sensores: parar: " + e.Message); return false; }
     }
 
     static void StartSensors()
@@ -47,7 +71,8 @@ static partial class Program
         {
             if (!Layout.Under(exe, Layout.Root)) { Log("sensores: servicio rechazado, la ruta no es la instalación protegida"); return; }
             var bin = $"\"{exe}\" --sensor-service";
-            StopSensors();
+            // si la copia anterior sigue corriendo, cambiar la ruta no la cambia a ella: mejor no tocar y avisar
+            if (!StopSensors()) { Log("sensores: no se reapuntó el servicio porque no se paró; usar Reparar"); return; }
             var r = SensorSvcExists()
                 ? Sc("config", SensorSvc, "binPath=", bin, "start=", "auto", "obj=", "LocalSystem", "DisplayName=", "Sensores de Vigía")
                 : Sc("create", SensorSvc, "binPath=", bin, "start=", "auto", "obj=", "LocalSystem", "DisplayName=", "Sensores de Vigía");
@@ -55,8 +80,11 @@ static partial class Program
             Sc("description", SensorSvc, "Lee la temperatura del procesador para Vigía mientras Vigía está abierta. Solo lectura; no recibe órdenes.");
             // si se cae, vuelve a los 60 s; tras un día sin fallos el contador se reinicia
             Sc("failure", SensorSvc, "reset=", "86400", "actions=", "restart/60000/restart/60000//");
-            var s = Sc("start", SensorSvc);
-            Log(s.Code is 0 or 1056 ? "sensores: servicio activo" : $"sensores: el servicio no arrancó ({s.Code}); usar Reparar");
+            Sc("start", SensorSvc);
+            // «activo» solo si Windows lo ve en marcha: el servicio avisa RUNNING cuando ya puede publicar
+            var running = false;
+            for (var i = 0; i < 40 && !running; i++) { running = SvcState(Sc("query", SensorSvc).Out) == 4; if (!running) Thread.Sleep(250); }
+            Log(running ? "sensores: servicio activo" : "sensores: el servicio no arrancó; usar Reparar");
         }
         catch (Exception e) { Log("sensores: servicio: " + e.Message); }
     }

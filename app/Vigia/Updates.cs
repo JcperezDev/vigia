@@ -33,6 +33,11 @@ public static class Updates
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs", "Vigia"), StringComparison.OrdinalIgnoreCase);
 
     static readonly string LegacyPuente = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs", "Vigia-Puente", "Puente.exe");
+    /// <summary>
+    /// ¿Es una instalación real (la nueva en Program Files o la vieja en Programs)? Una copia compilada en otra carpeta
+    /// (repo, pruebas) no toca el inicio de Windows ni deshace ajustes por su cuenta: eso solo lo hace la Vigía instalada.
+    /// </summary>
+    public static bool Installed => InstallRoot is not null || Legacy;
     public static string PuentePath => InstallRoot is { } r ? Path.Combine(r, "Puente.exe") : LegacyPuente;
     /// <summary>Con la instalación nueva, Puente está en la carpeta protegida y no se baja ni se reemplaza desde Vigía.</summary>
     public static bool Protected => InstallRoot is { } r && InstallTrust.Problem(r, 200) is null;

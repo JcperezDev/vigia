@@ -160,13 +160,16 @@ public sealed class Telemetry : IDisposable
             // Sin permisos el driver no se puede abrir: los grados los publica el servicio «Sensores de Vigía».
             SensorHost.Share? share = null;
             if (temp is null && !Elevated) { (var st, temp) = SensorHost.ReadCpu(); share = st; }
-            if (temp is not null && _cpuTempWhy is { } old) { _notes.Remove(old); _cpuTempWhy = null; }
-            if (temp is null && _cpuTempWhy is null && cpuH is not null)
+            // Sin el driver PawnIO, LibreHardwareMonitor deja los sensores del procesador en 0: mejor decir por qué que mostrar 0 °C.
+            // El motivo se recalcula en cada lectura: si el servicio pasa de «sin dato» a «no responde», el aviso cambia con él.
+            string? why = temp is not null || cpuH is null ? null
+                : !PawnIoInstalled() ? "Para ver los grados del procesador hace falta el driver PawnIO, que no está instalado en este PC."
+                : share is { } s ? SensorHost.Explain(s) : null;
+            if (why != _cpuTempWhy)
             {
-                // Sin el driver PawnIO, LibreHardwareMonitor deja los sensores del procesador en 0: mejor decir por qué que mostrar 0 °C.
-                _cpuTempWhy = !PawnIoInstalled() ? "Para ver los grados del procesador hace falta el driver PawnIO, que no está instalado en este PC."
-                    : share is { } s ? SensorHost.Explain(s) : null;
-                if (_cpuTempWhy is not null) _notes.Add(_cpuTempWhy);
+                if (_cpuTempWhy is { } old) _notes.Remove(old);
+                _cpuTempWhy = why;
+                if (why is not null) _notes.Add(why);
             }
             if (clock is null && cpuH is not null)
             {
