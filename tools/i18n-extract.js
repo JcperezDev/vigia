@@ -26,6 +26,9 @@ function keep(s) {
   if (/^[A-Z][A-Za-z0-9]*$/.test(s) && !/[a-z]/.test(s.slice(1))) return false; // CPU, GPU, NVMe…
   if (/^[A-Z][a-zA-Z0-9]+$/.test(s) && /[A-Z].*[A-Z]/.test(s)) return false;   // CamelCase
   if (/^(SELECT|Get-|Set-|HK(LM|CU)|root|Win32_)/.test(s)) return false;
+  if (/^-{1,2}[A-Za-z]|^---? |document\.|=>|\$[a-z_]+\s*=|^\{"|^\[["{]|^'|Write-|-Command\b|^config /.test(s)) return false; // órdenes, scripts, JSON de prueba
+  if (/^\*\[System\[/.test(s)) return false;                                   // consultas XPath del visor de eventos
+  if (/^[a-z0-9{}]+(?: [a-z0-9{}-]+)*$/.test(s) && /\b[a-z]+-[a-z0-9{}]+/.test(s)) return false; // clases CSS («btn sp-btn», «row ap-row{0}»)
   if (/^[\x00-\x7F]*$/.test(s) && !/ /.test(s) && !/^[A-ZÁÉÍÓÚ][a-záéíóúñ]+$/.test(s)) return false;
   return true;
 }
@@ -66,6 +69,21 @@ function scanJs(code, src) {
     else if (c === '`') add(tpl(), src);
     else i++;
   }
+}
+
+// Lo que nunca ve una persona: las pruebas internas (métodos *SelfTest y el bloque --selftest de Program.cs)
+function dropSelfTests(code) {
+  const cut = (start) => {          // quita desde la { que abre en start hasta su } de cierre
+    const open = code.indexOf('{', start); if (open < 0) return false;
+    let d = 0, j = open;
+    for (; j < code.length; j++) { if (code[j] === '{') d++; else if (code[j] === '}' && --d === 0) break; }
+    code = code.slice(0, open) + '{}' + code.slice(j + 1); return true;
+  };
+  for (const re of [/static\s+\w+\s+\w*SelfTest\w*\s*\(/g, /if \(args\.Length >= 2 && args\[0\] == "--selftest"\)/g]) {
+    let m, from = 0;
+    while ((m = re.exec(code.slice(from))) && cut(from + m.index + m[0].length)) from += m.index + m[0].length;
+  }
+  return code;
 }
 
 // ---------- C#: "…", $"…{x}…" (con cadenas dentro de las llaves); @"…" no (son rutas) ----------
@@ -118,7 +136,8 @@ function scanHtml(html, src) {
 
 scanHtml(fs.readFileSync(path.join(root, 'wwwroot', 'index.html'), 'utf8'), 'index.html');
 scanJs(fs.readFileSync(path.join(root, 'wwwroot', 'app.js'), 'utf8'), 'app.js');
-for (const f of fs.readdirSync(root).filter((f) => f.endsWith('.cs'))) scanCs(fs.readFileSync(path.join(root, f), 'utf8'), f);
+// Tray.cs trae su propio diccionario de los cinco idiomas (el menú de la bandeja no pasa por i18n.js)
+for (const f of fs.readdirSync(root).filter((f) => f.endsWith('.cs') && f !== 'Tray.cs')) scanCs(dropSelfTests(fs.readFileSync(path.join(root, f), 'utf8')), f);
 for (const t of JSON.parse(fs.readFileSync(path.join(root, 'tweaks.json'), 'utf8')))
   for (const k of ['title', 'detail', 'ask', 'group', 'source']) if (t[k]) add(t[k], 'tweaks.json');
 // catálogo de apps: nombre y descripción se ven en la vista Apps (los nombres de paquete no se traducen)
