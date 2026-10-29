@@ -140,7 +140,7 @@ public static class Bios
         var q = Uri.EscapeDataString(model);
         return vendor switch
         {
-            "msi" => $"https://www.msi.com/Motherboard/{string.Join('-', model.Split(' ', StringSplitOptions.RemoveEmptyEntries))}/support",
+            "msi" => $"https://www.msi.com/Motherboard/{Uri.EscapeDataString(string.Join('-', model.Split(' ', StringSplitOptions.RemoveEmptyEntries)))}/support",
             "asus" => $"https://www.asus.com/searchresult?searchType=support&searchKey={q}",
             "gigabyte" => $"https://www.gigabyte.com/Search?kw={q}",
             "asrock" => $"https://www.asrock.com/search/index.asp?Keyword={q}",

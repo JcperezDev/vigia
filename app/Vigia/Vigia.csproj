@@ -24,7 +24,7 @@
     <PackageReference Include="LibreHardwareMonitorLib" Version="0.9.6" />
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4314.35" />
     <PackageReference Include="System.Management" Version="10.0.14" />
-    <PackageReference Include="Microsoft.Diagnostics.Tracing.TraceEvent" Version="3.1.*" />
+    <PackageReference Include="Microsoft.Diagnostics.Tracing.TraceEvent" Version="3.1.30" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="wwwroot\**\*" CopyToOutputDirectory="PreserveNewest" />

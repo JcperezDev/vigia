@@ -56,7 +56,7 @@ static class Program
             Ui.Render(Path.Combine(d, "7-corte.bmp"), "No se pudo terminar", CutText, null, ["Reintentar", "Cerrar"]);
             return 0;
         }
-        var cli = args.FirstOrDefault() is "--genkey" or "--sign" or "--verify" or "--check";
+        var cli = args.FirstOrDefault() is "--genkey" or "--sign" or "--verify" or "--check" or "--zip-test";
         if (cli)
         {
             // Puente es una app de ventana; para los comandos de publicación escribe en la terminal que lo llamó
@@ -72,6 +72,7 @@ static class Program
                 case "--sign": return SignFile(args[1], args[2]);
                 case "--verify": return Verify(args[1], File.ReadAllText(args[1] + ".sig")) ? 0 : 1;
                 case "--check": return await Check();
+                case "--zip-test": return ZipTest(args.Length > 1 ? args[1] : null);
                 case "--fetch-test": return await FetchTest(args[1]);
                 case "--rollback": return Rollback();
                 case "--uninstall": return Uninstall();
@@ -182,7 +183,7 @@ static class Program
 
         Ui.Show($"Preparando Vigía {rel.Version}", "Descomprimiendo.", double.NaN);
         if (Directory.Exists(NewDir)) Directory.Delete(NewDir, true);
-        ZipFile.ExtractToDirectory(zip, NewDir);
+        SafeExtract(zip, NewDir);
         var got = FileVersion(Path.Combine(NewDir, "Vigia.exe"));
         if (got != rel.Version)
             throw new InvalidOperationException($"el paquete dice ser {rel.Version} pero trae {got?.ToString() ?? "nada"}.");
@@ -541,6 +542,88 @@ static class Program
     }
 
     // ---------------------------------------------------------------- firma
+
+    const long MaxUnpacked = 2L << 30;   // 2 GB: Vigía ocupa ~200 MB; más que eso es un paquete raro
+
+    /// <summary>
+    /// Descomprime solo si cada entrada cae dentro de <paramref name="dir"/>: sin rutas absolutas, sin «..», sin «:»
+    /// (flujos alternativos de NTFS) y sin pasar de <see cref="MaxUnpacked"/>. La firma ya se comprobó antes, esto es
+    /// una segunda barrera por si algún día se firma un paquete mal hecho.
+    /// </summary>
+    static void SafeExtract(string zip, string dir)
+    {
+        var root = Path.GetFullPath(dir).TrimEnd('\\') + '\\';
+        using var z = ZipFile.OpenRead(zip);
+        long total = 0;
+        var plan = new List<(ZipArchiveEntry e, string to)>();
+        foreach (var e in z.Entries)
+        {
+            var n = e.FullName.Replace('/', '\\');
+            if (n.Length == 0 || Path.IsPathRooted(n) || n.Contains(':') || n.Split('\\').Any(p => p == ".."))
+                throw new InvalidOperationException($"el paquete trae una ruta que no se acepta: {e.FullName}");
+            var to = Path.GetFullPath(Path.Combine(root, n));
+            if (!to.StartsWith(root, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException($"el paquete intenta escribir fuera de la carpeta: {e.FullName}");
+            total += e.Length;
+            if (e.Length < 0 || total > MaxUnpacked) throw new InvalidOperationException("el paquete es más grande de lo normal; no se instaló.");
+            plan.Add((e, to));
+        }
+        Directory.CreateDirectory(root);
+        foreach (var (e, to) in plan)
+        {
+            if (IsDir(e)) { Directory.CreateDirectory(to); continue; }
+            Directory.CreateDirectory(Path.GetDirectoryName(to)!);
+            e.ExtractToFile(to, overwrite: false);
+        }
+        static bool IsDir(ZipArchiveEntry e) => e.FullName.EndsWith('/') || e.FullName.EndsWith('\\');
+    }
+
+    /// <summary>Prueba SafeExtract con paquetes buenos y malos hechos en una carpeta temporal. No toca la instalación.</summary>
+    static int ZipTest(string? real)
+    {
+        var tmp = Path.Combine(Path.GetTempPath(), "puente-ziptest-" + Guid.NewGuid().ToString("N")[..8]);
+        Directory.CreateDirectory(tmp);
+        int fails = 0;
+        if (real is not null)
+        {
+            // un paquete publicado de verdad tiene que seguir entrando entero
+            var dest = Path.Combine(tmp, "real");
+            try
+            {
+                SafeExtract(real, dest);
+                using var z = ZipFile.OpenRead(real);
+                var files = z.Entries.Count(e => !e.FullName.EndsWith('/'));
+                var got = Directory.GetFiles(dest, "*", SearchOption.AllDirectories).Length;
+                var ok = got == files && File.Exists(Path.Combine(dest, "Vigia.exe"));
+                if (!ok) fails++;
+                Console.WriteLine($"{(ok ? "OK  " : "FAIL")} real: {got}/{files} archivos, Vigia.exe {(File.Exists(Path.Combine(dest, "Vigia.exe")) ? "sí" : "no")}");
+            }
+            catch (Exception ex) { fails++; Console.WriteLine($"FAIL real: {ex.Message}"); }
+        }
+        void Case(string name, string[] entries, bool shouldPass)
+        {
+            var zp = Path.Combine(tmp, name + ".zip");
+            using (var z = ZipFile.Open(zp, ZipArchiveMode.Create))
+                foreach (var en in entries) { using var w = new StreamWriter(z.CreateEntry(en).Open()); w.Write("x"); }
+            var dest = Path.Combine(tmp, name);
+            bool ok; string why = "";
+            try { SafeExtract(zp, dest); ok = true; } catch (InvalidOperationException ex) { ok = false; why = ex.Message; }
+            var outside = File.Exists(Path.Combine(tmp, "fuera.txt")) || File.Exists(Path.Combine(Path.GetPathRoot(tmp)!, "fuera.txt"));
+            var good = ok == shouldPass && !outside;
+            if (!good) fails++;
+            Console.WriteLine($"{(good ? "OK  " : "FAIL")} {name}: {(ok ? "extraído" : "rechazado")} {why}");
+        }
+        Case("normal", ["Vigia.exe", "wwwroot/app.js", "wwwroot/i18n/en.json"], true);
+        Case("puntos", ["Vigia.exe", "../fuera.txt"], false);
+        Case("puntos-hondo", ["a/b/../../../fuera.txt"], false);
+        Case("absoluta", ["C:/fuera.txt"], false);
+        Case("barra-inicial", ["/fuera.txt"], false);
+        Case("flujo-ntfs", ["Vigia.exe:oculto"], false);
+        Case("barra-invertida", ["..\\fuera.txt"], false);
+        try { Directory.Delete(tmp, true); } catch { }
+        Console.WriteLine(fails == 0 ? "zip-test: todo bien" : $"zip-test: {fails} fallos");
+        return fails == 0 ? 0 : 1;
+    }
 
     static bool Verify(string file, string sigB64)
     {

@@ -1,0 +1,82 @@
+# Compila y prueba Vigía y Puente en cada push y pull request.
+# No toca nada del sistema más allá de una clave de prueba en HKCU que el selftest crea y borra.
+name: ci
+
+on:
+  push:
+    branches: [main, desarrollo-auditoria]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build-test:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: 1
+      DOTNET_NOLOGO: 1
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Restaurar
+        run: |
+          dotnet restore app/Vigia/Vigia.csproj -r win-x64
+          dotnet restore app/Puente/Puente.csproj
+
+      - name: Compilar (avisos del analizador incluidos)
+        run: |
+          dotnet build app/Vigia/Vigia.csproj -c Release -r win-x64 --no-restore -warnaserror:CS8600,CS8602,CS8603,CS8604
+          dotnet build app/Puente/Puente.csproj -c Release --no-restore
+
+      - name: Paquetes con vulnerabilidades conocidas
+        shell: pwsh
+        run: |
+          $out = dotnet list app/Vigia/Vigia.csproj package --vulnerable --include-transitive 2>&1 | Out-String
+          Write-Output $out
+          if ($out -match '(?m)^\s*>\s') { Write-Error 'hay paquetes con vulnerabilidades conocidas'; exit 1 }
+
+      - name: JavaScript y traducciones
+        run: |
+          node --check app/Vigia/wwwroot/app.js
+          node --check app/Vigia/wwwroot/i18n.js
+          node tools/i18n-check.js
+
+      - name: Catálogo de ajustes documentado al día
+        shell: pwsh
+        run: |
+          node tools/tweaks-doc.js
+          git diff --exit-code -- docs/TWEAKS.md
+          if ($LASTEXITCODE -ne 0) { Write-Error 'docs/TWEAKS.md no está al día: corre node tools/tweaks-doc.js'; exit 1 }
+
+      - name: Puente rechaza paquetes con rutas peligrosas
+        shell: pwsh
+        run: |
+          $p = Start-Process app/Puente/bin/Release/net10.0/win-x64/Puente.exe -ArgumentList '--zip-test' -Wait -PassThru -NoNewWindow -RedirectStandardOutput ziptest.txt
+          Get-Content ziptest.txt
+          if ($p.ExitCode -ne 0) { exit 1 }
+
+      - name: Selftest de Vigía (datos aislados)
+        shell: pwsh
+        run: |
+          $env:VIGIA_DATA = "$env:RUNNER_TEMP\vigia-data"
+          $p = Start-Process app/Vigia/bin/Release/net10.0-windows/win-x64/Vigia.exe -ArgumentList '--selftest', "$env:RUNNER_TEMP\selftest.txt" -Wait -PassThru
+          Get-Content "$env:RUNNER_TEMP\selftest.txt"
+          if ($p.ExitCode -ne 0 -or (Select-String -Path "$env:RUNNER_TEMP\selftest.txt" -Pattern '^FAIL' -Quiet)) { exit 1 }
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pruebas
+          path: |
+            ${{ runner.temp }}/selftest.txt
+            ziptest.txt
