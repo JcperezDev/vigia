@@ -122,7 +122,7 @@ public static partial class IsoBuild
 
     static (int exit, string output) Ps(string command, int timeoutS = 60)
     {
-        var psi = new System.Diagnostics.ProcessStartInfo("powershell.exe", "-NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand " +
+        var psi = new System.Diagnostics.ProcessStartInfo(Tweaks.Sys("powershell.exe"), "-NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand " +
             Convert.ToBase64String(System.Text.Encoding.Unicode.GetBytes("$ProgressPreference='SilentlyContinue'; " + command)))
         { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
         using var p = System.Diagnostics.Process.Start(psi)!;

@@ -184,6 +184,32 @@ static class Acl
     /// Deja la carpeta con permisos propios (sin heredar de arriba): SYSTEM y Administradores control total;
     /// Usuarios y las apps empaquetadas solo leer y ejecutar. Dueño: Administradores. Todo lo de dentro hereda esto.
     /// </summary>
+    /// <summary>
+    /// Candado de la instalación: un archivo dentro de la carpeta abierto en exclusiva mientras Puente instala, repara,
+    /// vuelve atrás o quita. Solo SYSTEM y Administradores pueden abrirlo (ni leerlo), así que un usuario normal no
+    /// puede quedárselo para trabar a Puente. null = otro Puente lo tiene.
+    /// </summary>
+    public static FileStream? Lock(string dir)
+    {
+        var sec = new FileSecurity();
+        sec.SetAccessRuleProtection(isProtected: true, preserveInheritance: false);
+        sec.AddAccessRule(new FileSystemAccessRule(System, FileSystemRights.FullControl, AccessControlType.Allow));
+        sec.AddAccessRule(new FileSystemAccessRule(Admins, FileSystemRights.FullControl, AccessControlType.Allow));
+        if (Layout.Test && WindowsIdentity.GetCurrent().User is { } me)
+            sec.AddAccessRule(new FileSystemAccessRule(me, FileSystemRights.FullControl, AccessControlType.Allow));
+        var fi = new FileInfo(Path.Combine(dir, ".ocupado"));
+        try
+        {
+            var fs = fi.Create(FileMode.OpenOrCreate, FileSystemRights.ReadData | FileSystemRights.WriteData | FileSystemRights.Delete
+                | FileSystemRights.ReadPermissions | FileSystemRights.ChangePermissions | FileSystemRights.Synchronize,
+                FileShare.None, 4096, FileOptions.DeleteOnClose, sec);
+            if ((fi.Attributes & FileAttributes.ReparsePoint) != 0) { fs.Dispose(); throw new InvalidOperationException($"{fi.FullName} es un enlace."); }
+            try { fs.SetAccessControl(sec); } catch { }   // si quedó de antes con otros permisos, vuelve a los suyos
+            return fs;
+        }
+        catch (IOException e) when ((e.HResult & 0xFFFF) is 32 or 33) { return null; }   // compartido / bloqueado
+    }
+
     public static void Protect(string dir)
     {
         var di = new DirectoryInfo(dir);

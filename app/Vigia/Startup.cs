@@ -396,7 +396,7 @@ public static class Startup
         if (!ScModes.Contains(mode)) mode = "auto";
         using (var k = Registry.LocalMachine.OpenSubKey(@"SYSTEM\CurrentControlSet\Services\" + name))
             if (k is null) throw new InvalidOperationException("Ese servicio ya no existe.");
-        var p = Process.Start(new ProcessStartInfo("sc.exe", $"config \"{name}\" start= {mode}")
+        var p = Process.Start(new ProcessStartInfo(Tweaks.Sys("sc.exe"), $"config \"{name}\" start= {mode}")
         { CreateNoWindow = true, UseShellExecute = false, RedirectStandardOutput = true })!;
         var output = p.StandardOutput.ReadToEnd();
         p.WaitForExit(15000);

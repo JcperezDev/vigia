@@ -452,6 +452,12 @@ public static class InstallTrust
             Check(Elevation.Broker.StartRefusal(Path.GetTempPath()) is not null, "VIGIA_DEV=1 no abre el ayudante desde una carpeta sin proteger");
         }
         finally { Environment.SetEnvironmentVariable("VIGIA_DEV", oldDev); }
+        var sysd = Environment.SystemDirectory;
+        Check(Tweaks.Sys("schtasks.exe") == Path.Combine(sysd, "schtasks.exe") && Tweaks.Sys("sc.exe") == Path.Combine(sysd, "sc.exe")
+              && Tweaks.Sys("powershell.exe") == Path.Combine(sysd, "WindowsPowerShell", "v1.0", "powershell.exe")
+              && Tweaks.Sys("explorer.exe") == Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "explorer.exe")
+              && Tweaks.Sys(@"C:\x\y.exe") == @"C:\x\y.exe" && File.Exists(Tweaks.Sys("powershell.exe")),
+              "programas de Windows con ruta fija (no se buscan junto al .exe ni en la carpeta actual)");
         Check(Elevation.PipeRx.IsMatch("Vigia." + new string('a', 32)) && !Elevation.PipeRx.IsMatch("Vigia.x") && !Elevation.PipeRx.IsMatch("..\\Vigia." + new string('a', 32)),
             "nombre de la tubería: solo Vigia.<32 hex>");
         return string.Join(Environment.NewLine, log);

@@ -12,6 +12,20 @@ namespace Puente;
 /// </summary>
 static class Native
 {
+    /// <summary>Ruta fija de un programa de Windows. Con el nombre suelto, Windows lo busca primero en la carpeta del
+    /// .exe y en la carpeta actual: un «schtasks.exe» puesto al lado correría con nuestros permisos.</summary>
+    internal static string Sys(string file)
+    {
+        if (file.IndexOfAny(['\\', '/', ':']) >= 0) return file;
+        var f = file.ToLowerInvariant();
+        return f switch
+        {
+            "powershell.exe" => Path.Combine(Environment.SystemDirectory, "WindowsPowerShell", "v1.0", "powershell.exe"),
+            "explorer.exe" => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "explorer.exe"),
+            _ => Path.Combine(Environment.SystemDirectory, file),
+        };
+    }
+
     public static bool IsAdmin
     {
         get

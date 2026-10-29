@@ -41,7 +41,7 @@ static partial class Program
     static readonly HashSet<string> Commands = ["--render", "--genkey", "--sign", "--verify", "--check", "--zip-test", "--manifest",
         "--protect-key", "--verify-manifest", "--acl-test", "--state", "--fetch-test", "--rollback", "--uninstall",
 #if PUENTE_TEST
-        "--as-user",
+        "--as-user", "--lock-hold",
 #endif
     ];
     static readonly HashSet<string> Flags = ["--quiet", "--repair", "--offline", "--wait", "--elevated", "--yes", "--relaunched",
@@ -92,7 +92,7 @@ static partial class Program
         var cli = args.FirstOrDefault() is "--genkey" or "--sign" or "--verify" or "--check" or "--zip-test" or "--manifest"
             or "--protect-key" or "--verify-manifest" or "--acl-test" or "--state"
 #if PUENTE_TEST
-            or "--as-user"
+            or "--as-user" or "--lock-hold"
 #endif
             ;
         if (cli)
@@ -119,6 +119,9 @@ static partial class Program
                 case "--fetch-test": return await FetchTest(args[1]);
 #if PUENTE_TEST
                 case "--as-user": return TestHooks.AsUser(args[1]);
+                case "--lock-hold":   // tiene el candado N segundos, para probar que un segundo Puente no entra
+                    Directory.CreateDirectory(Layout.Root);
+                    using (var held = Acl.Lock(Layout.Root)) { Console.WriteLine(held is null ? "ocupado" : "tengo el candado"); Console.Out.Flush(); Thread.Sleep(int.Parse(args[1]) * 1000); return held is null ? 1 : 0; }
 #endif
                 case "--rollback": return Elevate() ?? RollbackFlow();
                 case "--uninstall": return Elevate() ?? UninstallFlow();

@@ -8,7 +8,7 @@
 // (tools/puente-test/fake-vigia) firmado con una clave hecha aquí mismo en %TEMP%; la clave de publicar no se usa.
 // Al terminar se borra todo lo que se creó. Sale con 1 si algo falla.
 'use strict';
-const { spawnSync } = require('child_process');
+const { spawnSync, spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
@@ -96,6 +96,7 @@ function runValue(t) {
   return m ? m[1].trim() : null;
 }
 const vexe = (t, v) => path.join(t.root, 'versiones', v, 'Vigia.exe');
+function readLog(t) { try { const d = path.join(t.root, '_registros'); return fs.readdirSync(d).map(f => fs.readFileSync(path.join(d, f), 'utf8')).join('\n'); } catch { return ''; } }
 function asUser(file) { const r = sh(PT, ['--as-user', file]); return { n: r.code, out: r.out }; }
 
 const P = {
@@ -110,6 +111,7 @@ const P = {
     },
   }),
   legacyOld: pkg('0.20.17'),
+  brokenSame: pkg('0.21.1', { broken: true, tag: 'rota' }),
 };
 const noManifest = path.join(work, 'pkg', 'sin-manifiesto');
 fs.mkdirSync(noManifest, { recursive: true });
@@ -196,6 +198,40 @@ try {
   check(r.code === 0 && !fs.existsSync(planted), 'una DLL plantada de más se detecta y se quita al reinstalar', r.out);
   r = install(A, P.v211, ['--repair']);
   check(r.code === 0 && state(A).current === '0.21.1', '--repair reinstala la misma versión', r.out);
+
+  console.log('--- reparar con un paquete que no arranca');
+  const v211dir = path.join(A.root, 'versiones', '0.21.1');
+  r = install(A, P.brokenSame, ['--repair']);
+  check(r.code !== 0 && state(A).current === '0.21.1' && sha(dll) === good && !fs.existsSync(path.join(v211dir, 'romper.txt'))
+        && !fs.existsSync(v211dir + '.apartada') && !fs.existsSync(path.join(A.root, 'diario.json')),
+    'si la reparación no pasa la prueba, vuelve la carpeta que había (no se queda la que falló)', r.out);
+  // corte de luz a mitad de una reparación: la buena apartada, la nueva sin probar en su sitio
+  fs.cpSync(v211dir, v211dir + '.apartada', { recursive: true });
+  fs.writeFileSync(path.join(v211dir, 'romper.txt'), 'x');
+  fs.writeFileSync(path.join(A.root, 'diario.json'), JSON.stringify({ op: 'install', target: '0.21.1', from: '0.21.1', phase: 'verificando' }));
+  r = install(A, P.v211);
+  check(r.code === 0 && state(A).current === '0.21.1' && !fs.existsSync(path.join(v211dir, 'romper.txt')) && !fs.existsSync(v211dir + '.apartada') && sha(dll) === good,
+    'tras un corte a mitad de reparar, Puente devuelve la carpeta apartada', r.out);
+
+  console.log('--- un Puente a la vez');
+  const holdLog = path.join(work, 'candado.txt');
+  const hfd = fs.openSync(holdLog, 'w');
+  const holder = spawn(PT, ['--lock-hold', '20'], { env: env(A.root, A.local), stdio: ['ignore', hfd, hfd], windowsHide: true });
+  for (let i = 0; i < 100 && !fs.readFileSync(holdLog, 'utf8').includes('tengo el candado'); i++) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 100);
+  const held = fs.readFileSync(holdLog, 'utf8').includes('tengo el candado');
+  const before2 = JSON.stringify(state(A));
+  r = install(A, P.v211, ['--repair']);
+  check(held && r.code !== 0 && /otro Puente/.test(r.out + readLog(A)) && JSON.stringify(state(A)) === before2,
+    'mientras otro Puente trabaja, un segundo no instala ni repara (candado)', r.out);
+  r = puente(A, ['--rollback', '--quiet', '--yes']);
+  check(r.code !== 0 && JSON.stringify(state(A)) === before2, 'ni vuelve atrás', r.out);
+  holder.kill();
+  for (let i = 0; i < 50 && holder.exitCode === null && holder.signalCode === null; i++) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 100);
+  fs.closeSync(hfd);
+  for (let i = 0; i < 30 && fs.existsSync(path.join(A.root, '.ocupado')); i++) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 100);
+  const ic2 = sh('icacls.exe', [path.join(A.root, '.ocupado')]).out;
+  r = install(A, P.v211);
+  check(r.code === 0 && state(A).current === '0.21.1', 'al soltarlo, el siguiente Puente sí entra', r.out + ic2);
 
   console.log('--- volver atrás');
   r = puente(A, ['--rollback', '--quiet', '--yes']);

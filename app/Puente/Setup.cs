@@ -249,6 +249,7 @@ static partial class Program
     {
         Ui.Show("Buscando actualizaciones…", "Mirando la última versión publicada.", double.NaN);
         PrepareRoot();
+        using var busy = Exclusive();
         var st = State.Load();
         Recover(st);
         CleanPending(st);
@@ -299,13 +300,15 @@ static partial class Program
         if (Acl.Problem(stage) is { } why) throw new InvalidOperationException("la carpeta nueva no quedó protegida (" + why + ").");
 
         var target = Layout.VersionDir(m.Version);
+        var aside = Aside(target);
+        if (Directory.Exists(aside)) DeleteTree(aside, quiet: true);   // de un corte viejo que Recover ya no necesitaba
         if (Directory.Exists(target))
         {
-            // la misma versión estaba rota (reparar): se aparta; si está abierta, primero se cierra Vigía
+            // la misma versión (reparar): se aparta y se guarda hasta que la nueva pase la prueba;
+            // si está abierta, primero se cierra Vigía
             if (cur == m.Version) CloseVigia(waitPid);
-            var aside = target + ".rota-" + DateTime.UtcNow.Ticks;
+            Journal.Write("install", m.Version, cur, "apartando");
             MoveDir(target, aside);
-            DeleteTree(aside, quiet: true);
         }
         MoveDir(stage, target);
 
@@ -314,7 +317,8 @@ static partial class Program
         if (HealthCheck(target) is { } bad)
         {
             Log("la versión nueva no pasó la prueba: " + bad);
-            if (cur != m.Version) DeleteTree(target, quiet: true);
+            if (Directory.Exists(aside)) { DeleteTree(target, quiet: true); MoveDir(aside, target); }   // vuelve tal cual estaba
+            else if (cur != m.Version) DeleteTree(target, quiet: true);
             Journal.Clear();
             throw new InvalidOperationException("la versión nueva no arrancó bien en este PC, así que se dejó la que tenías.");
         }
@@ -330,6 +334,7 @@ static partial class Program
         st.Save();
         Journal.Clear();
         Ui.Lock(false);
+        if (Directory.Exists(aside)) DeleteTree(aside, quiet: true);
         CleanOldVersions(st);
         try { File.Delete(zip); } catch { }
 
@@ -381,12 +386,27 @@ static partial class Program
         catch (ArgumentException) { }
     }
 
+    /// <summary>Uno a la vez: dos Puentes cargarían cada uno su estado y se pisarían diario, descargas y versiones.</summary>
+    static FileStream Exclusive() => Acl.Lock(Layout.Root)
+        ?? throw new InvalidOperationException("ya hay otro Puente instalando, reparando o quitando Vigía. Espera a que termine y vuelve a intentarlo.");
+
+    /// <summary>Dónde se guarda la versión que se está reparando mientras se prueba la nueva.</summary>
+    internal static string Aside(string versionDir) => versionDir + ".apartada";
+
     /// <summary>Si la vez anterior se cortó, se termina o se deshace según en qué paso iba.</summary>
     static void Recover(State st)
     {
         if (Journal.Read() is not { } j) return;
         Log($"diario pendiente: {j.Op} {j.Target} en «{j.Phase}»");
         var dir = Layout.VersionDir(j.Target);
+        var aside = Aside(dir);
+        if (Directory.Exists(aside) && (j.Phase != "activando" || FilesProblem(dir) is not null))
+        {
+            // reparación cortada antes de terminar: vuelve la carpeta que había (la nueva no llegó a pasar la prueba)
+            if (Directory.Exists(dir)) DeleteTree(dir, quiet: true);
+            if (!Directory.Exists(dir)) { MoveDir(aside, dir); Log($"la {j.Target} que se estaba reparando volvió a su sitio"); }
+        }
+        else if (Directory.Exists(aside)) DeleteTree(aside, quiet: true);
         if (j.Phase == "activando" && st.Current == j.Target)
         {
             if (FilesProblem(dir) is null) { Activate(st, j.Target, migrated: LegacyVersion()); st.Save(); }
@@ -526,6 +546,7 @@ static partial class Program
     static int RollbackFlow()
     {
         PrepareRoot();
+        using var busy = Exclusive();
         var st = State.Load();
         Recover(st);
         if (st.Previous is not { } prev || !Directory.Exists(Layout.VersionDir(prev)))
@@ -564,6 +585,7 @@ static partial class Program
     static int UninstallFlow()
     {
         if (!Ask("¿Quitar Vigía de este PC?", "Tus ajustes y las copias de lo que cambió Vigía se quedan en " + Layout.UserData + ".", "Quitar")) return 0;
+        using var busy = Directory.Exists(Layout.Root) ? Exclusive() : null;
         Ui.Show("Quitando Vigía", "", double.NaN);
         CloseVigia(null);
         if (!Layout.Test) RemovePawnIfOurs();
@@ -578,13 +600,13 @@ static partial class Program
         // todo lo de Program Files menos este Puente (se borra solo al cerrar)
         foreach (var e in Directory.Exists(Layout.Root) ? Directory.EnumerateFileSystemEntries(Layout.Root).ToList() : [])
         {
-            if (Layout.Same(e, me)) continue;
+            if (Layout.Same(e, me) || Path.GetFileName(e) == ".ocupado") continue;   // el candado se borra solo al cerrar
             if (Directory.Exists(e)) DeleteTree(e, quiet: true); else try { File.Delete(e); } catch { ScheduleDelete(e); }
         }
         Log("desinstalada");
         Ui.Show("Listo: Vigía quitada", "Puente se borra solo al cerrar esta ventana.", 1.0);
         if (Layout.Under(me, Layout.Root))
-            Process.Start(new ProcessStartInfo("cmd.exe", $"/d /c timeout /t 3 /nobreak >nul & rmdir /s /q \"{Layout.Root}\"") { CreateNoWindow = true, UseShellExecute = false, WindowStyle = ProcessWindowStyle.Hidden })?.Dispose();
+            Process.Start(new ProcessStartInfo(Native.Sys("cmd.exe"), $"/d /c timeout /t 3 /nobreak >nul & rmdir /s /q \"{Layout.Root}\"") { CreateNoWindow = true, UseShellExecute = false, WindowStyle = ProcessWindowStyle.Hidden })?.Dispose();
         if (Ui.Active) Thread.Sleep(2500);
         return 0;
     }
@@ -688,7 +710,7 @@ static partial class Program
         if (Layout.Test) return File.Exists(TestTaskFile) ? File.ReadAllText(TestTaskFile) : null;
         try
         {
-            using var p = Process.Start(new ProcessStartInfo("schtasks.exe", $"/query /tn \"{LegacyTask}\" /xml")
+            using var p = Process.Start(new ProcessStartInfo(Native.Sys("schtasks.exe"), $"/query /tn \"{LegacyTask}\" /xml")
             { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true, StandardOutputEncoding = Encoding.Unicode });
             if (p is null) return null;
             var xml = p.StandardOutput.ReadToEnd();
@@ -707,7 +729,7 @@ static partial class Program
     {
         if (LegacyTaskXml() is not { } x || TaskExe(x) is not { } e || !IsVigiaCommand($"\"{e}\"")) return;   // solo la de Vigía
         if (Layout.Test) { File.Delete(TestTaskFile); Log("tarea de inicio vieja quitada (" + e + ")"); return; }
-        using var p = Process.Start(new ProcessStartInfo("schtasks.exe", $"/delete /tn \"{LegacyTask}\" /f") { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true });
+        using var p = Process.Start(new ProcessStartInfo(Native.Sys("schtasks.exe"), $"/delete /tn \"{LegacyTask}\" /f") { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true });
         p?.WaitForExit(15_000);
         Log("tarea de inicio vieja quitada (" + e + ")");
     }
@@ -745,7 +767,7 @@ static partial class Program
         var ps = "$s=New-Object -ComObject WScript.Shell;" +
                  $"foreach($l in @({Q(l[0])},{Q(l[1])})){{$k=$s.CreateShortcut($l);$k.TargetPath={Q(exe)};$k.WorkingDirectory={Q(dir)};$k.IconLocation={Q(exe + ",0")};$k.Description='Vigía';$k.Save()}};" +
                  (File.Exists(puente) ? $"$k=$s.CreateShortcut({Q(l[2])});$k.TargetPath={Q(puente)};$k.WorkingDirectory={Q(Layout.Root)};$k.Description='Instalar o actualizar Vigía';$k.Save()" : "");
-        using var p = Process.Start(new ProcessStartInfo("powershell.exe", "-NoProfile -NonInteractive -WindowStyle Hidden -EncodedCommand " + Convert.ToBase64String(Encoding.Unicode.GetBytes(ps)))
+        using var p = Process.Start(new ProcessStartInfo(Native.Sys("powershell.exe"), "-NoProfile -NonInteractive -WindowStyle Hidden -EncodedCommand " + Convert.ToBase64String(Encoding.Unicode.GetBytes(ps)))
         { CreateNoWindow = true, UseShellExecute = false });
         p?.WaitForExit(30_000);
     }
@@ -791,7 +813,7 @@ static partial class Program
         if (Native.RunAsShellUser(exe, "", dir) is not null) return;
         if (!Native.IsAdmin) { Process.Start(new ProcessStartInfo(exe) { UseShellExecute = true, WorkingDirectory = dir })?.Dispose(); return; }
         // el Explorador abre las cosas con la cuenta del escritorio, sin permisos de administrador
-        Process.Start(new ProcessStartInfo("explorer.exe") { ArgumentList = { exe }, UseShellExecute = false })?.Dispose();
+        Process.Start(new ProcessStartInfo(Native.Sys("explorer.exe")) { ArgumentList = { exe }, UseShellExecute = false })?.Dispose();
     }
 
     static void CloseVigia(int? waitPid)

@@ -176,7 +176,7 @@ public static class Procs
         string? path = null;
         foreach (var p in Process.GetProcessesByName(exe)) using (p) { path ??= PathOf(p.Id); }
         if (path is null || !File.Exists(path)) return;
-        Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{path}\"") { UseShellExecute = false });
+        Process.Start(new ProcessStartInfo(Tweaks.Sys("explorer.exe"), $"/select,\"{path}\"") { UseShellExecute = false });
     }
 
     static string Pretty(string name) => Fps.Known.TryGetValue(name, out var n) ? n : name;
