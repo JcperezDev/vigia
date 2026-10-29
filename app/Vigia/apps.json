@@ -1,0 +1,102 @@
+{
+ "version": 2,
+ "updated": "2026-10-29",
+ "note": "Catálogo de apps reconocidas por Vigía. Solo identificadores de paquete reales (Name del paquete, sin versión ni editor). Lo que no esté aquí se clasifica por reglas y, si no se reconoce, sale como desconocida y no se recomienda quitar. Campos por defecto: vendor Microsoft, windows 10/11, method appx-user, recovery auto, risk bajo.",
+ "sources": {
+  "provisioned": "https://learn.microsoft.com/en-us/windows/application-management/remove-provisioned-apps-during-update",
+  "systemApps": "https://learn.microsoft.com/en-us/windows/application-management/overview-windows-apps",
+  "quickassist": "https://learn.microsoft.com/en-us/windows/client-management/client-tools/quick-assist",
+  "inventory": "Visto en el inventario de Windows 11 26H2 (Get-AppxPackage); sin documento de Microsoft",
+  "previous": "Catálogo anterior de Vigía; sin documento de Microsoft"
+ },
+ "protect": {
+  "names": [
+   "Microsoft.WindowsStore", "Microsoft.StorePurchaseApp", "Microsoft.DesktopAppInstaller", "Microsoft.Winget.Source",
+   "Microsoft.SecHealthUI", "Microsoft.Xbox.TCUI", "Microsoft.XboxIdentityProvider", "Microsoft.GamingServices",
+   "Microsoft.Advertising.Xaml", "Microsoft.Services.Store.Engagement", "Microsoft.AAD.BrokerPlugin", "Microsoft.AccountsControl",
+   "Microsoft.MicrosoftEdge", "Microsoft.MicrosoftEdge.Stable", "Microsoft.Win32WebViewHost", "Microsoft.ApplicationCompatibilityEnhancements"
+  ],
+  "prefixes": [
+   "Microsoft.VCLibs.", "Microsoft.UI.Xaml.", "Microsoft.NET.Native.", "Microsoft.NET.", "Microsoft.WindowsAppRuntime", "Microsoft.WinAppRuntime",
+   "Microsoft.DirectXRuntime", "Microsoft.LanguageExperiencePack", "Microsoft.Ink.Handwriting", "Microsoft.Windows.Ai.", "Windows.", "MicrosoftWindows.Client.Core",
+   "MicrosoftWindows.Client.CBS", "MicrosoftWindows.Client.FileExp", "MicrosoftWindows.UndockedDevKit", "Microsoft.Windows.ShellExperienceHost",
+   "Microsoft.Windows.StartMenuExperienceHost", "Microsoft.Windows.CloudExperienceHost", "Microsoft.Windows.ContentDeliveryManager",
+   "Microsoft.Windows.SecHealthUI", "Microsoft.LockApp", "Microsoft.CredDialogHost", "Microsoft.ECApp", "Microsoft.BioEnrollment"
+  ],
+  "patterns": [
+   "^Microsoft\\.(HEVC|HEIF|VP9|Webp|Raw|AV1|MPEG2|WebMedia|Webm)[A-Za-z]*Extensions?$",
+   "^Microsoft\\.[A-Za-z0-9]*(Video|Image|Media)Extensions?$"
+  ]
+ },
+ "oem": ["Dell", "HP Inc", "Hewlett", "Lenovo", "ASUS", "ASUSTeK", "Micro-Star", "MSI", "Acer", "Samsung", "Realtek", "Dolby", "NVIDIA", "AMD", "Advanced Micro Devices", "Intel", "Synaptics", "ELAN", "Waves", "Logitech", "Razer", "Corsair", "Gigabyte", "Toshiba", "Dynabook", "Huawei", "Xiaomi", "Alienware"],
+ "win32Protect": [
+  "^Microsoft Visual C\\+\\+", "^Microsoft \\.NET", "^Microsoft Windows Desktop Runtime", "^Microsoft ASP\\.NET Core", "^Windows App Runtime", "^Windows App SDK",
+  "^Microsoft Edge", "WebView2", "^Microsoft Update Health Tools", "^Update for Windows", "^Windows PC Health Check", "^Vigía", "^Vigia", "^PawnIO",
+  "Anti-?Cheat", "BattlEye", "Riot Vanguard", "Driver", "Chipset", "Controlador", "Redistributable", "Runtime", "Framework", "DirectX"
+ ],
+ "apps": [
+  {"id": "news", "packages": ["Microsoft.BingNews"], "name": "Noticias", "detail": "Noticias de Microsoft Start.", "category": "optional", "advice": "review", "source": "previous"},
+  {"id": "weather", "packages": ["Microsoft.BingWeather"], "name": "El Tiempo", "detail": "App del clima.", "category": "optional", "advice": "review", "source": "provisioned"},
+  {"id": "bing-search", "packages": ["Microsoft.BingSearch"], "name": "Búsqueda de Bing", "detail": "Resultados web en el menú Inicio.", "category": "optional", "advice": "review", "source": "previous"},
+  {"id": "get-help", "packages": ["Microsoft.GetHelp"], "name": "Obtener ayuda", "detail": "Asistente de soporte.", "category": "optional", "advice": "review", "source": "provisioned"},
+  {"id": "tips", "packages": ["Microsoft.Getstarted"], "name": "Recomendaciones", "detail": "Consejos de Windows.", "category": "optional", "advice": "review", "source": "provisioned"},
+  {"id": "solitaire", "packages": ["Microsoft.MicrosoftSolitaireCollection"], "name": "Solitaire Collection", "detail": "Juegos de cartas con anuncios.", "category": "optional", "advice": "review", "source": "provisioned"},
+  {"id": "feedback", "packages": ["Microsoft.WindowsFeedbackHub"], "name": "Centro de opiniones", "detail": "Enviar comentarios a Microsoft.", "category": "optional", "advice": "review", "source": "provisioned"},
+  {"id": "maps", "packages": ["Microsoft.WindowsMaps"], "name": "Mapas", "detail": "Mapas sin conexión.", "category": "optional", "advice": "review", "source": "provisioned"},
+  {"id": "people", "packages": ["Microsoft.People"], "name": "Contactos", "detail": "Agenda de contactos.", "category": "optional", "advice": "review", "source": "provisioned"},
+  {"id": "mail", "packages": ["microsoft.windowscommunicationsapps"], "name": "Correo y Calendario", "detail": "Las apps de correo y calendario antiguas. Microsoft las retiró a finales de 2024 y las cambió por Outlook (nuevo).", "category": "optional", "advice": "review", "recovery": "none", "source": "provisioned"},
+  {"id": "3dbuilder", "packages": ["Microsoft.3DBuilder"], "name": "3D Builder", "detail": "Editor 3D de Windows 10.", "category": "optional", "advice": "review", "windows": "10", "source": "provisioned"},
+  {"id": "clipchamp", "packages": ["Clipchamp.Clipchamp"], "name": "Clipchamp", "detail": "Editor de video online.", "category": "optional", "advice": "review", "source": "previous"},
+  {"id": "movies", "packages": ["Microsoft.ZuneVideo"], "name": "Películas y TV", "detail": "Reproductor de video antiguo.", "category": "optional", "advice": "review", "source": "provisioned"},
+  {"id": "devhome", "packages": ["Microsoft.Windows.DevHome"], "name": "Dev Home", "detail": "Panel para desarrolladores.", "category": "optional", "advice": "review", "source": "previous"},
+  {"id": "cortana", "packages": ["Microsoft.549981C3F5F10"], "name": "Cortana", "detail": "Asistente antiguo.", "category": "optional", "advice": "review", "recovery": "none", "source": "previous"},
+  {"id": "xbox-old", "packages": ["Microsoft.XboxApp"], "name": "Xbox (antigua)", "detail": "App de Xbox de Windows 10.", "category": "optional", "advice": "review", "risk": "medio", "windows": "10", "source": "provisioned"},
+  {"id": "widgets", "packages": ["MicrosoftWindows.Client.WebExperience"], "name": "Widgets", "detail": "Panel de noticias y tiempo de la barra de tareas. Se reinstala con «Windows Web Experience Pack» de la Store.", "category": "optional", "advice": "review", "windows": "11", "source": "previous"},
+  {"id": "finance", "packages": ["Microsoft.BingFinance"], "name": "Finanzas", "detail": "Cotizaciones de MSN.", "category": "optional", "advice": "review", "source": "previous"},
+  {"id": "sports", "packages": ["Microsoft.BingSports"], "name": "Deportes", "detail": "Resultados de MSN.", "category": "optional", "advice": "review", "source": "previous"},
+  {"id": "travel", "packages": ["Microsoft.BingTravel"], "name": "Viajes", "detail": "Guías de MSN.", "category": "optional", "advice": "review", "source": "previous"},
+  {"id": "mixed-reality", "packages": ["Microsoft.MixedReality.Portal"], "name": "Portal de realidad mixta", "detail": "Solo sirve con visores de realidad mixta de Windows, ya descontinuados.", "category": "optional", "advice": "review", "recovery": "none", "source": "previous"},
+  {"id": "3dviewer", "packages": ["Microsoft.Microsoft3DViewer"], "name": "Visor 3D", "detail": "Abre modelos 3D.", "category": "optional", "advice": "review", "source": "provisioned"},
+  {"id": "print3d", "packages": ["Microsoft.Print3D"], "name": "Print 3D", "detail": "Preparar piezas para impresora 3D.", "category": "optional", "advice": "review", "source": "provisioned"},
+  {"id": "paint3d", "packages": ["Microsoft.MSPaint"], "name": "Paint 3D", "detail": "No es el Paint normal: ese no se toca.", "category": "optional", "advice": "review", "recovery": "none", "source": "provisioned"},
+  {"id": "skype", "packages": ["Microsoft.SkypeApp"], "name": "Skype", "detail": "Microsoft cerró Skype en 2025.", "category": "optional", "advice": "review", "recovery": "none", "source": "provisioned"},
+  {"id": "onenote-w10", "packages": ["Microsoft.Office.OneNote"], "name": "OneNote para Windows 10", "detail": "Versión vieja de OneNote; no toca la de Office.", "category": "optional", "advice": "review", "source": "provisioned"},
+  {"id": "messaging", "packages": ["Microsoft.Messaging"], "name": "Mensajes", "detail": "App de mensajes antigua.", "category": "optional", "advice": "review", "recovery": "none", "source": "provisioned"},
+  {"id": "mobile-plans", "packages": ["Microsoft.OneConnect"], "name": "Planes móviles", "detail": "Datos móviles para PCs con SIM.", "category": "optional", "advice": "review", "source": "provisioned"},
+  {"id": "wallet", "packages": ["Microsoft.Wallet"], "name": "Microsoft Pay", "detail": "Cartera antigua.", "category": "optional", "advice": "review", "recovery": "none", "source": "provisioned"},
+  {"id": "disney", "packages": ["Disney.37853FC22B2CE"], "name": "Disney+", "detail": "Viene preinstalado en algunos PCs.", "category": "optional", "advice": "review", "vendor": "Disney", "source": "previous"},
+  {"id": "prime", "packages": ["AmazonVideo.PrimeVideo"], "name": "Prime Video", "detail": "Viene preinstalado en algunos PCs.", "category": "optional", "advice": "review", "vendor": "Amazon", "source": "previous"},
+  {"id": "candy", "packages": ["king.com.CandyCrushSaga"], "name": "Candy Crush Saga", "detail": "Juego con anuncios preinstalado.", "category": "optional", "advice": "review", "vendor": "King", "source": "previous"},
+  {"id": "candy-soda", "packages": ["king.com.CandyCrushSodaSaga"], "name": "Candy Crush Soda Saga", "detail": "Juego con anuncios preinstalado.", "category": "optional", "advice": "review", "vendor": "King", "source": "previous"},
+  {"id": "tiktok", "packages": ["BytedancePte.Ltd.TikTok"], "name": "TikTok", "detail": "Viene preinstalado en algunos PCs.", "category": "optional", "advice": "review", "vendor": "ByteDance", "source": "previous"},
+  {"id": "instagram", "packages": ["Facebook.InstagramBeta"], "name": "Instagram", "detail": "Viene preinstalado en algunos PCs.", "category": "optional", "advice": "review", "vendor": "Meta", "source": "previous"},
+
+  {"id": "office-hub", "packages": ["Microsoft.MicrosoftOfficeHub"], "name": "Microsoft 365 (Office)", "detail": "Lanzador de Office; no borra Office si lo tienes instalado.", "category": "useful", "advice": "keep", "source": "provisioned"},
+  {"id": "todo", "packages": ["Microsoft.Todos"], "name": "Microsoft To Do", "detail": "Lista de tareas.", "category": "useful", "advice": "keep", "source": "previous"},
+  {"id": "power-automate", "packages": ["Microsoft.PowerAutomateDesktop"], "name": "Power Automate", "detail": "Automatización de escritorio.", "category": "useful", "advice": "keep", "source": "previous"},
+  {"id": "media-player", "packages": ["Microsoft.ZuneMusic"], "name": "Reproductor multimedia", "detail": "Reproductor de música y video nuevo.", "category": "useful", "advice": "keep", "risk": "medio", "source": "provisioned"},
+  {"id": "teams", "packages": ["MSTeams"], "name": "Microsoft Teams (personal)", "detail": "Chat de Teams integrado.", "category": "useful", "advice": "keep", "source": "previous"},
+  {"id": "outlook", "packages": ["Microsoft.OutlookForWindows"], "name": "Outlook (nuevo)", "detail": "Correo nuevo de Windows.", "category": "useful", "advice": "keep", "risk": "medio", "source": "previous"},
+  {"id": "phone-link", "packages": ["Microsoft.YourPhone"], "name": "Vincular móvil", "detail": "Conexión con el teléfono.", "category": "useful", "advice": "keep", "risk": "medio", "source": "previous"},
+  {"id": "copilot", "packages": ["Microsoft.Copilot"], "name": "Copilot", "detail": "Chat de IA de Microsoft. Si lo quieres de vuelta, está en Microsoft Store.", "category": "useful", "advice": "keep", "source": "previous"},
+  {"id": "family", "packages": ["MicrosoftCorporationII.MicrosoftFamily"], "name": "Microsoft Family", "detail": "Control parental con cuenta de Microsoft.", "category": "useful", "advice": "keep", "source": "previous"},
+  {"id": "alarms", "packages": ["Microsoft.WindowsAlarms"], "name": "Alarmas y reloj", "detail": "Alarmas, temporizador y cronómetro.", "category": "useful", "advice": "keep", "source": "provisioned"},
+  {"id": "recorder", "packages": ["Microsoft.WindowsSoundRecorder"], "name": "Grabadora de sonido", "detail": "Grabar audio del micrófono.", "category": "useful", "advice": "keep", "source": "provisioned"},
+  {"id": "sticky", "packages": ["Microsoft.MicrosoftStickyNotes"], "name": "Notas rápidas", "detail": "Notas adhesivas del escritorio. Si las usas, no la quites: se pierden las que no estén sincronizadas.", "category": "useful", "advice": "keep", "risk": "medio", "source": "provisioned"},
+  {"id": "spotify", "packages": ["SpotifyAB.SpotifyMusic"], "name": "Spotify", "detail": "Viene preinstalado en muchos PCs. Si lo usas, déjalo.", "category": "useful", "advice": "keep", "vendor": "Spotify", "source": "previous"},
+  {"id": "quick-assist", "packages": ["MicrosoftCorporationII.QuickAssist"], "name": "Asistencia rápida", "detail": "Para que alguien de confianza vea tu pantalla y te ayude a distancia. Si la quitas, se vuelve a instalar desde Microsoft Store.", "category": "useful", "advice": "keep", "windows": "10 22H2, 11", "source": "quickassist"},
+  {"id": "xbox", "packages": ["Microsoft.GamingApp"], "name": "Xbox", "detail": "Rompe Game Pass para PC.", "category": "useful", "advice": "keep", "risk": "medio", "source": "inventory"},
+  {"id": "game-bar", "packages": ["Microsoft.XboxGamingOverlay"], "name": "Barra de juegos Xbox", "detail": "Win+G, capturas y grabación. Afecta también al overlay de FPS de Xbox.", "category": "useful", "advice": "keep", "risk": "medio", "source": "previous"},
+  {"id": "calculator", "packages": ["Microsoft.WindowsCalculator"], "name": "Calculadora", "detail": "La calculadora de Windows.", "category": "useful", "advice": "keep", "iso": false, "source": "provisioned"},
+  {"id": "notepad", "packages": ["Microsoft.WindowsNotepad"], "name": "Bloc de notas", "detail": "Abre los archivos de texto.", "category": "useful", "advice": "keep", "iso": false, "source": "inventory"},
+  {"id": "paint", "packages": ["Microsoft.Paint"], "name": "Paint", "detail": "Dibujo y recorte de imágenes.", "category": "useful", "advice": "keep", "iso": false, "source": "inventory"},
+  {"id": "snipping", "packages": ["Microsoft.ScreenSketch"], "name": "Recortes", "detail": "Capturas de pantalla con Win+Mayús+S.", "category": "useful", "advice": "keep", "iso": false, "source": "inventory"},
+  {"id": "photos", "packages": ["Microsoft.Windows.Photos"], "name": "Fotos", "detail": "Visor de fotos y videos de Windows.", "category": "useful", "advice": "keep", "iso": false, "source": "provisioned"},
+  {"id": "camera", "packages": ["Microsoft.WindowsCamera"], "name": "Cámara", "detail": "La app de la cámara web.", "category": "useful", "advice": "keep", "iso": false, "source": "provisioned"},
+  {"id": "powershell", "packages": ["Microsoft.PowerShell"], "name": "PowerShell 7", "detail": "Consola de PowerShell nueva. Si la instalaste tú, déjala.", "category": "useful", "advice": "keep", "iso": false, "source": "inventory"},
+  {"id": "xbox-speech", "packages": ["Microsoft.XboxSpeechToTextOverlay"], "name": "Voz a texto de Xbox", "detail": "Subtítulos del chat de voz en juegos: es una ayuda de accesibilidad.", "category": "useful", "advice": "keep", "iso": false, "source": "provisioned"},
+  {"id": "xbox-overlay-old", "packages": ["Microsoft.XboxGameOverlay"], "name": "Superposición de juegos Xbox", "detail": "Parte antigua de la barra de juegos.", "category": "useful", "advice": "keep", "iso": false, "source": "provisioned"},
+
+  {"id": "nvidia-panel", "packages": ["NVIDIACorp.NVIDIAControlPanel"], "name": "Panel de control de NVIDIA", "detail": "Ajustes del driver de la gráfica (resolución, G-SYNC, perfiles por juego).", "category": "oem", "advice": "keep", "vendor": "NVIDIA", "iso": false, "source": "inventory"}
+ ]
+}

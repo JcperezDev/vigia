@@ -17,6 +17,7 @@
     <Content Include="vigia.ico" CopyToOutputDirectory="PreserveNewest" />
     <!-- dentro del .exe: un archivo suelto en la carpeta del usuario podría cambiarlo cualquier programa, y Vigía lo aplica como administrador -->
     <EmbeddedResource Include="tweaks.json" LogicalName="Vigia.tweaks.json" />
+    <EmbeddedResource Include="apps.json" LogicalName="Vigia.apps.json" />
     <Content Include="drivers\PawnIO_setup.exe" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="assets\vigiaos.jpg" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
