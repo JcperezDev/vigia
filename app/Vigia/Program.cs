@@ -53,12 +53,36 @@ static class Program
             File.WriteAllText(args[1], JsonSerializer.Serialize(Debloat.View(force: true), new JsonSerializerOptions(Json) { WriteIndented = true }));
             return 0;
         }
+        // Claves separadas por |; una clave que acaba en ! pide además quitar el aprovisionamiento (solo modo Avanzado).
+        static PlanRequest AppsReq(string keys, string mode) => new(mode, keys.Split('|', StringSplitOptions.RemoveEmptyEntries)
+            .Select(k => k.EndsWith('!') ? (k[..^1], true) : (k, false)).ToList());
         if (args.Length >= 3 && args[0] == "--apps-plan")   // solo lectura: Vigia --apps-plan <claves separadas por |> <salida.json> [safe|custom|advanced]
         {
             var mode = args.Length >= 4 ? args[3] : "safe";
-            var plan = Debloat.Preview(new PlanRequest(mode, args[1].Split('|', StringSplitOptions.RemoveEmptyEntries).Select(k => (k, false)).ToList()));
+            var plan = Debloat.Preview(AppsReq(args[1], mode));
             File.WriteAllText(args[2], JsonSerializer.Serialize(plan, new JsonSerializerOptions(Json) { WriteIndented = true }));
             return 0;
+        }
+        if (args.Length >= 2 && args[0] == "--apps-history")   // solo lectura: historial de Apps con la recuperación que hay hoy
+        {
+            File.WriteAllText(args[1], JsonSerializer.Serialize(Debloat.History(Debloat.Inventory(force: true)), new JsonSerializerOptions(Json) { WriteIndented = true }));
+            return 0;
+        }
+        // Lo mismo que el «Sí» de la vista Apps, por consola, para probar en la VM: Vigia --apps-run <claves> <huella del plan> <salida.json> [modo]
+        // La huella sale de --apps-plan: si el equipo cambió entre medias no se quita nada (igual que en la interfaz).
+        if (args.Length >= 4 && args[0] is "--apps-run" or "--apps-restore")
+        {
+            if (!LabGuard.Allowed) { Console.Error.WriteLine(LabGuard.Refusal); return 3; }
+            var jo = new JsonSerializerOptions(Json) { WriteIndented = true };
+            if (args[0] == "--apps-restore")   // Vigia --apps-restore <id del historial> - <salida.json>
+            {
+                var (ok, msg) = Debloat.Restore(args[1]);
+                File.WriteAllText(args[3], JsonSerializer.Serialize(new { ok, msg }, jo));
+                return ok ? 0 : 1;
+            }
+            var res = Debloat.Run(AppsReq(args[1], args.Length >= 5 ? args[4] : "safe"), args[2], null);
+            File.WriteAllText(args[3], JsonSerializer.Serialize(res, jo));
+            return res.Changed ? 5 : res.Failed > 0 || res.Stopped ? 1 : 0;
         }
         if (args.Length >= 2 && args[0] == "--suggest")   // solo lectura: sugerencias con lo medido ahora
         {
