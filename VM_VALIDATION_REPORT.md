@@ -40,6 +40,7 @@ Todo lo de abajo se ejecutó de verdad dentro de la VM y se comprobó el estado 
 | 20 | Volver a la anterior (rollback) | VM_VALIDATED | 0.21.1 → 0.21.0; servicio y Run a 0.21.0; `--install-check` rc 0 |
 | 21 | Dos Puentes a la vez | VM_VALIDATED | el primero instala (rc 0), el segundo se niega (rc 1); sin restos de `preparando`/`apartada` |
 | 22 | Desinstalar (Puente instalado y `Vigia-Setup.exe`) | VM_VALIDATED (tras 2 arreglos) | Program Files, servicio, Run, HKLM, accesos y tareas: fuera. Datos de usuario: 148 → 147 archivos (solo se va la marca `pawnio.json`). PawnIO: su desinstalador oficial deja el driver registrado y parado; Vigía ya no dice «quitado» si su desinstalador falla |
+| 23 | Privacidad: aplicar y revertir los seis ajustes | VM_VALIDATED | `--tweaks-lab` (solo con LabGuard): aplicar rc 0 con las 7 claves esperadas; revertir rc 0 con el registro idéntico al de antes; segundo revertir rc 1 sin tocar nada; sin `VIGIA_LAB` rc 3 |
 
 ## Fallos encontrados en la VM y arreglados
 `4dbe8c8` install-check pedía `es.json` · `1894d15` la tarea vieja con privilegios máximos no se reconocía (XML leído con la página de códigos equivocada) y la sesión 0 se tomaba por «juego abierto» · `1af5284` el servicio se rechazaba a sí mismo como SYSTEM (error 1053) · `61a102f` reparar con un archivo abierto dejaba el servicio parado · `03ad4c4` PawnIO se daba por quitado sin mirar el resultado · `048de17` desinstalar desde el instalador dejaba la carpeta vacía.

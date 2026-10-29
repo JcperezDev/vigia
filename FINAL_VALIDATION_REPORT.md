@@ -8,7 +8,7 @@ Solo commits locales: sin push, merge ni release. La instalación principal del 
 - Archivos de código tocados: `app/Puente/Setup.cs`, `app/Puente/SensorService.cs`, `app/Puente/Program.cs`, `app/Vigia/SensorHost.cs`, `Elevation.cs`, `AutoStart.cs`, `Telemetry.cs`, `Updates.cs`, `Program.cs`, `wwwroot/i18n/*`, `tools/i18n-extract.js`, `tools/i18n-check.js`, `tools/i18n-add-mensajes.js`, `tools/sensor-install-contract-test.py`.
 
 ## Pruebas automáticas (código actual, compilado de cero)
-Última tanda, commit `048de17` (y `03ad4c4` + el cambio, antes del commit), Fortnite cerrado:
+Última tanda: `17ad7e8` + `--tweaks-lab` (= el commit siguiente), suite `s11`, Fortnite cerrado. Mismas cifras que en `048de17`:
 
 | Comando | Resultado |
 |---|---|
@@ -23,7 +23,7 @@ Solo commits locales: sin push, merge ni release. La instalación principal del 
 El baseline 302/64/27 que pedías se superó: las pruebas crecieron con el trabajo nuevo y ninguna se quitó.
 
 ## Pruebas en VM (reales, no simuladas)
-Detalle en `VM_VALIDATION_REPORT.md`. 22 pruebas; 20 completas y 2 (UAC del ayudante, token de admin al iniciar sesión) validadas salvo el punto que necesita escritorio. Comprobado después: ayudante `--broker` (8 rechazos e IPC), migración 0.20.17 → 0.21.0, ACL, usuario estándar, servicio, suplantación del mapa, servicio sin driver, Debloat (quitar, recuperar, aprovisionamiento, casos negativos), firmas malas, paquete incompleto, actualización cortada, downgrade, reparación, archivo bloqueado, rollback, dos Puentes, desinstalación. La prueba de UAC está bloqueada (necesita escritorio) y el inicio sin administrador quedó parcial. **La VM no tiene sensores: ninguna temperatura física se validó en la VM.**
+Detalle en `VM_VALIDATION_REPORT.md`. 23 pruebas; 21 completas y 2 (UAC del ayudante, token de admin al iniciar sesión) validadas salvo el punto que necesita escritorio. Comprobado después: privacidad (aplicar y revertir), ayudante `--broker` (8 rechazos e IPC), migración 0.20.17 → 0.21.0, ACL, usuario estándar, servicio, suplantación del mapa, servicio sin driver, Debloat (quitar, recuperar, aprovisionamiento, casos negativos), firmas malas, paquete incompleto, actualización cortada, downgrade, reparación, archivo bloqueado, rollback, dos Puentes, desinstalación. La prueba de UAC está bloqueada (necesita escritorio) y el inicio sin administrador quedó parcial. **La VM no tiene sensores: ninguna temperatura física se validó en la VM.**
 
 ## Seguridad del servicio «Sensores de Vigía»
 - **¿Hace falta LocalSystem?** Sí. PawnIO solo atiende a administradores y SYSTEM; en este PC la lectura salió sin admin = nada y con admin = 62,63 °C. Alternativas de menos privilegio: LocalService o NetworkService no pueden abrir el driver; una cuenta virtual necesitaría estar en Administradores, que no es menos. Dejar a Vigía elevada todo el tiempo sería peor. Se queda LocalSystem, reducido al mínimo:
@@ -41,7 +41,7 @@ Program Files con ACL correctas, datos en `%LOCALAPPDATA%\Vigia` conservados (ha
 Probado en Windows real (VM): inventario AppX/Win32/aprovisionadas/dependencias, protecciones, vista previa, quitar, historial, recuperación por registro y por la Store, plan obsoleto, paquete inexistente, protegidas, dependencias y usuario estándar. La cancelación es la ausencia de ejecución tras la vista previa (sin plan no se quita nada; comprobado como rc 5/3). Sin probar: la reinstalación completa desde la Store.
 
 ## Privacidad · Juegos · BIOS
-- Privacidad: seis directivas con fuente Microsoft Learn, fuera de «Aplicar todo» y del modo simple; estado «aplicado» comparado con el registro (solo lectura). Efecto real en Windows Home/empresa: sin validar. No se añadió nada nuevo.
+- Privacidad: seis directivas con fuente Microsoft Learn, fuera de «Aplicar todo» y del modo simple. **En VigiaLab se aplicaron y revirtieron de verdad**: las 7 claves con los valores esperados y, al revertir, el registro vuelve idéntico (`PRIVACY_TWEAK_REVIEW.md`). Para eso se añadió `--tweaks-lab`, que fuera de la VM sale con rc 3. Efecto visible, Windows Home y dominio reales: sin validar. No se añadieron ajustes nuevos (sería una función nueva).
 - Juegos: evaluación cerrada en `GAME_PROFILE_RESEARCH.md`. Valorant y Marvel Rivals REJECTED (Marvel lo prohíbe oficialmente); CS2, Rocket League y Apex VERIFIABLE_CANDIDATE con claves corroboradas, **no implementados** en 0.21.0 porque no hay un archivo real del juego en un equipo de prueba para verificar claves y restauración; Siege X RESEARCH_PENDING. Rocket League es el primero para la próxima versión.
 - BIOS: solo lectura (`BiosWatch`), sin ninguna API de escritura de firmware. RAM a 5600 MT/s de 6000 nominal: EXPO probablemente apagado. **No se cambió.** Activarlo es decisión tuya en la BIOS, y después conviene una prueba de memoria.
 

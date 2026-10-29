@@ -107,9 +107,23 @@ anterior a las traducciones de `9f83671`. `UNIT_TESTED` (interfaz real, sin Wind
 `AllowClipboardHistory` y `DisableTailoredExperiencesWithDiagnosticData` no existen → «Not applied». Coincide uno a uno. El valor
 de `DisableSettingSync` en `tweaks.json` (2 y UserOverride 1) es el mismo que documenta Microsoft: discrepancia cerrada.
 
+## Aplicar y revertir en Windows real (VigiaLab) — `VM_VALIDATED`
+
+VigiaLab (Windows Enterprise Evaluation, build 26300), administrador, datos de Vigía aislados en `C:\lab\twdata`, con la orden de
+laboratorio `--tweaks-lab` (misma ruta de código que la interfaz: `Tweaks.Apply` / `Tweaks.Revert`):
+
+| Paso | Resultado |
+|---|---|
+| Antes | las 7 directivas no existen; las seis tarjetas «off» |
+| `apply` sin `VIGIA_LAB=1` | rc 3, registro sin cambios (y en el PC principal también rc 3, sin archivo de salida) |
+| `apply` de los seis | rc 0; `DisableTailoredExperiencesWithDiagnosticData=1`, `AllowInputPersonalization=0`, `AllowClipboardHistory=0`, `AllowCrossDeviceClipboard=0`, `AllowCloudSearch=0`, `DisableSettingSync=2`, `DisableSettingSyncUserOverride=1`; las seis «applied»; copia `…-ajustes.json` y `original.json` creadas antes de escribir |
+| `revert` | rc 0; las 7 directivas vuelven a no existir: **registro idéntico al de antes**; las seis «off» |
+| segundo `revert` | rc 1 «sin copia del original», registro sin cambios |
+
 ## Qué no está probado
 
-- Efecto real en Windows (que Win+V quede vacío, que la búsqueda deje de mostrar OneDrive, etc.): `VM_TESTED` pendiente.
+- El efecto visible (que Win+V quede vacío, que la búsqueda deje de mostrar OneDrive): no se miró en un escritorio.
+
 - Windows 10, Home real, PC unido a dominio real: solo simulado en el selftest.
 - El diálogo de confirmación de la interfaz: código escrito, no pasado por la prueba de interfaz con Chrome.
 - Si algún componente necesita cerrar sesión para notarlo: no medido (`reboot: false` no promete efecto inmediato).

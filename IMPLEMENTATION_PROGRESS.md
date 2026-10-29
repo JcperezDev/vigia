@@ -43,7 +43,7 @@ Pruebas de referencia ahora (`048de17`): selftest **344/0** · UI de Apps **44/0
 | Ayuda reescrita | ✅ | `wwwroot` |
 | CI sin claves ni tokens | ✅ | `.github/workflows/ci.yml` |
 | Perfiles de juegos nuevos | ⬜ | no empezado |
-| Claves de privacidad nuevas | ⬜ | no empezado |
+| Claves de privacidad nuevas | ⏸ decisión | no se añadió ninguna: serían funciones nuevas y van como propuesta antes de implementar |
 | Compatibilidad AMD / Intel probada | 🟡 | solo hay hardware AMD CPU + NVIDIA |
 
 ## Prompt 3 — Debloat V2 (`DEBLOAT_IMPLEMENTATION_REPORT.md`)
@@ -106,7 +106,7 @@ Validación en VM (`docs/INSTALL.md`), clave de firma, migración real, publicac
 |---|---|---|---|---|---|
 | Comparar BIOS con la última lectura (versión; RAM, ReBAR, UEFI, Secure Boot, TPM que pasan de bien a mal) | `UNIT_TESTED` + captura real | `app/Vigia/BiosWatch.cs`, `Bios.cs`, `Program.cs`, `tools/i18n-add-bios.js`, i18n | selftest st71 «BIOS: comparación» 10/10; `--snap bios@es/en` con foto anterior de prueba en carpeta de datos aparte | avisa «La BIOS cambió» y «Memoria RAM: estaba bien y ahora no»; foto rota o manipulada = se ignora | traducción en pantalla pendiente de recompilar (textos añadidos, `i18n-check` 0 errores) |
 | Exclusión de escritura de firmware en la build | verificado (búsqueda en fuente y DLL) | — | grep fuente + binarios | 0 APIs de escritura, 0 drivers AMI | — |
-| Privacidad: aviso traducido y «Aplicado» frente al registro | `UNIT_TESTED` | `PRIVACY_TWEAK_REVIEW.md` | `--snap tweaks-all@en/de`, lectura del registro | coincide 1 a 1 | efecto real: VM |
+| Privacidad: aviso traducido y «Aplicado» frente al registro | `VM_VALIDATED` | `PRIVACY_TWEAK_REVIEW.md` | `--tweaks-lab apply/revert` en VigiaLab + lectura del registro | los seis se aplican y el registro vuelve idéntico al revertir | efecto visible en escritorio, Home real y dominio real: sin validar |
 
 Dato real de solo lectura de este PC: la RAM va a 5600 MT/s siendo de 6000 → EXPO apagado (no se cambió nada).
 

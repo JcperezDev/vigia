@@ -84,6 +84,16 @@ static class Program
             File.WriteAllText(args[3], JsonSerializer.Serialize(res, jo));
             return res.Changed ? 5 : res.Failed > 0 || res.Stopped ? 1 : 0;
         }
+        if (args.Length >= 4 && args[0] == "--tweaks-lab")   // solo VM de pruebas: Vigia --tweaks-lab <state|apply|revert> <ids separados por |> <salida.json>
+        {
+            if (args[1] is not ("state" or "apply" or "revert")) return 2;
+            var ids = args[2].Split('|', StringSplitOptions.RemoveEmptyEntries).ToHashSet();
+            if (args[1] != "state" && !LabGuard.Allowed) { Console.Error.WriteLine(LabGuard.Refusal); return 3; }
+            var batch = args[1] switch { "apply" => Tweaks.Apply(ids, restorePoint: false), "revert" => Tweaks.Revert(ids), _ => null };
+            var state = Tweaks.List().Where(t => ids.Contains(t.Id)).Select(t => new { t.Id, t.State }).ToList();
+            File.WriteAllText(args[3], JsonSerializer.Serialize(new { batch, state }, new JsonSerializerOptions(Json) { WriteIndented = true }));
+            return batch is null || batch.Ok ? 0 : 1;
+        }
         if (args.Length >= 2 && args[0] == "--suggest")   // solo lectura: sugerencias con lo medido ahora
         {
             using var t = new Telemetry();
