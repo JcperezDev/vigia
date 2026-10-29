@@ -1008,7 +1008,6 @@
  "Una copia por cada cambio, más la del estado de tu PC antes de instalar Vigía.": "Uma cópia por alteração, mais a do estado do PC antes de instalar o Vigía.",
  "Preguntas": "Perguntas",
  "¿Puede romper Windows?": "Pode estragar o Windows?",
- "Cada cambio se guarda antes de hacerlo y, si Vigía no puede guardar la copia, no cambia nada. Los ajustes con riesgo se prueban primero en una máquina virtual y vienen apagados. Vigía no toca la BIOS, ni Defender, ni Windows Update.": "Cada alteração é salva antes de ser feita e, se o Vigía não conseguir salvar a cópia, não muda nada. Os ajustes arriscados são testados antes numa máquina virtual e vêm desligados. O Vigía não mexe na BIOS, no Defender nem no Windows Update.",
  "¿Gasta recursos mientras juego?": "Gasta recursos enquanto eu jogo?",
  "Minimizada deja de dibujar y lee el PC muy de vez en cuando: en nuestras pruebas, unos 50 MB de RAM y menos del 0,2 % de un núcleo. Si la cierras, se queda junto al reloj gastando lo mismo.": "Minimizado, para de desenhar e lê o PC só de vez em quando: nos nossos testes, uns 50 MB de RAM e menos de 0,2 % de um núcleo. Se fechar, fica perto do relógio gastando o mesmo.",
  "¿Hace falta una cuenta?": "Preciso de uma conta?",
@@ -2073,5 +2072,8 @@
  "Se harán {0} cambios, con copia de seguridad antes.": "Serão feitas {0} mudanças, com cópia de segurança antes.",
  "Modo simple y Ajustes más claros": "Modo simples e Ajustes mais claros",
  "Modo simple dice qué va a cambiar, con el mismo nombre que en Ajustes.": "O modo simples diz o que vai mudar, com o mesmo nome que em Ajustes.",
- "Ajustes ya no dice «Todo aplicado» si quedan ajustes por elegir uno por uno.": "Ajustes não diz mais «Tudo aplicado» se ainda há ajustes para escolher um por um."
+ "Ajustes ya no dice «Todo aplicado» si quedan ajustes por elegir uno por uno.": "Ajustes não diz mais «Tudo aplicado» se ainda há ajustes para escolher um por um.",
+ "No. Cada cambio se guarda antes de hacerlo y, si Vigía no puede guardar la copia, no cambia nada. Los ajustes con riesgo se prueban primero en una máquina virtual y vienen apagados. Vigía nunca escribe en la BIOS, no apaga Defender y no frena las actualizaciones de seguridad.": "Não. Cada mudança é salva antes de ser feita e, se o Vigía não consegue salvar a cópia, não muda nada. Os ajustes com risco são testados primeiro numa máquina virtual e vêm desligados. O Vigía nunca escreve na BIOS, não desliga o Defender e não segura as atualizações de segurança.",
+ "Ayuda más directa": "Ajuda mais direta",
+ "Ayuda: «¿Puede romper Windows?» ahora responde «No» de entrada.": "Ajuda: «Pode quebrar o Windows?» agora responde «Não» logo de cara."
 }
