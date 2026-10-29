@@ -46,7 +46,23 @@ public static class Support
 
     public static bool IsAllowed(string url) =>
         Uri.TryCreate(url, UriKind.Absolute, out var u) && u.Scheme == Uri.UriSchemeHttps
-        && Allowed.Contains(u.Host, StringComparer.OrdinalIgnoreCase);
+        && Allowed.Contains(u.Host, StringComparer.OrdinalIgnoreCase)
+        && string.IsNullOrEmpty(u.UserInfo) && u.IsDefaultPort
+        // en GitHub, solo las páginas de Vigía (no cualquier repo ni descargas de otros)
+        && (!u.Host.Equals("github.com", StringComparison.OrdinalIgnoreCase)
+            || u.AbsolutePath.StartsWith("/JcperezDev/", StringComparison.OrdinalIgnoreCase));
+
+    public static string SelfTest()
+    {
+        var log = new List<string>();
+        void Check(bool ok, string what) => log.Add($"{(ok ? "OK  " : "FAIL")} {what}");
+        Check(IsAllowed(Repo) && IsAllowed("https://github.com/JcperezDev/vigia/releases"), "enlaces: el repo de Vigía se abre");
+        Check(!IsAllowed("https://github.com/otro/repo/releases/download/x/x.exe"), "enlaces: otro repo de GitHub no");
+        Check(!IsAllowed("http://ko-fi.com/x") && !IsAllowed("https://ko-fi.com.evil.example/x"), "enlaces: sin http ni dominios parecidos");
+        Check(!IsAllowed("https://user@ko-fi.com/x") && !IsAllowed("https://ko-fi.com:8443/x"), "enlaces: sin usuario ni puerto raro");
+        Check(!IsAllowed("file:///C:/Windows/System32/cmd.exe") && !IsAllowed("ms-settings:"), "enlaces: nada local ni protocolos");
+        return string.Join(Environment.NewLine, log);
+    }
 
     /// <summary>Fuentes oficiales de los ajustes (documentación de Microsoft y de los navegadores). Solo se usan con
     /// URLs que vienen de tweaks.json, que va dentro del ejecutable; el frontend nunca manda la dirección.</summary>

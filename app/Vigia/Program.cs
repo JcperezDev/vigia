@@ -318,6 +318,7 @@ static class Program
                 + Environment.NewLine + "--- arranque (bcdedit en cualquier idioma)" + Environment.NewLine + Diagnostics.BcdSelfTest()
                 + Environment.NewLine + "--- permisos (carpeta protegida)" + Environment.NewLine + InstallTrust.SelfTest()
                 + Environment.NewLine + "--- permisos (operaciones de administrador)" + Environment.NewLine + AdminOps.SelfTest()
+                + Environment.NewLine + "--- enlaces externos" + Environment.NewLine + Support.SelfTest()
                 + Environment.NewLine + "--- inicio con Windows" + Environment.NewLine + AutoStart.SelfTest()
                 + Environment.NewLine + "--- copias (restauración)" + Environment.NewLine + BackupGuard.SelfTest();
             try { Directory.Delete(testKeys, true); } catch { }

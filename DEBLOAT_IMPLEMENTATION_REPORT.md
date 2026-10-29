@@ -108,9 +108,20 @@ Traducciones: todos los textos nuevos en es/en/pt/fr/de (`tools/i18n-add-debloat
 
 ## 9. Permisos
 
-Vigía sigue ejecutándose entero como administrador (`requireAdministrator`), igual que antes. Dentro de Debloat, el plan marca qué operaciones requieren administrador (desaprovisionar, lectura de todos los usuarios, MSI de equipo). Esas operaciones se avisan en la vista previa.
+*(Actualizado con la arquitectura de permisos nueva, ver `docs/PRIVILEGES.md`.)*
 
-**No implementado:** elevar solo la operación que lo necesite exigiría separar el proceso, y es un cambio de arquitectura de toda la app, no solo de Debloat. Queda propuesto.
+Vigía ya no corre como administrador (`asInvoker`). Apps funciona así:
+
+- **Sin el ayudante abierto:** `appsScan` y `appsPreview` son operaciones «suaves» y se hacen como tu usuario: inventario
+  de tu usuario y programas clásicos. Lo que solo se ve con administrador (otros usuarios, aprovisionadas de la máquina)
+  se marca como no leído, no como «no existe».
+- **Con el ayudante (UAC una vez por sesión):** inventario completo, `appsRun`, `appsRestore`, `bloatRemove` y `simpleRun`.
+  El ayudante vuelve a validar las claves (`IdRx`) y el token del plan; las claves nunca llegan a PowerShell.
+- Quitar para tu usuario y quitar el aprovisionamiento siguen siendo autorizaciones separadas.
+- El historial y el `pending` se escriben en `%LOCALAPPDATA%\Vigia` de la cuenta del escritorio (el ayudante ignora `VIGIA_DATA`).
+
+**Sin verificar en VM con UAC activado:** que el inventario sin ayudante y con ayudante coincidan en lo que sí se puede leer,
+y que una cuenta estándar vea su inventario sin errores.
 
 ## 10. Pruebas ejecutadas
 
