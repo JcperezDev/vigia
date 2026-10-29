@@ -859,6 +859,7 @@
   }
   function renderFpsState(st) {
     const m = $('gm-measure'), c = $('gm-cancel'), p = $('gm-state');
+    if (!m) return;   // la medida de FPS ya no sale en Juegos
     m.hidden = st.active; c.hidden = !st.active; $('gm-dur').disabled = st.active;
     if (st.phase === 'waiting') p.textContent = 'Esperando tu juego. Ábrelo y juega normal; Vigía empieza sola cuando lo tengas delante.';
     else if (st.phase === 'found') p.textContent = `${st.game} detectado. Empiezo a medir en unos segundos, cuando termine de cargar.`;
@@ -868,6 +869,7 @@
     else p.textContent = '';
   }
   function renderFps(fps) {
+    if (!$('gm-compare')) return;
     renderFpsState(fps.state);
     const hist = [...fps.history].reverse();
     // comparación por juego: la medición marcada como «antes» (o la primera) contra la última
@@ -928,55 +930,6 @@
   }
   // «Tu PC para jugar»: pantallas, RAM, Resizable BAR, modo juego, HAGS y energía
 
-  // ---------- Drift: el ratón o el stick se mueven solos (solo al pulsar Probar) ----------
-  let drT = 0;
-  $('dr-run').addEventListener('click', () => {
-    const b = $('dr-run'); let n = 10;
-    busyBtn(b, true, 'Midiendo…'); $('dr-list').hidden = true;
-    $('dr-sub').textContent = `No toques nada… ${n}`;
-    clearInterval(drT);
-    drT = setInterval(() => { n = Math.max(0, n - 1); $('dr-sub').textContent = `No toques nada… ${n}`; if (!n) clearInterval(drT); }, 1000);
-    send({ cmd: 'drift' });
-  });
-  let hzT = 0;
-  $('hz-run').addEventListener('click', () => {
-    const b = $('hz-run'); let n = 5;
-    busyBtn(b, true, 'Midiendo…'); $('hz-list').hidden = true;
-    const say = () => { $('hz-sub').textContent = `Mueve el ratón en círculos rápidos (o gira un stick)… ${n}`; };
-    say(); clearInterval(hzT);
-    hzT = setInterval(() => { n = Math.max(0, n - 1); say(); if (!n) clearInterval(hzT); }, 1000);
-    send({ cmd: 'rates' });
-  });
-  function renderRates(r) {
-    clearInterval(hzT); busyBtn($('hz-run'), false, 'Medir otra vez');
-    const LV = { warn: 'warn', touched: 'info', ok: 'ok' };
-    $('hz-sub').textContent = !r.items.length ? 'No se movió nada: vuelve a medir moviendo el ratón o un stick.'
-      : r.items.some((i) => i.level === 'warn') ? 'Hay algo lento.' : 'Responden rápido.';
-    $('hz-list').replaceChildren(...r.items.map((i) => {
-      const li = el('li', `finding lv-${LV[i.level] || 'info'}`);
-      const body = el('div'); body.append(el('p', null, i.title));
-      if (i.fix) body.append(el('p', 'src', i.fix));
-      li.append(el('span', 'dot'), el('strong', null, i.name), body);
-      return li;
-    }));
-    $('hz-list').hidden = !r.items.length;
-  }
-  function renderDrift(r) {
-    clearInterval(drT); busyBtn($('dr-run'), false, 'Probar otra vez');
-    const LV = { bad: 'bad', warn: 'warn', touched: 'info', ok: 'ok' };
-    const bad = r.items.filter((i) => i.level === 'bad' || i.level === 'warn').length;
-    $('dr-sub').textContent = !r.items.length ? 'No encontré ratón ni mando para medir.' : bad ? 'Algo se movió solo.' : r.items.some((i) => i.level === 'touched') ? 'Se tocó algo: vuelve a probar sin tocar nada.' : 'Nada se movió solo.';
-    const order = { bad: 0, warn: 1, touched: 2, ok: 3 };
-    $('dr-list').replaceChildren(...[...r.items].sort((a, b) => order[a.level] - order[b.level]).map((i) => {
-      const li = el('li', `finding lv-${LV[i.level] || 'info'}`);
-      const body = el('div'); body.append(el('p', null, i.title));
-      if (i.detail) body.append(el('p', 'src', i.detail));
-      if (i.fix) body.append(el('p', 'src', i.fix));
-      li.append(el('span', 'dot'), el('strong', null, i.name), body);
-      return li;
-    }));
-    $('dr-list').hidden = !r.items.length;
-  }
   function renderFortnite(f) {
     const box = $('gm-fn');
     if (!f.found) { box.replaceChildren(el('p', 'empty', 'No encontré Fortnite en este PC. Si lo tienes, ábrelo una vez para que cree su configuración.')); return; }
@@ -1026,8 +979,6 @@
       el('p', 'src', 'Vigía solo cambia el archivo de configuración de Fortnite en tu usuario, con el juego cerrado y con copia en «Copias de seguridad». No toca distancia de visión, texturas, resolución ni tu límite de FPS.'));
   }
   $('gm-reload').addEventListener('click', () => { busyBtn($('gm-reload'), true, 'Recargando…'); send({ cmd: 'gamesGet' }); });
-  $('gm-measure').addEventListener('click', () => { $('gm-result').textContent = ''; send({ cmd: 'fpsStart', seconds: +$('gm-dur').value }); renderFpsState({ active: true, phase: 'waiting', target: +$('gm-dur').value, done: 0 }); });
-  $('gm-cancel').addEventListener('click', () => send({ cmd: 'fpsCancel' }));
 
   // ---------- copias de seguridad ----------
   const bkKind = { juegos: 'Juegos', ajustes: 'Ajustes', inicio: 'Inicio de Windows', pantalla: 'Pantalla', apps: 'Apps', fondo: 'Fondo de pantalla', restauracion: 'Restauración' };
@@ -1393,6 +1344,7 @@
     }
     upAsked = false;
     renderNews();
+    if (u.available && !upBusy) announceUpdate(u.latest);
   }
   $('st-check').addEventListener('click', () => { upAsked = true; busyBtn($('st-check'), true, 'Buscando…'); send({ cmd: 'updateCheck' }); });
   const runUpdate = () => { upBusy = true; busyBtn($('st-run'), true, 'Preparando…'); renderNews(); send({ cmd: 'updateRun' }); };
@@ -1490,6 +1442,18 @@
     pop.style.left = Math.round(document.querySelector('.rail').getBoundingClientRect().right + 8) + 'px';
     newsOpen.forEach(markRead); renderNews(); pop.focus();
   }
+  // Versión nueva: abre Novedades una vez por versión, con el botón «Actualizar» arriba. Si Vigía está en la
+  // bandeja, espera a que la abras. No baja nada hasta que pulses Actualizar.
+  let upPending = null;
+  function announceUpdate(v) {
+    let seen = null; try { seen = localStorage.getItem('vigia-upd-shown'); } catch { /* sin almacenamiento */ }
+    if (!v || seen === v) return;
+    if (document.visibilityState !== 'visible') { upPending = v; return; }
+    upPending = null;
+    try { localStorage.setItem('vigia-upd-shown', v); } catch { /* sin almacenamiento */ }
+    setNewsOpen(true);
+  }
+  document.addEventListener('visibilitychange', () => { if (upPending) setTimeout(() => announceUpdate(upPending), 800); });
   $('news-btn').addEventListener('click', (e) => { e.stopPropagation(); setNewsOpen($('news-pop').hidden); });
   $('news-close').addEventListener('click', () => setNewsOpen(false));
   $('news-list').addEventListener('click', (e) => {
@@ -1568,7 +1532,7 @@
       text: 'En Apps de Windows quitas lo que viene de fábrica y no usas. Aquí apagas lo que arranca solo al encender el PC, sin borrarlo.' },
     { view: 'backups', at: '#bk-original', title: 'Todo tiene vuelta atrás',
       text: 'Antes de cada cambio, Vigía guarda cómo estaba. «Volver a como estaba» deja tu PC como antes de instalar Vigía.' },
-    { view: 'games', at: '#ds-box', title: 'Resolución estirada',
+    { view: 'games', at: '#ds-box', title: 'Resolución',
       text: 'Estira la pantalla para jugar. Si se ve mal y no confirmas, vuelve sola en 15 segundos.' },
     { view: 'help', at: '.rail-end', title: 'Atajos junto al reloj',
       text: 'Si cierras la ventana, Vigía se queda junto al reloj, en «Mostrar iconos ocultos». Con clic derecho optimizas, liberas memoria o cambias la resolución sin abrirla. Este recorrido está siempre en Ayuda.' },
@@ -1707,8 +1671,6 @@
     else if (type === 'sugDone') sugDone_(payload);
     else if (type === 'gameDone') $('gm-result').textContent = payload.message;
     else if (type === 'fpsState') renderFpsState(payload);
-    else if (type === 'drift') renderDrift(payload);
-    else if (type === 'rates') renderRates(payload);
     else if (type === 'backups') renderBackups(payload);
     else if (type === 'backupDone') {
       $('bk-result').textContent = payload.message + (payload.errors.length ? ` ${payload.errors.join('; ')}` : '');

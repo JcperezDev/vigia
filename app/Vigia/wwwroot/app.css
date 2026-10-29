@@ -667,9 +667,3 @@ td.empty.loading::before { display: inline-block; vertical-align: -2px; margin-r
 .tw-one > summary:hover { color: var(--fg); }
 .tw-one[open] > summary { margin-bottom: 4px; }
 .head .actions[hidden] { display: none; }
-
-/* Modo simple: el fondo de VigíaOS por detrás, oscurecido para que se lea todo */
-main:has(> #view-simple:not([hidden])) {
-  background: linear-gradient(color-mix(in oklch, var(--ink) 35%, transparent), color-mix(in oklch, var(--ink) 60%, transparent)), url(fondo.jpg) center / cover no-repeat fixed;
-}
-#view-simple .sm-q, #view-simple .box, #view-simple .card { background: color-mix(in oklch, var(--ink-2) 72%, transparent); backdrop-filter: blur(6px); }

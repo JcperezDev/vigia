@@ -24,6 +24,18 @@ public static class Suggestions
     static string Ms(double? v) => v is null ? "—" : v < 1 ? "<1 ms" : $"{Math.Round(v.Value)} ms";
     static string P(int n, string one, string many) => $"{n} {(n == 1 ? one : many)}";
 
+    /// <summary>Lo último que se midió del ratón y del mando al pulsar «Analizar» (ver Drift.Sense).</summary>
+    public static volatile IReadOnlyList<Suggestion> Input = [];
+
+    /// <summary>Cambia lo del ratón y del mando por lo recién medido y vuelve a ordenar.</summary>
+    public static SuggestReport WithInput(SuggestReport r, IReadOnlyList<Suggestion> input)
+    {
+        Input = input;
+        var order = new Dictionary<string, int> { ["bad"] = 0, ["warn"] = 1, ["info"] = 2, ["ok"] = 3 };
+        var items = r.Items.Where(i => !i.Id.StartsWith("in-")).Concat(input).OrderBy(i => order.GetValueOrDefault(i.Level, 9)).ToList();
+        return r with { Items = items };
+    }
+
     public static SuggestReport Run(Telemetry tel)
     {
         var items = new List<Suggestion>();
@@ -37,6 +49,7 @@ public static class Suggestions
         try { items.AddRange(Battery()); } catch { }
         try { items.AddRange(Usage(tel.Read())); } catch { }
         try { items.AddRange(InputLag()); } catch { }
+        items.AddRange(Input);
         var order = new Dictionary<string, int> { ["bad"] = 0, ["warn"] = 1, ["info"] = 2, ["ok"] = 3 };
         return new(items.OrderBy(i => order.GetValueOrDefault(i.Level, 9)).ToList(), net, DateTimeOffset.Now.ToUnixTimeMilliseconds());
     }
