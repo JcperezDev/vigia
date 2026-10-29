@@ -3,8 +3,18 @@
 Actualizado 2026-10-29, rama `debloat-v2` (sin push ni merge). Una línea por requisito.
 Estados: ✅ hecho y probado · 🟡 hecho, falta validación física/VM · ⛔ bloqueado (decisión tuya) · ⬜ pendiente.
 
-Pruebas de referencia ahora: selftest **302/0** · UI de Apps **44/0** · traducciones **0 errores** · Puente **64/0** ·
-`release.sh` **27/0**.
+Pruebas de referencia ahora: selftest **318/0** · UI de Apps **44/0** · traducciones **0 errores** · Puente **74/0** ·
+`release.sh` **31/0**.
+
+## Validación real — 29 de octubre
+
+- `IMPLEMENTED` + `UNIT_TESTED`: firma separada (`fe5f5f2`); privacidad opcional (`9f83671`); candado de comandos de laboratorio (`ffe469e`).
+- Clave real: `--key-check` recompilado devuelve **3**, confirma lectura heredada para `CodexSandboxUsers`. No se modificó ni rotó. Posible exposición, no evidencia de lectura.
+- `BLOCKED`: Hyper-V no arranca: `hypervisorlaunchtype Off`, `HypervisorPresent=False`. No se cambia el arranque del anfitrión.
+- Se restauró el checkpoint `limpia` de VigiaLab; el intento de arranque falló y la VM quedó `Saved`. No se ejecutaron pruebas dentro del invitado.
+- Artefactos de laboratorio y 0.20.17 preparados en scratch; firmas de ZIP y Puente históricos verificadas (rc=0). No se ejecutó el instalador histórico en el host.
+- `VM_TESTED` y `HARDWARE_TESTED`: ninguna validación nueva completada. Instalación, migración, UAC y Debloat reales pendientes.
+- Estado de publicación: **NOT READY**. Sin push, merge, release ni migración de la instalación principal.
 
 ## Prompt 1 — auditoría de ajustes, rendimiento y seguridad (hasta 0.20.17)
 
