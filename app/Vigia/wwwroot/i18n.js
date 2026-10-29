@@ -9,7 +9,7 @@
   const IDS = /^[A-Z][\w.-]*(, [A-Z][\w.-]*)*…?$/;   // «WinDefend, WdFilter, WdBoot…»: nombres que no se traducen
   const orig = new WeakMap();      // nodo de texto -> { es, shown }
   const origAttr = new WeakMap();  // elemento -> { attr: { es, shown } }
-  const ATTRS = ['title', 'aria-label', 'placeholder'];
+  const ATTRS = ['title', 'aria-label', 'placeholder', 'label'];
 
   function load(code) {
     try {

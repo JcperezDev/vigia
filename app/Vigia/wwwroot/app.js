@@ -1062,19 +1062,26 @@
     dsNative = d.saved || n;
     $('ds-restore').hidden = !d.saved;
     if (!n || !c) { $('ds-sub').textContent = 'No pude leer la pantalla principal.'; return; }
-    $('ds-sub').textContent = c.hz > 1 ? (d.stretched ? `Ahora: ${dsRes(c)} estirada a ${c.hz} Hz. La normal es ${dsRes(d.saved)}.` : `Ahora: ${dsRes(c)} a ${c.hz} Hz.`)
-      : d.stretched ? `Ahora: ${dsRes(c)} estirada. La normal es ${dsRes(d.saved)}.` : `Ahora: ${dsRes(c)}.`;
+    const same = (m) => Math.abs(m.width / m.height - dsNative.width / dsNative.height) < 0.02;
+    const changed = d.stretched && d.saved;
+    $('ds-sub').textContent = changed
+      ? (same(c) ? (c.hz > 1 ? `Ahora: ${dsRes(c)} a ${c.hz} Hz. La normal es ${dsRes(d.saved)}.` : `Ahora: ${dsRes(c)}. La normal es ${dsRes(d.saved)}.`)
+        : (c.hz > 1 ? `Ahora: ${dsRes(c)} estirada a ${c.hz} Hz. La normal es ${dsRes(d.saved)}.` : `Ahora: ${dsRes(c)} estirada. La normal es ${dsRes(d.saved)}.`))
+      : c.hz > 1 ? `Ahora: ${dsRes(c)} a ${c.hz} Hz.` : `Ahora: ${dsRes(c)}.`;
     // primero las que la tarjeta ya tiene; luego las de la lista de Vigía, que se crean en su panel al aplicarlas
     const extra = d.extra || [];
-    const opt = (m, made) => {
-      const o = el('option', null, dsRes(m));
+    const nick = { '1280x720': 'HD', '1920x1080': 'Full HD', '2560x1440': '2K', '3840x2160': '4K' };
+    const opt = (m) => {
+      const k = `${m.width}x${m.height}`;
+      const o = el('option', null, nick[k] ? `${dsRes(m)}  ·  ${nick[k]}` : dsRes(m));
       o.value = `${m.width}x${m.height}`;
       return o;
     };
-    const opts = [...d.options.map((m) => opt(m, false)), ...extra.map((m) => opt(m, true))];
     const all = [...d.options, ...extra];
+    const group = (label, list) => { const g = el('optgroup'); g.label = label; g.append(...list.map((m) => opt(m))); return g; };
+    const normals = all.filter(same), stretched = all.filter((m) => !same(m));
     const other = el('option', null, 'Otra…'); other.value = 'custom';
-    $('ds-mode').replaceChildren(...opts, other);
+    $('ds-mode').replaceChildren(...[normals.length && group('Normales', normals), stretched.length && group('Estiradas', stretched)].filter(Boolean), other);
     const cur = `${c.width}x${c.height}`;
     $('ds-mode').value = d.stretched && all.some((m) => `${m.width}x${m.height}` === cur) ? cur
       : all.some((m) => m.width === 1440 && m.height === 1080) ? '1440x1080' : all[0] ? `${all[0].width}x${all[0].height}` : 'custom';

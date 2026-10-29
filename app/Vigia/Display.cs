@@ -61,7 +61,10 @@ public static class Display
                 if (!EnumDisplaySettingsW(null, i, ref dm)) break;
                 if (dm.dmBitsPerPel < 32 || dm.dmDisplayFrequency != native.Hz) continue;
                 var r = (double)dm.dmPelsWidth / dm.dmPelsHeight;
-                if (dm.dmPelsHeight > native.Height || dm.dmPelsHeight < 720 || r > ratio - 0.05) continue;
+                if (dm.dmPelsHeight < 720) continue;
+                // las normales (misma forma que tu pantalla: 1920 × 1080, 2K, 4K si la tarjeta la ofrece) y las estiradas (más estrechas)
+                var same = Math.Abs(r - ratio) < 0.02;
+                if (!same && (dm.dmPelsHeight > native.Height || r > ratio - 0.05)) continue;
                 var m = new DisplayMode(dm.dmPelsWidth, dm.dmPelsHeight, dm.dmDisplayFrequency);
                 if (!opts.Contains(m)) opts.Add(m);
             }
@@ -85,6 +88,16 @@ public static class Display
                 // la tarjeta ya la tiene a tu frecuencia: va con las listas; si no, se crea al aplicarla
                 (have.Contains((w, h)) ? opts : extra).Add(new DisplayMode(w, h, native.Hz));
             }
+            // las normales de siempre con la forma de tu pantalla (en una 16:9: 720p, 900p, 1080p) y la tuya
+            foreach (var h in new[] { 720, 768, 900, 1080, 1200, 1440, 1600, 2160 })
+            {
+                // solo si sale exacta (en 16:9, 1200 o 768 darían anchos raros)
+                var wx = h * native.Width / (double)native.Height;
+                var w = (int)Math.Round(wx);
+                if (Math.Abs(wx - w) > 0.01 || w % 8 != 0 || h > native.Height || w > native.Width) continue;
+                if (opts.Any(o => o.Width == w && o.Height == h) || extra.Any(o => o.Width == w && o.Height == h)) continue;
+                (have.Contains((w, h)) || (w == native.Width && h == native.Height) ? opts : extra).Add(new DisplayMode(w, h, native.Hz));
+            }
             opts = opts.OrderByDescending(m => m.Height).ThenByDescending(m => m.Width).ToList();
             extra = extra.OrderByDescending(m => m.Height).ThenByDescending(m => m.Width).ToList();
         }
@@ -96,6 +109,9 @@ public static class Display
             Gpu = GpuModes.Detect() switch { GpuModes.Vendor.Nvidia => "nvidia", GpuModes.Vendor.Amd => "amd", _ => "other" },
         };
     }
+
+    /// <summary>Misma forma que la pantalla (16:9 en una 16:9): no se estira nada.</summary>
+    public static bool SameShape(DisplayMode a, DisplayMode b) => Math.Abs((double)a.Width / a.Height - (double)b.Width / b.Height) < 0.02;
 
     /// <summary>La frecuencia más alta que ofrece la pantalla a esa resolución.</summary>
     public static int MaxHz(int w, int h)
@@ -129,6 +145,10 @@ public static class Display
     public static DisplayDone Stretch(int w, int h, bool games = false)
     {
         var st = Status();
+        // elegir la normal es lo mismo que «Volver a la normal»
+        if (st.Saved is { } sv && sv.Width == w && sv.Height == h) return Restore();
+        if (st.Saved is null && st.Current is { } now0 && now0.Width == w && now0.Height == h)
+            return new(true, $"Ya estás en {w} × {h}.", false);
         var want = Want(st, w, h, out var why, out var missing);
         var created = "";
         if (want is null && missing && (st.Saved ?? st.Native) is { } normal)
@@ -147,7 +167,7 @@ public static class Display
         var cur = st.Current ?? throw new InvalidOperationException("No pude leer la resolución actual.");
         // se guarda la de antes solo la primera vez: si ya está estirada, la original sigue siendo la guardada
         if (st.Saved is null) Save(new DisplayMode(cur.Width, cur.Height, cur.Hz));
-        if (Backups.Save("pantalla", $"Resolución estirada {w} × {h}", [Backups.Item.Display(cur.Width, cur.Height, cur.Hz)]) is null)
+        if (Backups.Save("pantalla", $"Resolución {w} × {h}", [Backups.Item.Display(cur.Width, cur.Height, cur.Hz)]) is null)
             return new(false, "No pude guardar la copia de seguridad; no cambié nada.", false);
         var r = Change(want.Width, want.Height, want.Hz, DMDFO_STRETCH);
         if (r != 0)
@@ -156,7 +176,10 @@ public static class Display
             return new(false, $"Windows no aceptó {w} × {h} ({Why(r)}).", false);
         }
         var game = games ? GameNote(Games.FortniteWindow(w, h)) : "";
-        return new(true, $"Pantalla en {w} × {h} estirada a {want.Hz} Hz.{created}{game}", true);
+        var normal0 = st.Saved ?? st.Native;
+        return normal0 is not null && SameShape(new DisplayMode(w, h, 0), normal0)
+            ? new(true, $"Pantalla en {w} × {h} a {want.Hz} Hz.{created}{game}", true)
+            : new(true, $"Pantalla en {w} × {h} estirada a {want.Hz} Hz.{created}{game}", true);
     }
 
     static string GameNote(Games.Done? d) => d is null ? "" : d.Ok ? $" {d.Message}" : $" Fortnite: {d.Message}";
