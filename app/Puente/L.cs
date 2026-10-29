@@ -67,6 +67,7 @@ static class L
         "Esperando a que se cierre Vigía", "Cerrando Vigía", "Cancelar", "Todavía no hay ninguna versión publicada.",
         "Este Puente se compiló sin clave pública.", "Quedará guardada y podrás volver a ella.", "Ahora tienes la {0}.",
         "Tus ajustes y las copias de lo que cambió Vigía se quedan en {0}.",
+        "Se cortó la conexión", "Reintentando en unos segundos.", "Se cortó la conexión con GitHub.", "Revisa tu internet y dale a Reintentar: la descarga sigue donde se quedó.", "Reintentar", "Algo falló en este PC.", "Los detalles quedaron en {0}.",
     ];
 
     static readonly Dictionary<string, Dictionary<string, string>> Dicts = new()
@@ -83,7 +84,8 @@ static class L
             "", "Remove Vigía from this PC?", "", "Remove", "", "Removing Vigía", "", "Done: Vigía removed", "", "Puente deletes itself when you close this window.",
             "", "Waiting for Vigía to close", "", "Closing Vigía", "", "Cancel", "", "There's no published version yet.",
             "", "This Puente was built without a public key.", "", "It'll be kept and you can go back to it.", "", "You now have {0}.",
-            "", "Your settings and the backups of what Vigía changed stay in {0}."),
+            "", "Your settings and the backups of what Vigía changed stay in {0}.",
+            "", "The connection dropped", "", "Trying again in a few seconds.", "", "The connection to GitHub dropped.", "", "Check your internet and press Try again: the download picks up where it stopped.", "", "Try again", "", "Something went wrong on this PC.", "", "The details are in {0}."),
         ["pt"] = D(
             "", "Procurando atualizações…", "", "Vendo a última versão publicada.", "", "Baixando Vigía {0}", "", "Pronto: Vigía {0}",
             "", "A {0} ficou guardada caso queira voltar para ela.", "", "O Vigía está em dia", "", "Você tem a versão {0}, que é a mais recente.",
@@ -96,7 +98,8 @@ static class L
             "", "Remover o Vigía deste PC?", "", "Remover", "", "Removendo o Vigía", "", "Pronto: Vigía removido", "", "O Puente se apaga sozinho ao fechar esta janela.",
             "", "Esperando o Vigía fechar", "", "Fechando o Vigía", "", "Cancelar", "", "Ainda não há nenhuma versão publicada.",
             "", "Este Puente foi compilado sem chave pública.", "", "Ela fica guardada e você pode voltar para ela.", "", "Agora você tem a {0}.",
-            "", "Suas configurações e as cópias do que o Vigía mudou ficam em {0}."),
+            "", "Suas configurações e as cópias do que o Vigía mudou ficam em {0}.",
+            "", "A conexão caiu", "", "Tentando de novo em alguns segundos.", "", "A conexão com o GitHub caiu.", "", "Confira sua internet e clique em Tentar de novo: o download continua de onde parou.", "", "Tentar de novo", "", "Algo deu errado neste PC.", "", "Os detalhes ficaram em {0}."),
         ["fr"] = D(
             "", "Recherche de mises à jour…", "", "On regarde la dernière version publiée.", "", "Téléchargement de Vigía {0}", "", "Terminé : Vigía {0}",
             "", "La {0} est gardée si tu veux y revenir.", "", "Vigía est à jour", "", "Tu as la version {0}, la plus récente.",
@@ -109,7 +112,8 @@ static class L
             "", "Retirer Vigía de ce PC ?", "", "Retirer", "", "Suppression de Vigía", "", "Terminé : Vigía retiré", "", "Puente s'efface tout seul quand tu fermes cette fenêtre.",
             "", "En attente de la fermeture de Vigía", "", "Fermeture de Vigía", "", "Annuler", "", "Aucune version publiée pour l'instant.",
             "", "Ce Puente a été compilé sans clé publique.", "", "Elle sera gardée et tu pourras y revenir.", "", "Tu as maintenant la {0}.",
-            "", "Tes réglages et les sauvegardes de ce que Vigía a changé restent dans {0}."),
+            "", "Tes réglages et les sauvegardes de ce que Vigía a changé restent dans {0}.",
+            "", "La connexion a été coupée", "", "Nouvel essai dans quelques secondes.", "", "La connexion à GitHub a été coupée.", "", "Vérifie ta connexion et clique sur Réessayer : le téléchargement reprend où il s'est arrêté.", "", "Réessayer", "", "Un problème est survenu sur ce PC.", "", "Les détails sont dans {0}."),
         ["de"] = D(
             "", "Suche nach Updates…", "", "Prüfe die neueste veröffentlichte Version.", "", "Lade Vigía {0} herunter", "", "Fertig: Vigía {0}",
             "", "{0} bleibt gespeichert, falls du zurück willst.", "", "Vigía ist aktuell", "", "Du hast Version {0}, die neueste.",
@@ -122,6 +126,7 @@ static class L
             "", "Vigía von diesem PC entfernen?", "", "Entfernen", "", "Entferne Vigía", "", "Fertig: Vigía entfernt", "", "Puente löscht sich selbst, wenn du dieses Fenster schließt.",
             "", "Warte, bis Vigía geschlossen ist", "", "Schließe Vigía", "", "Abbrechen", "", "Es gibt noch keine veröffentlichte Version.",
             "", "Dieses Puente wurde ohne öffentlichen Schlüssel gebaut.", "", "Sie bleibt gespeichert und du kannst zu ihr zurück.", "", "Jetzt hast du {0}.",
-            "", "Deine Einstellungen und die Sicherungen von Vigías Änderungen bleiben in {0}."),
+            "", "Deine Einstellungen und die Sicherungen von Vigías Änderungen bleiben in {0}.",
+            "", "Die Verbindung ist abgebrochen", "", "Neuer Versuch in ein paar Sekunden.", "", "Die Verbindung zu GitHub ist abgebrochen.", "", "Prüfe dein Internet und klicke auf Erneut versuchen: Der Download macht dort weiter, wo er aufgehört hat.", "", "Erneut versuchen", "", "Auf diesem PC ist etwas schiefgelaufen.", "", "Die Details stehen in {0}."),
     };
 }

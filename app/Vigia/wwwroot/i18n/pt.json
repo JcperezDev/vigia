@@ -2075,5 +2075,9 @@
  "Ajustes ya no dice «Todo aplicado» si quedan ajustes por elegir uno por uno.": "Ajustes não diz mais «Tudo aplicado» se ainda há ajustes para escolher um por um.",
  "No. Cada cambio se guarda antes de hacerlo y, si Vigía no puede guardar la copia, no cambia nada. Los ajustes con riesgo se prueban primero en una máquina virtual y vienen apagados. Vigía nunca escribe en la BIOS, no apaga Defender y no frena las actualizaciones de seguridad.": "Não. Cada mudança é salva antes de ser feita e, se o Vigía não consegue salvar a cópia, não muda nada. Os ajustes com risco são testados primeiro numa máquina virtual e vêm desligados. O Vigía nunca escreve na BIOS, não desliga o Defender e não segura as atualizações de segurança.",
  "Ayuda más directa": "Ajuda mais direta",
- "Ayuda: «¿Puede romper Windows?» ahora responde «No» de entrada.": "Ajuda: «Pode quebrar o Windows?» agora responde «Não» logo de cara."
+ "Ayuda: «¿Puede romper Windows?» ahora responde «No» de entrada.": "Ajuda: «Pode quebrar o Windows?» agora responde «Não» logo de cara.",
+ "no hay conexión con GitHub ahora mismo": "não há conexão com o GitHub agora",
+ "Actualizar aguanta cortes de internet": "Atualizar aguenta quedas de internet",
+ "Si se corta la conexión mientras se baja una versión, Puente espera y sigue desde donde iba, en vez de mostrar un error técnico.": "Se a conexão cair durante o download de uma versão, o Puente espera e continua de onde parou, em vez de mostrar um erro técnico.",
+ "Si aun así no se puede, sale «Reintentar» y la descarga no empieza de cero.": "Se mesmo assim não der, aparece «Tentar de novo» e o download não começa do zero."
 }

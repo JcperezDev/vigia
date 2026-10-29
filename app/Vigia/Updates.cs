@@ -23,7 +23,24 @@ public static class Updates
         }
     }
 
+    /// <summary>Lo que ve el usuario cuando falla la red: nunca el texto técnico de Windows (va al log de .NET, no a la pantalla).</summary>
+    public static string Friendly(Exception e)
+    {
+        for (Exception? x = e; x is not null; x = x.InnerException)
+            if (x is HttpRequestException or System.Net.Sockets.SocketException or TimeoutException or TaskCanceledException or IOException)
+                return "no hay conexión con GitHub ahora mismo";
+        return e.Message;
+    }
+
     public static async Task<UpdateInfo> CheckAsync()
+    {
+        var first = await CheckOnceAsync();
+        if (first.Error is null) return first;
+        await Task.Delay(3000);   // un corte de un segundo no debería verse: se mira otra vez antes de avisar
+        return await CheckOnceAsync();
+    }
+
+    static async Task<UpdateInfo> CheckOnceAsync()
     {
         var cur = Current.ToString();
         try
@@ -46,7 +63,7 @@ public static class Updates
                         && a.TryGetProperty("size", out var sz) && sz.TryGetInt64(out var bytes)) { size = bytes; break; }
             return new(cur, latest.ToString(), latest > Current, notes, File.Exists(PuentePath), null, size);
         }
-        catch (Exception e) { return new(cur, null, false, null, File.Exists(PuentePath), e.Message); }
+        catch (Exception e) { return new(cur, null, false, null, File.Exists(PuentePath), Friendly(e)); }
     }
 
     const string PuenteUrl = "https://github.com/JcperezDev/vigia-releases/releases/latest/download/Puente.exe";
@@ -64,8 +81,17 @@ public static class Updates
         {
             using var http = new HttpClient { Timeout = TimeSpan.FromMinutes(5) };
             http.DefaultRequestHeaders.UserAgent.ParseAdd("Vigia/" + Current);
-            await File.WriteAllBytesAsync(tmp, await http.GetByteArrayAsync(PuenteUrl));
-            var sig = await http.GetStringAsync(PuenteUrl + ".sig");
+            string sig = "";
+            for (int i = 1; ; i++)   // si se corta la conexión, se intenta hasta 3 veces
+            {
+                try
+                {
+                    await File.WriteAllBytesAsync(tmp, await http.GetByteArrayAsync(PuenteUrl));
+                    sig = await http.GetStringAsync(PuenteUrl + ".sig");
+                    break;
+                }
+                catch (Exception e) when (i < 3 && Friendly(e) != e.Message) { await Task.Delay(TimeSpan.FromSeconds(3 * i)); }
+            }
             using (var ec = System.Security.Cryptography.ECDsa.Create())
             {
                 ec.ImportSubjectPublicKeyInfo(Convert.FromBase64String(PublicKey), out _);
@@ -78,7 +104,7 @@ public static class Updates
             File.Move(tmp, dest, true);
             return null;
         }
-        catch (Exception e) { return $"No pude bajar Puente: {e.Message}"; }
+        catch (Exception e) { return $"No pude bajar Puente: {Friendly(e)}"; }
         finally { try { File.Delete(tmp); } catch { } }
     }
 

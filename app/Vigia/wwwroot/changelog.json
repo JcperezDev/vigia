@@ -1,4 +1,5 @@
 [
+  {"version": "0.20.15", "date": "2026-10-28", "title": "Actualizar aguanta cortes de internet", "items": [{"type": "arreglo", "text": "Si se corta la conexión mientras se baja una versión, Puente espera y sigue desde donde iba, en vez de mostrar un error técnico."}, {"type": "arreglo", "text": "Si aun así no se puede, sale «Reintentar» y la descarga no empieza de cero."}]},
   {"version": "0.20.14", "date": "2026-10-28", "title": "Ayuda más directa", "items": [{"type": "mejora", "text": "Ayuda: «¿Puede romper Windows?» ahora responde «No» de entrada."}]},
   {"version": "0.20.13", "date": "2026-10-28", "title": "Modo simple y Ajustes más claros", "items": [{"type": "mejora", "text": "Modo simple dice qué va a cambiar, con el mismo nombre que en Ajustes."}, {"type": "arreglo", "text": "Ajustes ya no dice «Todo aplicado» si quedan ajustes por elegir uno por uno."}]},
   {"version": "0.20.12", "date": "2026-10-28", "title": "Inicio de Windows más limpio", "items": [{"type": "mejora", "text": "Inicio de Windows: sin los avisos naranjas debajo de cada programa."}]},
