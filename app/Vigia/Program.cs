@@ -281,6 +281,7 @@ static class Program
             var report = Cleanup.SelfTest() + Environment.NewLine + "--- ajustes" + Environment.NewLine + Tweaks.SelfTest()
                 + Environment.NewLine + "--- catálogo" + Environment.NewLine + Tweaks.CatalogSelfTest()
                 + Environment.NewLine + "--- mensajes de la interfaz" + Environment.NewLine + UiMessage.SelfTest()
+                + Environment.NewLine + "--- PawnIO (sin instalar nada)" + Environment.NewLine + Pawn.SelfTest()
                 + Environment.NewLine + "--- sugerencias" + Environment.NewLine + Suggestions.SelfTest()
                 + Environment.NewLine + "--- juegos" + Environment.NewLine + Games.SelfTest()
                 + Environment.NewLine + "--- fps" + Environment.NewLine + Fps.SelfTest()
@@ -492,19 +493,35 @@ sealed partial class MainForm : Form
     /// Los ajustes con riesgo ya no están en Vigía. A quien los tenía puestos se le devuelven a como estaban,
     /// con copia de seguridad antes. Espera a que el PC esté tranquilo y nunca en mitad de un juego.
     /// </summary>
-    /// <summary>Driver para los grados del procesador: si falta, se pone una vez, en silencio y sin juego abierto.</summary>
     CancellationTokenSource? _dsGuard;
 
+    /// <summary>Driver para los grados del procesador: si falta, se pregunta en Monitor. Solo con un «sí» se instala, sin juego abierto.</summary>
     async Task PawnAsync()
     {
         try
         {
             if (Pawn.Installed()) return;
             await Task.Delay(TimeSpan.FromSeconds(20));
-            while (AutoStart.Busy()) await Task.Delay(TimeSpan.FromMinutes(5));
-            if (await Task.Run(() => Pawn.InstallIfMissing(out _))) _tel.CpuDriverReady();
+            if (_cfg.PawnConsent != true) { Send("pawnAsk", new { declined = _cfg.PawnConsent == false }); return; }
+            await PawnInstallAsync();
         }
         catch { }
+    }
+
+    bool _pawnBusy;
+    async Task PawnInstallAsync()
+    {
+        if (_pawnBusy || Pawn.Installed()) return;
+        _pawnBusy = true;
+        try
+        {
+            while (AutoStart.Busy()) { Send("pawnState", new { ok = false, waiting = true, error = (string?)null }); await Task.Delay(TimeSpan.FromMinutes(5)); }
+            string? err = null;
+            var ok = await Task.Run(() => Pawn.InstallIfMissing(out err, asked: true));
+            if (ok) _tel.CpuDriverReady();
+            Send("pawnState", new { ok = ok || Pawn.Installed(), waiting = false, error = err });
+        }
+        finally { _pawnBusy = false; }
     }
 
     async Task UndoRetiredAsync()
@@ -698,6 +715,8 @@ sealed partial class MainForm : Form
                     {
                         next.MemAutoThreshold = Math.Clamp(next.MemAutoThreshold, 50, 98);
                         next.MemAutoIntervalMin = Math.Clamp(next.MemAutoIntervalMin, 1, 120);
+                        // el permiso para el driver solo sale del aviso de Monitor (pawnAnswer), no de guardar ajustes
+                        next.PawnConsent = _cfg.PawnConsent;
                         _cfg = next; _cfg.Save();
                     }
                     Send("settings", new { cfg = _cfg, lab = Tweaks.Lab, autoStart = AutoStart.Enabled() });
@@ -956,6 +975,13 @@ sealed partial class MainForm : Form
                     break;
                 case "supportGet":
                     Send("support", await Support.GetAsync());
+                    break;
+                case "pawnAnswer":
+                    // respuesta del aviso de Monitor: solo true instala; se recuerda para no volver a preguntar
+                    if (msg["yes"] is not System.Text.Json.Nodes.JsonValue yv || yv.GetValueKind() is not (System.Text.Json.JsonValueKind.True or System.Text.Json.JsonValueKind.False)) break;
+                    _cfg.PawnConsent = (bool)yv;
+                    _cfg.Save();
+                    if (_cfg.PawnConsent == true) await PawnInstallAsync();
                     break;
                 case "openSource":
                     // la fuente de un ajuste: el frontend solo manda el id; la URL sale del catálogo, nunca del mensaje

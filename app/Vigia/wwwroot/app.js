@@ -201,6 +201,9 @@
     $('scan').classList.add('busy'); $('scan').textContent = 'Analizando…';
     send({ cmd: 'cleanScan' });
   });
+  // driver de los grados del procesador: solo con tu «sí»
+  $('pawn-yes').addEventListener('click', () => { $('pawn-yes').disabled = true; $('pawn-msg').textContent = 'Instalando PawnIO…'; send({ cmd: 'pawnAnswer', yes: true }); });
+  $('pawn-no').addEventListener('click', () => { $('pawn-ask').hidden = true; send({ cmd: 'pawnAnswer', yes: false }); });
   $('run').addEventListener('click', () => {
     $('run').disabled = true; $('run').textContent = 'Limpiando…';
     send({ cmd: 'cleanRun', ids: selected() });
@@ -1740,6 +1743,14 @@
       const extra = payload.skipped ? `; ${payload.skipped} en uso se saltaron` : '';
       lastRun = `Liberados ${gb(payload.freedBytes)} (${payload.deleted} archivos${extra}).`;
       send({ cmd: 'cleanScan' });
+    } else if (type === 'pawnAsk') {
+      // si ya dijo «Ahora no», no se vuelve a mostrar solo
+      $('pawn-ask').hidden = !!payload.declined;
+    } else if (type === 'pawnState') {
+      const m = $('pawn-msg');
+      if (payload.waiting) m.textContent = 'Se instalará cuando cierres el juego.';
+      else if (payload.ok) { $('pawn-ask').hidden = true; }
+      else { m.textContent = payload.error || 'No se pudo instalar PawnIO.'; $('pawn-yes').disabled = false; }
     } else if (type === 'error') {
       $('notes').hidden = false; $('notes').textContent = `Error: ${payload}`;
     }

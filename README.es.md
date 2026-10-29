@@ -20,7 +20,7 @@ Optimizador y monitor para PCs con Windows 10/11, pensado para jugar. Gratis, si
 - **Copia antes de cada cambio.** La primera vez guarda cómo estaba el sistema; cada ajuste se puede deshacer y «Volver a como estaba» lo devuelve todo.
 - **No envía nada.** Sin telemetría. Solo pregunta a GitHub si hay versión nueva (se puede apagar).
 - **Actualizaciones firmadas.** El actualizador comprueba una firma ECDSA antes de instalar.
-- **No hace cosas peligrosas:** no apaga Defender, UAC ni las protecciones de la CPU; no usa drivers de terceros; no toca antitrampas ni procesos de juegos (solo archivos de configuración, con el juego cerrado).
+- **No hace cosas peligrosas:** no apaga Defender, UAC ni las protecciones de la CPU; el único driver que puede poner es PawnIO (código abierto y firmado, incluido sin cambios y comprobado por SHA-256) para ver los grados del procesador, y solo si dices que sí; al desinstalar Vigía se quita solo si lo puso Vigía; no toca antitrampas ni procesos de juegos (solo archivos de configuración, con el juego cerrado).
 
 ## Compilar
 

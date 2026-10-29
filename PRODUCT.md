@@ -26,7 +26,7 @@ Optimizar el PC de juego desde una sola app: monitor de hardware, limpieza, libe
 
 - Hace una copia antes de cada cambio; todo se puede deshacer desde la app.
 - No consume recursos en segundo plano: minimizada baja de ~4,4 % a ~0,1 % de un núcleo y de ~456 a ~50 MB de RAM (medido con `--bench`).
-- No usa drivers vulnerables, activadores ni escribe en la BIOS; no apaga Defender, UAC ni Windows Update.
+- No usa drivers vulnerables, activadores ni escribe en la BIOS; el único driver es PawnIO, con permiso del usuario; no apaga Defender, UAC ni Windows Update.
 - Los ajustes de riesgo medio o alto vienen apagados y marcados.
 
 ## Capabilities and Constraints

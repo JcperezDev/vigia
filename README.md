@@ -20,7 +20,7 @@ The app is available in English, Spanish, Portuguese, French and German. [Leer e
 - **A backup before every change.** The first time, it saves how your system was. Every tweak can be undone, and «Go back to how it was» restores everything.
 - **Sends nothing.** No telemetry. It only asks GitHub whether there's a new version (you can turn that off).
 - **Signed updates.** The updater checks an ECDSA signature before installing.
-- **No risky stuff:** it doesn't turn off Defender, UAC or CPU protections, doesn't use third-party drivers, and doesn't touch anti-cheat or game processes. For games it only edits config files, with the game closed.
+- **No risky stuff:** it doesn't turn off Defender, UAC or CPU protections, and doesn't touch anti-cheat or game processes. The only driver it can add is PawnIO (open source, signed; bundled unmodified and checked by SHA-256) to read CPU temperatures, and only if you say yes; uninstalling Vigía removes it only if Vigía installed it. For games it only edits config files, with the game closed.
 
 ## Build
 

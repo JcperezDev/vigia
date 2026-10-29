@@ -5,7 +5,9 @@ namespace Vigia;
 /// <summary>Preferencias de Vigía en %LOCALAPPDATA%\Vigia\settings.json.</summary>
 public sealed class Settings
 {
-    public bool MemAuto { get; set; } = false;   // apagada si no lo pides: liberar RAM no da rendimiento por sí solo
+    public bool MemAuto { get; set; } = false;
+    /// <summary>¿Instalar el driver PawnIO para los grados del procesador? null = todavía no se preguntó.</summary>
+    public bool? PawnConsent { get; set; }   // apagada si no lo pides: liberar RAM no da rendimiento por sí solo
     public int MemAutoThreshold { get; set; } = 60;
     public int MemAutoIntervalMin { get; set; } = 5;
     public string ToolsRoot { get; set; } = "";
