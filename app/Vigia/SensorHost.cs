@@ -209,7 +209,7 @@ public static class SensorHost
     public static int RunService()
     {
         if (!WindowsIdentity.GetCurrent().IsSystem) return 3;
-        if (InstallTrust.Problem(AppContext.BaseDirectory) is not null) return 3;
+        if (InstallTrust.Problem(AppContext.BaseDirectory) is { } why) { Log("carpeta sin proteger, no arranco: " + why); return 3; }
         _main = ServiceMain; _handler = Handler;
         var table = new[] { new TableEntry { Name = ServiceName, Proc = _main }, new TableEntry() };
         return StartServiceCtrlDispatcherW(table) ? 0 : 2;

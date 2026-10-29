@@ -371,7 +371,9 @@ public static class InstallTrust
         try
         {
             using var id = WindowsIdentity.GetCurrent();
-            if (id.User is { } u) set.Add(u);
+            // la cuenta en curso, salvo que sea de confianza: el servicio corre como SYSTEM y SYSTEM es dueño de la carpeta
+            // (antes se contaba a sí mismo como «puede escribir» y el servicio de sensores no arrancaba nunca)
+            if (id.User is { } u && !Trusted(u)) set.Add(u);
             foreach (var g in id.Groups ?? new IdentityReferenceCollection())
                 if (g is SecurityIdentifier s && !Trusted(s)) set.Add(s);
         }
@@ -427,6 +429,7 @@ public static class InstallTrust
     {
         var log = new List<string>();
         void Check(bool ok, string what) => log.Add($"{(ok ? "OK  " : "FAIL")} {what}");
+        Check(!Untrusted().Any(Trusted), "las cuentas de confianza (SYSTEM, Administradores, TrustedInstaller) nunca cuentan como «no debe escribir»");
         var tmp = Path.Combine(Path.GetTempPath(), "vigia-trust-" + Guid.NewGuid().ToString("N")[..8]);
         try
         {
