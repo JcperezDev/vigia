@@ -112,6 +112,7 @@ const P = {
   }),
   legacyOld: pkg('0.20.17'),
   brokenSame: pkg('0.21.1', { broken: true, tag: 'rota' }),
+  brokenMin: pkg('0.22.0', { min: '0.22.0', broken: true, tag: 'rota-min' }),
 };
 const noManifest = path.join(work, 'pkg', 'sin-manifiesto');
 fs.mkdirSync(noManifest, { recursive: true });
@@ -247,6 +248,15 @@ try {
   check(r.code === 3 && state(A).current === '0.21.1', 'no vuelve a una versión anterior dañada', r.out);
 
   console.log('--- versión mínima segura');
+  {
+    const B = newPc();
+    install(B, P.v211);
+    r = install(B, P.brokenMin);
+    check(r.code !== 0 && state(B).current === '0.21.1' && state(B).floor === '0.22.0',
+      'la mínima segura de un manifiesto firmado se guarda aunque esa instalación falle', r.out);
+    r = install(B, P.v211, ['--repair']);
+    check(r.code !== 0 && state(B).current === '0.21.1', 'y después ya no se reinstala una versión por debajo de ella', r.out);
+  }
   r = install(A, P.v220min);
   s = state(A);
   check(r.code === 0 && s.current === '0.22.0' && s.floor === '0.22.0', 'la 0.22.0 sube la mínima segura a 0.22.0', r.out);

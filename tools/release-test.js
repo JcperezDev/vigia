@@ -114,6 +114,29 @@ const writes = (mock, from) => mock.log.slice(from).filter((l) => l.method !== '
     mock.corrupt = null;
     check(r.code !== 0 && rels(mock, 'prueba/b')[0]?.draft === true, 'si el manifiesto que vuelve de GitHub no es el mismo, se queda en borrador', r.out);
 
+    // ---- 4b. el zip que vuelve de GitHub no es el firmado (no solo el manifiesto): no se publica
+    mock.seed('prueba/f', 'v0.20.17');
+    const F = artifacts(path.join(TMP, 'f'));
+    mock.corrupt = F.zip;
+    r = await release(mock, F, 'prueba/f', '');
+    mock.corrupt = null;
+    check(r.code !== 0 && rels(mock, 'prueba/f')[0]?.draft === true, 'si el paquete que vuelve de GitHub no es el firmado, se queda en borrador', r.out);
+
+    // ---- 4c. un borrador viejo con un archivo del mismo tamaño pero otros bytes: se vuelve a subir
+    mock.seed('prueba/e', 'v0.20.17');
+    const E = artifacts(path.join(TMP, 'e'));
+    mock.failUpload = 'Puente.exe';
+    await release(mock, E, 'prueba/e', '');
+    mock.failUpload = null;
+    const stale = rels(mock, 'prueba/e')[0]?.assets.find((a) => a.name === E.zip);
+    if (stale) { stale.data = Buffer.from(stale.data); stale.data[stale.data.length - 1] ^= 1; }
+    from = mock.log.length;
+    r = await release(mock, E, 'prueba/e', '');
+    const relE = rels(mock, 'prueba/e')[0];
+    check(stale && r.code === 0 && relE?.draft === false && writes(mock, from).some((l) => l.path.endsWith('name=' + E.zip))
+          && Buffer.compare(relE.assets.find((a) => a.name === E.zip).data, fs.readFileSync(path.join(E.dir, E.zip))) === 0,
+      'mismo tamaño no basta: un archivo viejo con otros bytes se vuelve a subir antes de publicar', r.out);
+
     // ---- 5. el borrador tiene un archivo de más: no se publica
     const C = artifacts(path.join(TMP, 'c'));
     mock.extra = true;

@@ -138,13 +138,20 @@ draft_for() {  # $1 = repo -> imprime el id del borrador
   js "const r=require(process.argv[1]); if(!r.id||r.draft!==true){console.error(JSON.stringify(r).slice(0,400)); process.exit(1)} console.log(r.id)" "$OUT/release-out.json"
 }
 
+same_remote() {  # $1 = url de la API del archivo subido, $2 = archivo local: ¿son los mismos bytes?
+  rm -f "$OUT/remote.bin"
+  api -L -o "$OUT/remote.bin" -H "Accept: application/octet-stream" "$1" && cmp -s "$OUT/remote.bin" "$2"
+  local r=$?; rm -f "$OUT/remote.bin"; return $r
+}
+
 upload_all() {  # $1 = repo, $2 = id
-  local repo="$1" rid="$2" f size have aid code
+  local repo="$1" rid="$2" f size have aid url code
   api -o "$OUT/assets.json" "$API/repos/$repo/releases/$rid/assets?per_page=100"
   for f in "${ASSETS[@]}"; do
     size=$(stat -c %s "$OUT/$f")
-    read -r have aid < <(js "const l=require(process.argv[1]); const a=l.find(x=>x.name===process.argv[2]); console.log(a?a.size:'-', a?a.id:'-')" "$OUT/assets.json" "$f")
-    if [ "$have" = "$size" ]; then echo "  $f: ya estaba"; continue; fi
+    read -r have aid url < <(js "const l=require(process.argv[1]); const a=l.find(x=>x.name===process.argv[2]); console.log(a?a.size:'-', a?a.id:'-', a?a.url:'-')" "$OUT/assets.json" "$f")
+    # de una vez anterior: se reaprovecha solo si son los mismos bytes (mismo tamaño no basta: se pudo recompilar)
+    if [ "$have" = "$size" ] && same_remote "$url" "$OUT/$f"; then echo "  $f: ya estaba (mismos bytes)"; continue; fi
     if [ "$aid" != "-" ]; then api -o "$DISCARD" -X DELETE "$API/repos/$repo/releases/assets/$aid"; fi
     code=$(api -o "$DISCARD" -w '%{http_code}' -H "Content-Type: application/octet-stream" --data-binary "@$OUT/$f" \
       "$UPLOADS/repos/$repo/releases/$rid/assets?name=$f") || code=000
@@ -152,8 +159,8 @@ upload_all() {  # $1 = repo, $2 = id
   done
 }
 
-check_all() {  # $1 = repo, $2 = id: estén todos, con su tamaño, y el manifiesto byte a byte
-  local repo="$1" rid="$2" url sizes=""
+check_all() {  # $1 = repo, $2 = id: estén todos, con su tamaño, y cada uno byte a byte
+  local repo="$1" rid="$2" url sizes="" f
   api -o "$OUT/assets.json" "$API/repos/$repo/releases/$rid/assets?per_page=100"
   for f in "${ASSETS[@]}"; do sizes+="$f=$(stat -c %s "$OUT/$f");"; done
   js "const l=require(process.argv[1]); const want=process.argv[2].split(';').filter(Boolean).map(s=>s.split('='));
@@ -161,10 +168,11 @@ check_all() {  # $1 = repo, $2 = id: estén todos, con su tamaño, y el manifies
       const extra=l.filter(a=>!want.some(([n])=>n===a.name)).map(a=>a.name);
       if(bad.length||extra.length){console.error('  faltan o no cuadran: '+bad.map(x=>x[0]).join(', ')+(extra.length?' · sobran: '+extra.join(', '):'')); process.exit(1)}" \
     "$OUT/assets.json" "$sizes" || return 1
-  url=$(js "const l=require(process.argv[1]); console.log(l.find(a=>a.name==='vigia-manifest.json').url)" "$OUT/assets.json")
-  api -L -o "$OUT/manifest-back.json" -H "Accept: application/octet-stream" "$url"
-  cmp -s "$OUT/manifest-back.json" "$OUT/vigia-manifest.json" || { echo "  el manifiesto subido no es el mismo"; return 1; }
-  echo "  $repo: ${#ASSETS[@]} archivos, tamaños y manifiesto bien"
+  for f in "${ASSETS[@]}"; do
+    url=$(js "const l=require(process.argv[1]); console.log(l.find(a=>a.name===process.argv[2]).url)" "$OUT/assets.json" "$f")
+    same_remote "$url" "$OUT/$f" || { echo "  $f subido no es el mismo que se firmó aquí"; return 1; }
+  done
+  echo "  $repo: ${#ASSETS[@]} archivos, cada uno byte a byte igual al firmado"
 }
 
 publish_draft() {  # $1 = repo, $2 = id

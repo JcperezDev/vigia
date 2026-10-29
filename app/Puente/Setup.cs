@@ -260,7 +260,12 @@ static partial class Program
             throw new InvalidOperationException($"la versión {m.Version} es más vieja que la mínima segura ({st.MinAllowed}); no se instala.");
         if (st.Highest is { } hi && m.Version < hi)
             throw new InvalidOperationException($"se ofreció la {m.Version}, más vieja que la {hi} que ya se instaló aquí. Un manifiesto viejo no puede volver atrás.");
-        if (m.MinVersion is { } mv && (st.Floor is null || mv > st.Floor)) st.Floor = mv;
+        if (m.MinVersion is { } mv && (st.Floor is null || mv > st.Floor))
+        {
+            // lo que dice un manifiesto bien firmado sobre versiones inseguras se guarda ya, aunque la instalación
+            // falle después: si no, un manifiesto viejo podría volver a meter una versión que ya se sabe insegura
+            st.Floor = mv; st.Save();
+        }
 
         await PlacePuente(m, src, st);
 
