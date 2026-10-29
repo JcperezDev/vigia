@@ -10,7 +10,7 @@ namespace Vigia;
 public static class Simple
 {
     public record Answers(bool Games = true, bool Printer = true, bool Xbox = false, bool Search = true, bool Laptop = false,
-        bool Visual = true, bool Privacy = true, bool MemAuto = false, bool Clean = true, string[]? KeepApps = null,
+        bool Visual = true, bool Privacy = true, bool MemAuto = false, bool Clean = true, string[]? RemoveApps = null,
         bool Wallpaper = false, string[]? Skip = null);
 
     public record Stage(string Id, string Title, List<string> Tweaks, List<string> Apps);
@@ -41,10 +41,11 @@ public static class Simple
 
         var net = new List<string> { "p2p-updates-off" };
 
-        // Solo se quita lo que el usuario desmarcó en la lista. Sin lista (comandos internos, respuestas viejas) no se quita nada.
-        // Las de Xbox no salen en esa lista y nunca se quitan desde aquí: rompen Game Pass y Win+G; quedan en Apps, a mano.
-        var apps = a.KeepApps is null ? [] : Debloat.List().Where(x => x.Installed && x.Blocked is null && !XboxApps.Contains(x.Id))
-            .Where(x => !a.KeepApps.Contains(x.Id, StringComparer.OrdinalIgnoreCase))
+        // Solo se quita lo que el usuario desmarcó, una por una (lista de quitar, no de conservar: una lista vacía o que
+        // no llegó a dibujarse nunca significa «quitar todo»). Las de Xbox no salen en esa lista y nunca se quitan desde
+        // aquí: rompen Game Pass y Win+G; quedan en Apps, a mano.
+        var wanted = new HashSet<string>(a.RemoveApps ?? [], StringComparer.OrdinalIgnoreCase);
+        var apps = wanted.Count == 0 ? [] : Debloat.List().Where(x => x.Installed && x.Blocked is null && !XboxApps.Contains(x.Id) && wanted.Contains(x.Id))
             .Select(x => x.Id).ToList();
 
         // solo lo que existe en el catálogo, no está bloqueado y aún no está puesto

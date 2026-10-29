@@ -635,6 +635,7 @@
       cb.addEventListener('change', () => { const n = apSel().length; $('ap-remove').disabled = !n; $('ap-remove').textContent = n ? `Quitar (${n})` : 'Quitar seleccionadas'; });
       const body = el('label'); body.htmlFor = cb.id;
       body.append(el('strong', null, a.name), el('p', null, a.detail));
+      if (a.useful) body.append(el('p', 'src', 'Sirve para trabajar o pedir ayuda: no se marca sola. Si la quitas, vuelve desde Microsoft Store.'));
       if (a.blocked) body.append(el('p', 'src why', a.blocked));
       li.append(cb, body, el('span', 'state', a.version ? `v${a.version}` : ''));
       return li;
@@ -642,7 +643,7 @@
   }
   $('ap-remove').addEventListener('click', () => { busyBtn($('ap-remove'), true, 'Quitando…'); send({ cmd: 'bloatRemove', ids: apSel() }); });
   $('ap-rec').addEventListener('click', () => {
-    document.querySelectorAll('#ap-list input[type=checkbox]').forEach((c) => { const a = bloat.find((b) => b.id === c.dataset.id); if (a && !c.disabled) c.checked = a.risk === 'bajo'; });
+    document.querySelectorAll('#ap-list input[type=checkbox]').forEach((c) => { const a = bloat.find((b) => b.id === c.dataset.id); if (a && !c.disabled) c.checked = a.risk === 'bajo' && !a.useful; });
     const n = apSel().length; $('ap-remove').disabled = !n; $('ap-remove').textContent = n ? `Quitar (${n})` : 'Quitar seleccionadas';
   });
   // Sin «Sin anuncios ni apps sugeridas», Windows vuelve a instalar parte de estas apps por su cuenta.
@@ -699,7 +700,7 @@
     const box = $('iso-apps');
     if (box.childElementCount || !list.length) return;
     box.replaceChildren(...list.map((a) => {
-      const l = el('label', 'chk'); const c = el('input'); c.type = 'checkbox'; c.dataset.id = a.id; c.checked = a.risk === 'bajo';
+      const l = el('label', 'chk'); const c = el('input'); c.type = 'checkbox'; c.dataset.id = a.id; c.checked = a.risk === 'bajo' && !a.useful;
       c.addEventListener('change', isoSum);
       const t = el('span'); t.append(el('b', null, a.name), el('span', null, a.detail)); l.append(c, t); return l;
     }));
@@ -1181,7 +1182,9 @@
   const smAns = Object.fromEntries(SM_Q.map((x) => [x.k, x.def]));
   const smKeep = new Set(), smSkip = new Set();
   let smAppsDrawn = false, smTimer = 0, smStages = [];
-  const smAnswers = () => ({ ...smAns, keepApps: [...smKeep], skip: [...smSkip] });
+  // se manda lo que hay que quitar (lo que el usuario desmarcó), nunca lo que se conserva: si la lista no llegó a
+  // dibujarse, no se quita nada
+  const smAnswers = () => ({ ...smAns, removeApps: smAppsDrawn ? bloat.filter((a) => a.installed && !a.blocked && !SM_XBOX.includes(a.id) && !smKeep.has(a.id)).map((a) => a.id) : [], skip: [...smSkip] });
   const smAskPlan = () => { clearTimeout(smTimer); smTimer = setTimeout(() => send({ cmd: 'simplePlan', answers: smAnswers() }), 150); };
   // una pregunta con Sí / No (las de arriba y cada ajuste que se propone usan la misma)
   function smCard(q, hint, on, pick) {

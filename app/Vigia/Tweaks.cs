@@ -733,7 +733,8 @@ public static class Tweaks
         Check(bad.Count == 0, $"modo simple sin experimentales ni retirados ({plan.Count} propuestos{(bad.Count > 0 ? ": " + string.Join(", ", bad) : "")})");
         foreach (var id in (string[])["responsiveness", "services-unused", "svchost-split", "power-ultimate", "wer-off", "hibernate-off", "mmcss-games", "update-control"])
             Check(!plan.Contains(id), $"modo simple no propone {id}");
-        Check(Simple.Build(new Simple.Answers()).Stages.First(s => s.Id == "apps").Apps.Count == 0 && Simple.Build(new Simple.Answers(Xbox: false, KeepApps: [])).Stages.First(s => s.Id == "apps").Apps.All(id => !id.Contains("Xbox") && id != "Microsoft.GamingApp"),
+        Check(Simple.Build(new Simple.Answers()).Stages.First(s => s.Id == "apps").Apps.Count == 0 && Simple.Build(new Simple.Answers(Xbox: false, RemoveApps: [])).Stages.First(s => s.Id == "apps").Apps.Count == 0
+            && Simple.Build(new Simple.Answers(RemoveApps: ["Microsoft.GamingApp", "Microsoft.XboxGamingOverlay"])).Stages.First(s => s.Id == "apps").Apps.Count == 0,
             "modo simple: sin lista no quita apps, y nunca las de Xbox");
         string OpsOf(string id) => all.FirstOrDefault(d => d.Id == id)?.Ops.ToJsonString() ?? "";
         Check(!OpsOf("activity-off").Contains("location") && !OpsOf("activity-off").Contains("lfsvc") && OpsOf("location-off").Contains("lfsvc"), "historial de actividad no apaga la ubicación (va aparte)");
