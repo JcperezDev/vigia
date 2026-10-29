@@ -1168,21 +1168,23 @@
   let smAppsDrawn = false, smTimer = 0, smStages = [];
   const smAnswers = () => ({ ...smAns, keepApps: [...smKeep], skip: [...smSkip] });
   const smAskPlan = () => { clearTimeout(smTimer); smTimer = setTimeout(() => send({ cmd: 'simplePlan', answers: smAnswers() }), 150); };
+  // una pregunta con Sí / No (las de arriba y cada ajuste que se propone usan la misma)
+  function smCard(q, hint, on, pick) {
+    const d = document.createElement('div'); d.className = 'sm-q';
+    const b = document.createElement('b'); b.textContent = q;
+    const h = document.createElement('span'); h.textContent = hint;
+    const seg = document.createElement('div'); seg.className = 'seg'; seg.setAttribute('role', 'radiogroup'); seg.setAttribute('aria-label', q);
+    for (const [label, val] of [['Sí', true], ['No', false]]) {
+      const o = document.createElement('button'); o.type = 'button'; o.setAttribute('role', 'radio'); o.textContent = label;
+      o.setAttribute('aria-checked', String(on === val));
+      o.addEventListener('click', () => { seg.querySelectorAll('button').forEach((n) => n.setAttribute('aria-checked', String(n === o))); pick(val); });
+      seg.append(o);
+    }
+    d.append(b, h, seg); return d;
+  }
   (function smDraw() {
     const box = $('sm-qs');
-    for (const x of SM_Q) {
-      const d = document.createElement('div'); d.className = 'sm-q';
-      const b = document.createElement('b'); b.textContent = x.q;
-      const h = document.createElement('span'); h.textContent = x.h;
-      const seg = document.createElement('div'); seg.className = 'seg'; seg.setAttribute('role', 'radiogroup'); seg.setAttribute('aria-label', x.q);
-      for (const [label, val] of [['Sí', true], ['No', false]]) {
-        const o = document.createElement('button'); o.type = 'button'; o.setAttribute('role', 'radio'); o.textContent = label;
-        o.setAttribute('aria-checked', String(smAns[x.k] === val));
-        o.addEventListener('click', () => { smAns[x.k] = val; seg.querySelectorAll('button').forEach((n) => n.setAttribute('aria-checked', String(n === o))); smAskPlan(); });
-        seg.append(o);
-      }
-      d.append(b, h, seg); box.append(d);
-    }
+    for (const x of SM_Q) box.insertBefore(smCard(x.q, x.h, smAns[x.k], (val) => { smAns[x.k] = val; smAskPlan(); }), $('sm-twlist'));
   })();
   const SM_XBOX = ['Microsoft.GamingApp', 'Microsoft.XboxGamingOverlay', 'Microsoft.XboxApp'];
   function smApps() {
@@ -1210,18 +1212,11 @@
       : n === 1 ? 'Se hará 1 cambio, con copia de seguridad antes.' : `Se harán ${n} cambios, con copia de seguridad antes.`;
     $('sm-go').disabled = false;
     smStages = p.stages;
-    // cada ajuste con su casilla: el usuario ve todo lo que se va a tocar y quita lo que no quiera
+    // cada ajuste es una pregunta más, con Sí / No como las de arriba: el usuario decide todo lo que se toca
     const ch = p.choices || [], box = $('sm-twlist');
-    $('view-simple').querySelector('.sm-tweaks').hidden = !ch.length;
+    box.hidden = !ch.length;
     box.textContent = '';
-    for (const c of ch) {
-      const l = document.createElement('label'); l.className = 'chk';
-      const i = document.createElement('input'); i.type = 'checkbox'; i.checked = !smSkip.has(c.id);
-      i.addEventListener('change', () => { if (i.checked) smSkip.delete(c.id); else smSkip.add(c.id); smAskPlan(); });
-      const t = document.createElement('div'); const b = document.createElement('b'); b.textContent = c.title;
-      const s = document.createElement('span'); s.textContent = c.detail; t.append(b, s);
-      l.append(i, t); box.append(l);
-    }
+    for (const c of ch) box.append(smCard(c.title, c.detail, !smSkip.has(c.id), (yes) => { if (yes) smSkip.delete(c.id); else smSkip.add(c.id); smAskPlan(); }));
   }
   const SM_CHECK = '<svg viewBox="0 0 12 12"><path d="M2.5 6.2 5 8.6 9.6 3.6"/></svg>';
   const SM_HALF = '<svg viewBox="0 0 12 12"><path d="M6 2.6v4.2M6 9.2v.1"/></svg>';
@@ -1459,7 +1454,7 @@
     const list = newsAll(); loadRead(list);
     const unread = (e) => !newsRead.includes(e.version);
     const n = list.filter(unread).length;
-    $('news-count').hidden = !n; $('news-count').textContent = n > 9 ? '9+' : String(n);
+    $('news-count').hidden = true;   // sin número: con el punto de «Versión nueva» basta
     const avail = list.find((e) => e.available);
     $('news-btn').classList.toggle('has-update', !!avail);
     $('news-sub').textContent = avail ? `Versión ${avail.version} lista` : `Versión ${curVer()}`;
@@ -1480,7 +1475,6 @@
       const main = el('span', 'news-main');
       main.append(el('span', 't', e.title || `Versión ${e.version}`), el('span', 's', open ? `Versión ${e.version}` : (e.items?.[0]?.text || '')));
       const meta = el('span', 'news-meta'); meta.append(el('span', 'when', newsWhen(e)));
-      if (un) meta.append(el('span', 'news-count', String(e.items?.length || 1)));
       const av = el('span', 'news-av', e.version.split('.').slice(0, 2).join('.')); av.translate = false;
       b.append(av, main, meta); li.append(b);
       if (open) {
