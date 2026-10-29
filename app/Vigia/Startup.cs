@@ -378,8 +378,16 @@ public static class Startup
         k.SetValue(name, b, RegistryValueKind.Binary);
     }
 
+    static readonly HashSet<string> ScModes = ["auto", "delayed-auto", "demand"];
+
     static void Sc(string name, string mode)
     {
+        // name viene de la interfaz y mode de un archivo del usuario: nada de comillas, espacios ni opciones extra para sc.exe
+        if (name.Length is 0 or > 256 || name.IndexOfAny(['"', '\\', '/']) >= 0 || name.Any(char.IsControl))
+            throw new InvalidOperationException("Nombre de servicio no válido.");
+        if (!ScModes.Contains(mode)) mode = "auto";
+        using (var k = Registry.LocalMachine.OpenSubKey(@"SYSTEM\CurrentControlSet\Services\" + name))
+            if (k is null) throw new InvalidOperationException("Ese servicio ya no existe.");
         var p = Process.Start(new ProcessStartInfo("sc.exe", $"config \"{name}\" start= {mode}")
         { CreateNoWindow = true, UseShellExecute = false, RedirectStandardOutput = true })!;
         var output = p.StandardOutput.ReadToEnd();

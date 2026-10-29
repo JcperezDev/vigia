@@ -120,6 +120,7 @@ public static class Procs
                 .OrderByDescending(r => r.Level == "warn")
                 .ThenByDescending(r => Math.Max(r.CpuAvg, r.Cpu) * 4 + r.RamGb * 100 / Math.Max(1, totalRam / 1e9))
                 .Take(10).ToList();
+            Closable = rows.Where(r => r.CanClose).Select(r => r.Exe).ToHashSet(StringComparer.OrdinalIgnoreCase);
             return new View(Ms(now), watched, fg?.Name, top);
         }
     }
@@ -150,8 +151,12 @@ public static class Procs
     }
 
     /// <summary>Cierra todas las instancias de ese programa. Solo a petición y nunca los de Windows.</summary>
+    static HashSet<string> Closable = new(StringComparer.OrdinalIgnoreCase);
+
     public static Done Close(string exe)
     {
+        bool shown; lock (Gate) shown = Closable.Contains(exe ?? "");
+        if (!shown) return new(false, "Ese programa no está en la lista; vuelve a mirar.");
         if (string.IsNullOrWhiteSpace(exe) || Protected.Contains(exe) || WindowsWork.ContainsKey(exe))
             return new(false, "Ese proceso es de Windows y no se cierra desde aquí.");
         int ok = 0, fail = 0;

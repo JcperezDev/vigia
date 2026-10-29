@@ -340,7 +340,7 @@ public static class Tweaks
                         if (s is not null) Must(Run("powercfg.exe", (bool?)s["on"] == true ? "/hibernate on" : "/hibernate off"), "cambiar la hibernación");
                         break;
                     case "power-ultimate":
-                        if ((string?)s?["active"] is { Length: > 0 } prev) Must(Run("powercfg.exe", $"/setactive {prev}"), "volver al plan de energía de la copia");
+                        if ((string?)s?["active"] is { Length: > 0 } prev && Guid.TryParse(prev, out var pg)) Must(Run("powercfg.exe", $"/setactive {pg:D}"), "volver al plan de energía de la copia");
                         break;
                     default: RevertOp(ops[i], saved, i); break;
                 }
@@ -447,8 +447,8 @@ public static class Tweaks
         else switch ((string?)op["special"])
         {
             case "power-ultimate":
-                if ((string?)s?["active"] is { Length: > 0 } prev) Must(Run("powercfg.exe", $"/setactive {prev}"), "volver al plan anterior");
-                if ((string?)saved["createdPlan"] is { Length: > 0 } made) Run("powercfg.exe", $"-delete {made}");
+                if ((string?)s?["active"] is { Length: > 0 } prev && Guid.TryParse(prev, out var pg)) Must(Run("powercfg.exe", $"/setactive {pg:D}"), "volver al plan anterior");
+                if ((string?)saved["createdPlan"] is { Length: > 0 } made && Guid.TryParse(made, out var mg)) Run("powercfg.exe", $"-delete {mg:D}");
                 break;
             case "hibernate-off": if ((bool?)s?["on"] == true) Must(Run("powercfg.exe", "/hibernate on"), "encender la hibernación"); break;
             case "mouse-refresh": MouseRefresh(); break;
@@ -497,6 +497,8 @@ public static class Tweaks
     // por el Administrador de servicios, que es quien tiene permiso de verdad.
     static void SvcStart(string svc, long start)
     {
+        // el valor puede venir de tweaks-backup.json: solo los inicios normales de un servicio (nunca boot/system)
+        if (start is < 2 or > 4) throw new InvalidOperationException($"Inicio no admitido: {start}");
         try { RegWrite($@"HKLM\SYSTEM\CurrentControlSet\Services\{svc}", "Start", "dword", start); }
         catch (UnauthorizedAccessException)
         {

@@ -6,6 +6,8 @@ const path = require('path');
 const dir = path.join(__dirname, '..', 'app', 'Vigia', 'wwwroot', 'i18n');
 const T = {
   "Nadie": ["Nobody","Ninguém","Personne","Niemand"],
+  "Nombre de servicio no válido.": ["Invalid service name.","Nome de serviço inválido.","Nom de service non valide.","Ungültiger Dienstname."],
+  "Ese programa no está en la lista; vuelve a mirar.": ["That program is not on the list; check again.","Esse programa não está na lista; verifique de novo.","Ce programme n'est pas dans la liste ; vérifiez à nouveau.","Dieses Programm ist nicht in der Liste; sieh noch einmal nach."],
   "error desconocido": ["unknown error","erro desconhecido","erreur inconnue","unbekannter Fehler"],
   "{0} volvió a tu usuario. Sus datos de antes no vuelven.": ["{0} is back on your user. Its earlier data does not come back.", "{0} voltou ao seu usuário. Os dados de antes não voltam.", "{0} est revenue sur votre utilisateur. Ses données d’avant ne reviennent pas.", "{0} ist wieder in deinem Benutzer. Die früheren Daten kommen nicht zurück."],
   "3D Builder": ["3D Builder", "3D Builder", "3D Builder", "3D Builder"],

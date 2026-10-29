@@ -439,6 +439,7 @@ sealed partial class MainForm : Form
         core.NavigationStarting += (_, e) => { if (!e.Uri.StartsWith(UiMessage.Origin, StringComparison.Ordinal)) e.Cancel = true; };
         core.FrameNavigationStarting += (_, e) => { if (!e.Uri.StartsWith(UiMessage.Origin, StringComparison.Ordinal)) e.Cancel = true; };
         core.NewWindowRequested += (_, e) => e.Handled = true;
+        core.DownloadStarting += (_, e) => { e.Cancel = true; e.Handled = true; };
         core.WebMessageReceived += OnMessage;
         // en capturas no sale la bienvenida (salvo que se pida con --snap … welcome / tour-N)
         if (_snapPath is not null) await core.AddScriptToExecuteOnDocumentCreatedAsync("window.__vigiaSnap = true;");
