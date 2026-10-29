@@ -16,6 +16,8 @@ static class Program
         // Modo sin ventana para verificación: Vigia.exe --probe salida.json
         // Ayudante con permisos (lo abre la propia Vigía con UAC). Lista cerrada de operaciones; ver Elevation.cs.
         if (args.Length >= 1 && args[0] == "--broker") return Elevation.RunBroker(args);
+        // Lo usa Puente antes de activar una versión nueva: ¿están sus piezas y se pueden leer? Solo lee; no abre ventanas.
+        if (args.Length >= 1 && args[0] == "--install-check") return Updates.InstallCheck();
         if (args.Length >= 2 && args[0] == "--probe")
         {
             using var t = new Telemetry();
@@ -292,6 +294,10 @@ static class Program
         }
         if (args.Length >= 2 && args[0] == "--selftest")
         {
+            // Las pruebas nunca usan la clave real de %ProgramData%\Vigia\claves (ni la crean): si el PC tiene UAC apagado
+            // el selftest corre como administrador y, sin esto, dejaría una clave de verdad en el sistema.
+            var testKeys = Path.Combine(Path.GetTempPath(), "vigia-selftest-claves-" + Guid.NewGuid().ToString("N")[..8]);
+            BackupGuard.KeyDirOverride = testKeys;
             var report = Cleanup.SelfTest() + Environment.NewLine + "--- ajustes" + Environment.NewLine + Tweaks.SelfTest()
                 + Environment.NewLine + "--- catálogo" + Environment.NewLine + Tweaks.CatalogSelfTest()
                 + Environment.NewLine + "--- mensajes de la interfaz" + Environment.NewLine + UiMessage.SelfTest()
@@ -314,6 +320,8 @@ static class Program
                 + Environment.NewLine + "--- permisos (operaciones de administrador)" + Environment.NewLine + AdminOps.SelfTest()
                 + Environment.NewLine + "--- inicio con Windows" + Environment.NewLine + AutoStart.SelfTest()
                 + Environment.NewLine + "--- copias (restauración)" + Environment.NewLine + BackupGuard.SelfTest();
+            try { Directory.Delete(testKeys, true); } catch { }
+            BackupGuard.KeyDirOverride = null;
             File.WriteAllText(args[1], report);
             return report.Contains("FAIL") ? 1 : 0;
         }
@@ -344,6 +352,10 @@ static class Program
         }
         ApplicationConfiguration.Initialize();
         if (args.Length == 0 || args[0] == AutoStart.Arg) { IconOnce(); _ = Task.Run(Wallpaper.Refresh); }
+        // La tarea vieja de inicio abría Vigía como administrador desde una carpeta que tu usuario puede cambiar.
+        // Si nos abrió ella (o cualquier camino con permisos), se quita ya y el inicio pasa a Run sin permisos:
+        // desde el próximo inicio de sesión Vigía abre como tu usuario. Solo la tarea de Vigía (nombre, carpeta y .exe).
+        if (Elevation.IsAdmin && !Elevation.InBroker) _ = Task.Run(() => { try { if (AutoStart.LegacyTask() is not null) AutoStart.Repair(); } catch { } });
         // Verificación visual: Vigia.exe --snap salida.png [storage] -> captura la UI real tras ~8 s y sale
         // Consumo real: Vigia.exe --bench salida.json -> 30 s abierta, 60 s minimizada, y sale
         Application.Run(args.Length >= 2 && args[0] == "--snap" ? new MainForm(args[1], args.ElementAtOrDefault(2))

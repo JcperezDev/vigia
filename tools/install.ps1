@@ -1,5 +1,9 @@
-# Publica Vigia autocontenido en %LOCALAPPDATA%\Programs\Vigia y crea accesos directos (Escritorio + Inicio).
+# SOLO DESARROLLO. Publica Vigia en %LOCALAPPDATA%\Programs\Vigia (carpeta de tu usuario, sin proteger) y crea accesos.
+# Una Vigía ahí no pide permisos de administrador (Elevation.cs exige carpeta protegida; VIGIA_DEV=1 lo salta para pruebas).
+# La instalación de verdad la hace Puente en %ProgramFiles%\Vigia (ver docs/INSTALL.md).
+param([switch]$Dev)
 $ErrorActionPreference = 'Stop'
+if (-not $Dev) { throw 'install.ps1 es solo para desarrollo: pasa -Dev. Para instalar de verdad usa Puente (docs/INSTALL.md).' }
 $repo = Split-Path $PSScriptRoot -Parent
 $dest = Join-Path $env:LOCALAPPDATA 'Programs\Vigia'
 $dotnet = Join-Path $env:USERPROFILE '.dotnet\dotnet.exe'

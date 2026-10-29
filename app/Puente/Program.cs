@@ -11,39 +11,72 @@ namespace Puente;
 /// Solo instala archivos firmados con la clave de publicación: si alguien cambia un archivo de la versión,
 /// la firma no coincide y Puente no lo instala. La versión anterior se guarda para poder volver a ella.
 ///
-///   Puente.exe                 instala Vigía o la actualiza si hay una versión nueva
+/// Vigía se instala en %ProgramFiles%\Vigia (ver Layout.cs y Setup.cs). Puente abre sin permisos y pide el de
+/// administrador (UAC) solo para instalar, reparar, volver atrás o quitar.
+///
+///   Puente.exe                 instala Vigía, la actualiza o migra la instalación vieja de %LOCALAPPDATA%\Programs
 ///   Puente.exe --update --wait PID   lo usa Vigía: espera a que se cierre, actualiza y la vuelve a abrir
+///   Puente.exe --offline DIR   instala desde una carpeta con los archivos publicados (sin internet)
+///   Puente.exe --repair        vuelve a poner la versión actual si sus archivos cambiaron
 ///   Puente.exe --check         dice qué versión hay instalada y cuál es la última
-///   Puente.exe --rollback      vuelve a la versión anterior
+///   Puente.exe --rollback      vuelve a la versión anterior (si sigue intacta y no es insegura)
 ///   Puente.exe --uninstall     quita Vigía (tus ajustes y copias de seguridad se quedan)
-///   Puente.exe --genkey / --sign  solo para publicar versiones
+///   Puente.exe --genkey / --sign / --manifest / --protect-key   solo para publicar versiones
 /// </summary>
-static class Program
+static partial class Program
 {
     const string Repo = "JcperezDev/vigia";
 
     // Clave pública de publicación. La privada está solo en el PC donde se publican las versiones.
     const string PublicKey = "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE2sn60BucOhX4a3HZt59BBg3gWbZ77dyDNEdmP0/+cFAaUg7jSEjaywk5q54fPIZKzpuUtQlsS01dcTNdbv0muA==";
 
-    static readonly string Local = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-    static readonly string Programs = Path.Combine(Local, "Programs");
-    static readonly string AppDir = Path.Combine(Programs, "Vigia");
-    static readonly string NewDir = Path.Combine(Programs, "Vigia.nueva");
-    static readonly string PrevDir = Path.Combine(Programs, "Vigia.anterior");
-    static readonly string HomeDir = Path.Combine(Programs, "Vigia-Puente");
-    static readonly string DataDir = Path.Combine(Local, "Vigia");
-    static readonly string Work = Path.Combine(DataDir, "updates");
-    static readonly string LogFile = Path.Combine(DataDir, "puente.log");
+    static string LogFile => Native.IsAdmin ? Path.Combine(Layout.LogDir, "puente.log")
+        : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Vigia", "puente.log");
 
     static bool _quiet;
     static string[] _args = [];
 
     [System.Runtime.InteropServices.DllImport("kernel32.dll")] static extern bool AttachConsole(int pid);
 
+    static readonly HashSet<string> Commands = ["--render", "--genkey", "--sign", "--verify", "--check", "--zip-test", "--manifest",
+        "--protect-key", "--verify-manifest", "--acl-test", "--state", "--fetch-test", "--rollback", "--uninstall",
+#if PUENTE_TEST
+        "--as-user",
+#endif
+    ];
+    static readonly HashSet<string> Flags = ["--quiet", "--repair", "--offline", "--wait", "--elevated", "--yes", "--relaunched",
+        "--update"];   // --update: lo que pasan Vigía nueva y las ya publicadas (= instalar/actualizar)
+    static readonly HashSet<string> TakesValue = ["--offline", "--wait"];
+
+    /// <summary>Primer argumento que no se reconoce, o null. Los comandos llevan sus propios parámetros detrás.</summary>
+    static string? BadArgs(string[] args)
+    {
+        if (args.Length == 0) return null;
+        if (Commands.Contains(args[0])) return null;
+        for (int i = 0; i < args.Length; i++)
+        {
+            if (!Flags.Contains(args[i])) return args[i];
+            if (TakesValue.Contains(args[i])) i++;
+        }
+        return null;
+    }
+
     static async Task<int> Main(string[] args)
     {
+        // Puente puede abrirse desde Descargas y subir con UAC: las DLL que cargue después solo salen de System32 o
+        // de las rutas que se den explícitamente, nunca de la carpeta donde está el .exe (donde otro pudo dejar una).
+        SetDefaultDllDirectories(0x00000800 /*LOAD_LIBRARY_SEARCH_SYSTEM32*/);
+        Native.UseAdminsAsOwner();   // lo que cree Puente nace con dueño Administradores (ver Native.UseAdminsAsOwner)
         _args = args;
         _quiet = args.Contains("--quiet");
+        // Sin argumentos (doble clic) se instala o actualiza. Cualquier argumento desconocido se rechaza: un error al
+        // escribir un comando nunca debe acabar en una instalación con permisos de administrador.
+        if (BadArgs(args) is string bad)
+        {
+            if (!Console.IsOutputRedirected) AttachConsole(-1);
+            Console.Error.WriteLine("Puente: argumento no reconocido: " + bad);
+            return 2;
+        }
         if (args.FirstOrDefault() == "--render")   // revisar el diseño sin abrir la ventana
         {
             var d = args[1];
@@ -56,7 +89,12 @@ static class Program
             Ui.Render(Path.Combine(d, "7-corte.bmp"), "No se pudo terminar", CutText, null, ["Reintentar", "Cerrar"]);
             return 0;
         }
-        var cli = args.FirstOrDefault() is "--genkey" or "--sign" or "--verify" or "--check" or "--zip-test";
+        var cli = args.FirstOrDefault() is "--genkey" or "--sign" or "--verify" or "--check" or "--zip-test" or "--manifest"
+            or "--protect-key" or "--verify-manifest" or "--acl-test" or "--state"
+#if PUENTE_TEST
+            or "--as-user"
+#endif
+            ;
         if (cli)
         {
             // Puente es una app de ventana; para los comandos de publicación escribe en la terminal que lo llamó
@@ -71,15 +109,24 @@ static class Program
                 case "--genkey": return GenKey(args[1]);
                 case "--sign": return SignFile(args[1], args[2]);
                 case "--verify": return Verify(args[1], File.ReadAllText(args[1] + ".sig")) ? 0 : 1;
+                case "--manifest": return MakeManifest(args[1], args[2], args.Length > 3 ? args[3] : null);
+                case "--verify-manifest": return VerifyManifest(args[1]);
+                case "--protect-key": return ProtectKey(args[1], args[2]);
                 case "--check": return await Check();
+                case "--state": return PrintState();
+                case "--acl-test": return AclTest();
                 case "--zip-test": return ZipTest(args.Length > 1 ? args[1] : null);
                 case "--fetch-test": return await FetchTest(args[1]);
-                case "--rollback": return Rollback();
-                case "--uninstall": return Uninstall();
+#if PUENTE_TEST
+                case "--as-user": return TestHooks.AsUser(args[1]);
+#endif
+                case "--rollback": return Elevate() ?? RollbackFlow();
+                case "--uninstall": return Elevate() ?? UninstallFlow();
                 default:
+                    if (Elevate() is int code) return code;
                     while (true)
                     {
-                        try { return await Install(WaitPid(args)); }
+                        try { return await InstallFlow(WaitPid(args), ArgAfter("--offline"), args.Contains("--repair")); }
                         catch (Exception e) when (IsNet(e) && Ui.Active)
                         {
                             // la red se cayó y los reintentos no alcanzaron: se ofrece seguir, sin el texto técnico de Windows
@@ -103,6 +150,8 @@ static class Program
         }
         finally { Ui.Close(); }
     }
+
+    [System.Runtime.InteropServices.DllImport("kernel32.dll")] static extern bool SetDefaultDllDirectories(uint flags);
 
     const string CutText = "Se cortó la conexión con GitHub. Revisa tu internet y dale a Reintentar: la descarga sigue donde se quedó. Vigía sigue como estaba.";
 
@@ -132,83 +181,11 @@ static class Program
     static string Sentence(string s) => s.Length == 0 ? s : char.ToUpperInvariant(s[0]) + s[1..] + (s.EndsWith('.') ? "" : ".");
     static string Mb(double bytes) => (bytes / 1048576.0).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture).Replace('.', ',');
 
-    // ---------------------------------------------------------------- instalar / actualizar
-
-    static async Task<int> Install(int? waitPid)
-    {
-        Ui.Show("Buscando actualizaciones…", "Mirando la última versión publicada.", double.NaN);
-        CleanLeftovers();
-        SelfInstall();
-
-        using var http = Http();
-        var rel = await Net(() => Latest(http));
-        var installed = InstalledVersion();
-
-        await UpdateSelf(http, rel);
-
-        if (installed is not null && installed >= rel.Version)
-        {
-            if (waitPid is not null)
-            {
-                // Vigía se cerró para actualizarse; si ya estaba al día, se vuelve a abrir
-                CloseVigia(waitPid);
-                Launch();
-                return 0;
-            }
-            if (Ui.Choose("Vigía está al día", $"Tienes la versión {installed}, que es la última.", "Abrir Vigía", "Cerrar") == 0) Launch();
-            return 0;
-        }
-        Ui.Show(installed is null ? $"Instalando Vigía {rel.Version}" : $"Actualizando a Vigía {rel.Version}",
-            installed is null ? "Preparando la descarga." : $"Tienes la {installed}.", double.NaN);
-
-        var zipAsset = rel.Asset($"Vigia-{rel.Version}-win-x64.zip");
-        var zip = Path.Combine(Work, zipAsset.Name);
-        Directory.CreateDirectory(Work);
-        var resumed = File.Exists(zip);
-        await Download(http, zipAsset, zip);
-        Ui.Show($"Comprobando Vigía {rel.Version}", "Revisando la firma: solo se instala lo que publicó Vigía.", double.NaN);
-        var sig = await Net(() => http.GetStringAsync(rel.Asset(zipAsset.Name + ".sig").Url));
-        if (resumed && !Verify(zip, sig))
-        {
-            // lo que quedó de un intento anterior estaba mal: se baja entero una vez más
-            Log("la parte guardada no servía; se baja de cero");
-            File.Delete(zip);
-            await Download(http, zipAsset, zip);
-        }
-        if (!Verify(zip, sig))
-        {
-            File.Delete(zip);
-            throw new InvalidOperationException("la firma no coincide. El archivo no viene de la publicación de Vigía; no se instaló nada.");
-        }
-
-        Ui.Show($"Preparando Vigía {rel.Version}", "Descomprimiendo.", double.NaN);
-        if (Directory.Exists(NewDir)) Directory.Delete(NewDir, true);
-        SafeExtract(zip, NewDir);
-        var got = FileVersion(Path.Combine(NewDir, "Vigia.exe"));
-        if (got != rel.Version)
-            throw new InvalidOperationException($"el paquete dice ser {rel.Version} pero trae {got?.ToString() ?? "nada"}.");
-
-        CloseVigia(waitPid);
-        Ui.Lock(true);
-        Ui.Show($"Instalando Vigía {rel.Version}", "No apagues el PC; tarda unos segundos.", double.NaN);
-        Swap();
-        Shortcuts();
-        Ui.Lock(false);
-        File.Delete(zip);
-        Log($"instalada {rel.Version} (antes {installed?.ToString() ?? "ninguna"})");
-        Ui.Show($"Listo: Vigía {rel.Version}", installed is not null
-            ? $"La {installed} quedó guardada por si quieres volver a ella."
-            : "Tienes accesos en el Escritorio y en Inicio.", 1.0);
-        Launch();
-        Thread.Sleep(2500);
-        return 0;
-    }
-
     static async Task<int> Check()
     {
         using var http = Http();
         var rel = await Net(() => Latest(http));
-        var installed = InstalledVersion();
+        var installed = State.Load().Current ?? LegacyVersion();
         Console.WriteLine(JsonSerializer.Serialize(new Dictionary<string, string?>
         {
             ["installed"] = installed?.ToString(), ["latest"] = rel.Version.ToString(),
@@ -217,100 +194,12 @@ static class Program
         return 0;
     }
 
-    /// <summary>Puente también se actualiza solo: baja Puente.exe de la versión, comprueba la firma y se reemplaza.</summary>
-    static async Task UpdateSelf(HttpClient http, Release rel)
-    {
-        var a = rel.Assets.FirstOrDefault(x => x.Name == "Puente.exe");
-        var me = Environment.ProcessPath!;
-        if (a is null || _args.Contains("--relaunched") || !SamePath(Path.GetDirectoryName(me)!, HomeDir)) return;
-        if (a.Digest is { } d && d.Equals("sha256:" + Sha256(me), StringComparison.OrdinalIgnoreCase)) return;
-        var tmp = Path.Combine(HomeDir, "Puente.new.exe");
-        await Download(http, a, tmp, quiet: true);
-        if (Sha256(tmp) == Sha256(me) || !Verify(tmp, await Net(() => http.GetStringAsync(rel.Asset("Puente.exe.sig").Url))))
-        {
-            File.Delete(tmp);
-            return;
-        }
-        // un Puente firmado pero más viejo tampoco entra: así nadie puede devolver uno con un fallo ya arreglado
-        if (IsDowngrade(FileVersion(me), FileVersion(tmp)))
-        {
-            Log($"Puente {FileVersion(tmp)} es más viejo que el instalado ({FileVersion(me)}); no se cambia");
-            File.Delete(tmp);
-            return;
-        }
-        // Windows deja renombrar un .exe en uso: el viejo se borra la próxima vez.
-        // Después hay que reiniciar desde el nuevo: este proceso carga sus piezas del .exe por su ruta, y en esa ruta
-        // ya está otro archivo (ZipFile fallaba con FileNotFoundException).
-        var psi = new ProcessStartInfo(me) { UseShellExecute = false, WorkingDirectory = HomeDir };
-        foreach (var a2 in _args.Where(x => x != "--relaunched")) psi.ArgumentList.Add(a2);
-        psi.ArgumentList.Add("--relaunched");
-        using (Process.GetCurrentProcess()) { }   // deja cargado System.Diagnostics.Process antes de mover el .exe
-        var old = Path.Combine(HomeDir, "Puente.old.exe");
-        if (File.Exists(old)) File.Delete(old);
-        File.Move(me, old);
-        File.Move(tmp, me);
-        Log("Puente actualizado");
-        Process.Start(psi)?.Dispose();
-        Environment.Exit(0);
-    }
-
-    // ---------------------------------------------------------------- volver atrás / quitar
-
-    static int Rollback()
-    {
-        if (!Directory.Exists(PrevDir)) { Ui.Choose("No hay versión anterior", "Puente guarda la versión anterior cuando actualiza Vigía. Todavía no hay ninguna.", "Cerrar"); return 1; }
-        var cur = InstalledVersion();
-        var prev = FileVersion(Path.Combine(PrevDir, "Vigia.exe"));
-        if (!Ask($"¿Volver a Vigía {prev}?", $"Ahora tienes la {cur}. Quedará guardada y podrás volver a ella.", "Volver")) return 0;
-        Ui.Show($"Volviendo a Vigía {prev}", "Cerrando Vigía.", double.NaN);
-        CloseVigia(null);
-        Ui.Lock(true);
-        var tmp = Path.Combine(Programs, "Vigia.cambio");
-        if (Directory.Exists(tmp)) Directory.Delete(tmp, true);
-        MoveDir(AppDir, tmp);
-        try { MoveDir(PrevDir, AppDir); }
-        catch
-        {
-            // no se pudo poner la anterior: la actual vuelve a su sitio y no se toca nada más
-            MoveDir(tmp, AppDir);
-            Ui.Lock(false);
-            throw;
-        }
-        MoveDir(tmp, PrevDir);
-        Shortcuts();
-        Ui.Lock(false);
-        Log($"vuelta atrás {cur} -> {prev}");
-        Ui.Show($"Listo: Vigía {prev}", $"La {cur} quedó guardada como anterior.", 1.0);
-        Launch();
-        Thread.Sleep(2500);
-        return 0;
-    }
-
-    static int Uninstall()
-    {
-        if (!Ask("¿Quitar Vigía de este PC?", "Tus ajustes y las copias de lo que cambió Vigía se quedan en " + DataDir + ".", "Quitar")) return 0;
-        Ui.Show("Quitando Vigía", "", double.NaN);
-        CloseVigia(null);
-        RemovePawnIfOurs();
-        foreach (var d in new[] { AppDir, PrevDir, NewDir })
-            if (Directory.Exists(d)) Directory.Delete(d, true);
-        foreach (var l in LinkPaths()) if (File.Exists(l)) File.Delete(l);
-        try { Microsoft.Win32.Registry.CurrentUser.DeleteSubKeyTree(UninstallKey, false); } catch { }
-        Log("desinstalada");
-        Ui.Show("Listo: Vigía quitada", "Puente se borra solo al cerrar esta ventana.", 1.0);
-        // un .exe no se puede borrar a sí mismo mientras corre: lo borra cmd unos segundos después
-        if (SamePath(Path.GetDirectoryName(Environment.ProcessPath!)!, HomeDir))
-            Process.Start(new ProcessStartInfo("cmd.exe", $"/c timeout /t 3 >nul & rmdir /s /q \"{HomeDir}\"") { CreateNoWindow = true, UseShellExecute = false });
-        Thread.Sleep(2500);
-        return 0;
-    }
-
     /// <summary>El driver de los grados del procesador se va con Vigía solo si lo puso Vigía (pawnio.json).</summary>
     static void RemovePawnIfOurs()
     {
         try
         {
-            var mark = Path.Combine(DataDir, "pawnio.json");
+            var mark = Path.Combine(Layout.UserData, "pawnio.json");
             if (!File.Exists(mark) || !File.ReadAllText(mark).Contains("\"Ok\":true")) return;
             using var k = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\PawnIO");
             var exe = Path.Combine(k?.GetValue("InstallLocation") as string ?? "", "uninstall.exe");
@@ -321,118 +210,6 @@ static class Program
             Log("PawnIO quitado");
         }
         catch { }
-    }
-
-    // ---------------------------------------------------------------- piezas
-
-    static void Swap()
-    {
-        if (Directory.Exists(PrevDir)) Directory.Delete(PrevDir, true);
-        if (Directory.Exists(AppDir)) MoveDir(AppDir, PrevDir);
-        try { MoveDir(NewDir, AppDir); }
-        catch
-        {
-            if (!Directory.Exists(AppDir) && Directory.Exists(PrevDir)) MoveDir(PrevDir, AppDir);
-            throw;
-        }
-    }
-
-    /// <summary>Mover una carpeta falla si un archivo sigue abierto un instante después de cerrar Vigía: se reintenta.</summary>
-    static void MoveDir(string from, string to)
-    {
-        for (var i = 0; ; i++)
-        {
-            try { Directory.Move(from, to); return; }
-            catch (IOException) when (i < 20) { Thread.Sleep(500); }
-            catch (UnauthorizedAccessException) when (i < 20) { Thread.Sleep(500); }
-        }
-    }
-
-    static void CloseVigia(int? waitPid)
-    {
-        if (waitPid is int pid)
-        {
-            try { using var p = Process.GetProcessById(pid); Ui.Show("Esperando a que se cierre Vigía", "", double.NaN); p.WaitForExit(30_000); }
-            catch (ArgumentException) { }
-        }
-        foreach (var p in Process.GetProcessesByName("Vigia"))
-        {
-            using (p)
-            {
-                string? path = null;
-                try { path = p.MainModule?.FileName; } catch { }
-                if (path is not null && !path.StartsWith(AppDir + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)) continue;
-                Ui.Show("Cerrando Vigía", "", double.NaN);
-                try { p.CloseMainWindow(); if (!p.WaitForExit(10_000)) { p.Kill(); p.WaitForExit(5_000); } } catch { }
-            }
-        }
-    }
-
-    static void SelfInstall()
-    {
-        var me = Environment.ProcessPath!;
-        if (SamePath(Path.GetDirectoryName(me)!, HomeDir)) return;
-        Directory.CreateDirectory(HomeDir);
-        var dest = Path.Combine(HomeDir, "Puente.exe");
-        if (File.Exists(dest) && Sha256(dest) == Sha256(me)) return;
-        try { File.Copy(me, dest, true); }
-        catch (IOException) { return; } // el Puente instalado está abierto: se actualiza solo la próxima vez
-        Log("Puente copiado a " + dest);
-    }
-
-    static void CleanLeftovers()
-    {
-        try { File.Delete(Path.Combine(HomeDir, "Puente.old.exe")); } catch { }
-        try { if (Directory.Exists(NewDir)) Directory.Delete(NewDir, true); } catch { }
-    }
-
-    static IEnumerable<string> LinkPaths() =>
-    [
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory), "Vigia.lnk"),
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Programs), "Vigia.lnk"),
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Programs), "Puente (actualizar Vigia).lnk"),
-    ];
-
-    /// <summary>Accesos en Escritorio e Inicio. Se crean con WScript.Shell desde PowerShell (Puente va recortado y sin COM).</summary>
-    static void Shortcuts()
-    {
-        var exe = Path.Combine(AppDir, "Vigia.exe");
-        var puente = Path.Combine(HomeDir, "Puente.exe");
-        var l = LinkPaths().ToArray();
-        static string Q(string s) => "'" + s.Replace("'", "''") + "'";
-        var ps = "$s=New-Object -ComObject WScript.Shell;" +
-                 $"foreach($l in @({Q(l[0])},{Q(l[1])})){{$k=$s.CreateShortcut($l);$k.TargetPath={Q(exe)};$k.WorkingDirectory={Q(AppDir)};$k.IconLocation={Q(exe + ",0")};$k.Description='Vigía';$k.Save()}};" +
-                 (File.Exists(puente) ? $"$k=$s.CreateShortcut({Q(l[2])});$k.TargetPath={Q(puente)};$k.WorkingDirectory={Q(HomeDir)};$k.Description='Instalar o actualizar Vigía';$k.Save()" : "");
-        using var p = Process.Start(new ProcessStartInfo("powershell.exe", "-NoProfile -NonInteractive -EncodedCommand " + Convert.ToBase64String(Encoding.Unicode.GetBytes(ps)))
-        { CreateNoWindow = true, UseShellExecute = false });
-        p?.WaitForExit(30_000);
-        try { RegisterApp(exe, puente); } catch (Exception e) { Log("registro en Apps: " + e.Message); }
-    }
-
-    const string UninstallKey = @"Software\Microsoft\Windows\CurrentVersion\Uninstall\Vigia";
-
-    /// <summary>Aparece en Configuración › Apps (por usuario, sin administrador) y se quita desde ahí con Puente.</summary>
-    static void RegisterApp(string exe, string puente)
-    {
-        using var k = Microsoft.Win32.Registry.CurrentUser.CreateSubKey(UninstallKey);
-        var size = new DirectoryInfo(AppDir).EnumerateFiles("*", SearchOption.AllDirectories).Sum(f => f.Length) / 1024;
-        k.SetValue("DisplayName", "Vigía");
-        k.SetValue("DisplayVersion", InstalledVersion()?.ToString(3) ?? "");
-        k.SetValue("Publisher", "Vigía");
-        k.SetValue("DisplayIcon", exe + ",0");
-        k.SetValue("InstallLocation", AppDir);
-        k.SetValue("UninstallString", $"\"{puente}\" --uninstall");
-        k.SetValue("QuietUninstallString", $"\"{puente}\" --uninstall --quiet");
-        k.SetValue("URLInfoAbout", "https://github.com/JcperezDev/vigia");
-        k.SetValue("EstimatedSize", (int)Math.Min(size, int.MaxValue), Microsoft.Win32.RegistryValueKind.DWord);
-        k.SetValue("NoModify", 1, Microsoft.Win32.RegistryValueKind.DWord);
-        k.SetValue("NoRepair", 1, Microsoft.Win32.RegistryValueKind.DWord);
-    }
-
-    static void Launch()
-    {
-        var exe = Path.Combine(AppDir, "Vigia.exe");
-        if (File.Exists(exe)) Process.Start(new ProcessStartInfo(exe) { UseShellExecute = true, WorkingDirectory = AppDir });
     }
 
     // ---------------------------------------------------------------- GitHub
@@ -525,7 +302,11 @@ static class Program
     }
 
     // para probar los cortes sin desenchufar nada: PUENTE_TEST_CUT=bytes corta la descarga una vez al llegar ahí
+#if PUENTE_TEST
     static long? TestCut = long.TryParse(Environment.GetEnvironmentVariable("PUENTE_TEST_CUT"), out var c) ? c : null;
+#else
+    static long? TestCut = null;   // la Puente publicada no lee variables de prueba
+#endif
 
     /// <summary>Solo para pruebas: baja el zip de la última versión a una carpeta y revisa la firma. No instala nada.</summary>
     static async Task<int> FetchTest(string dir)
@@ -625,11 +406,28 @@ static class Program
         return fails == 0 ? 0 : 1;
     }
 
+#if PUENTE_TEST
+    // solo en la compilación de pruebas: una clave de prueba hecha en la carpeta temporal (nunca la de publicar)
+    static string Key => Environment.GetEnvironmentVariable("PUENTE_TEST_PUBKEY") is { Length: > 40 } k ? k : PublicKey;
+#else
+    static string Key => PublicKey;
+#endif
+
+    static bool VerifyBytes(byte[] data, string sigB64)
+    {
+        if (PublicKey.StartsWith("__")) throw new InvalidOperationException("este Puente se compiló sin clave pública.");
+        using var ec = ECDsa.Create();
+        ec.ImportSubjectPublicKeyInfo(Convert.FromBase64String(Key), out _);
+        byte[] sig;
+        try { sig = Convert.FromBase64String(sigB64.Trim()); } catch (FormatException) { return false; }
+        return ec.VerifyData(data, sig, HashAlgorithmName.SHA256);
+    }
+
     static bool Verify(string file, string sigB64)
     {
         if (PublicKey.StartsWith("__")) throw new InvalidOperationException("este Puente se compiló sin clave pública.");
         using var ec = ECDsa.Create();
-        ec.ImportSubjectPublicKeyInfo(Convert.FromBase64String(PublicKey), out _);
+        ec.ImportSubjectPublicKeyInfo(Convert.FromBase64String(Key), out _);
         byte[] sig;
         try { sig = Convert.FromBase64String(sigB64.Trim()); } catch (FormatException) { return false; }
         using var fs = File.OpenRead(file);
@@ -649,15 +447,13 @@ static class Program
     static int SignFile(string file, string privPath)
     {
         using var ec = ECDsa.Create();
-        ec.ImportFromPem(File.ReadAllText(privPath));
+        LoadKey(ec, privPath);   // .pem o .dpapi (cifrada con tu cuenta); nunca se escribe en otro sitio
         using var fs = File.OpenRead(file);
         File.WriteAllText(file + ".sig", Convert.ToBase64String(ec.SignData(fs, HashAlgorithmName.SHA256)));
         return 0;
     }
 
     // ---------------------------------------------------------------- utilidades
-
-    static Version? InstalledVersion() => FileVersion(Path.Combine(AppDir, "Vigia.exe"));
 
     static Version? FileVersion(string exe)
     {
@@ -666,7 +462,7 @@ static class Program
         return new Version(v.FileMajorPart, v.FileMinorPart, v.FileBuildPart);
     }
 
-    static Version Norm(Version v) => new(v.Major, v.Minor, Math.Max(v.Build, 0));
+    internal static Version Norm(Version v) => new(v.Major, v.Minor, Math.Max(v.Build, 0));
 
     /// <summary>¿Cambiar de <paramref name="cur"/> a <paramref name="next"/> sería volver atrás? Sin versión conocida, no.</summary>
     internal static bool IsDowngrade(Version? cur, Version? next) => cur is not null && next is not null && next < cur;
@@ -684,12 +480,12 @@ static class Program
 
     static string Ver(string asset) => System.Text.RegularExpressions.Regex.Match(asset, @"\d+\.\d+\.\d+").Value;
 
-    /// <summary>Pregunta con dos botones; sin ventana (--quiet) se da por aceptado.</summary>
-    static bool Ask(string q, string detail, string yes) => !Ui.Active || Ui.Choose(q, detail, yes, "Cancelar") == 0;
+    /// <summary>Pregunta con dos botones. Sin ventana (--quiet) solo se acepta si además se pasó --yes.</summary>
+    static bool Ask(string q, string detail, string yes) => Ui.Active ? Ui.Choose(q, detail, yes, "Cancelar") == 0 : Yes;
 
     static void Log(string s)
     {
-        try { Directory.CreateDirectory(DataDir); File.AppendAllText(LogFile, $"{DateTime.Now:yyyy-MM-dd HH:mm:ss} {s}{Environment.NewLine}"); } catch { }
+        try { var f = LogFile; Directory.CreateDirectory(Path.GetDirectoryName(f)!); File.AppendAllText(f, $"{DateTime.Now:yyyy-MM-dd HH:mm:ss} {s}{Environment.NewLine}"); } catch { }
     }
 }
 

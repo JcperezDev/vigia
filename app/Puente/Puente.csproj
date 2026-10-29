@@ -5,7 +5,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>Puente</AssemblyName>
-    <Version>1.4.0</Version>
+    <Version>2.0.0</Version>
     <NoWarn>$(NoWarn);CA1416</NoWarn>
     <Product>Puente (instalador de Vigía)</Product>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
@@ -17,5 +17,10 @@
     <PublishTrimmed>true</PublishTrimmed>
     <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
     <JsonSerializerIsReflectionEnabledByDefault>false</JsonSerializerIsReflectionEnabledByDefault>
+  </PropertyGroup>
+  <!-- Solo para las pruebas automáticas (tools/puente-test.js): rutas y clave de prueba en %TEMP%. Nunca se publica. -->
+  <PropertyGroup Condition="'$(PuenteTest)' == 'true'">
+    <DefineConstants>$(DefineConstants);PUENTE_TEST</DefineConstants>
+    <AssemblyName>Puente-test</AssemblyName>
   </PropertyGroup>
 </Project>

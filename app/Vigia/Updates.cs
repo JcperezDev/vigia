@@ -7,12 +7,55 @@ public record UpdateInfo(string Current, string? Latest, bool Available, string?
 
 /// <summary>
 /// Mira si hay una versión nueva en JcperezDev/vigia. Vigía solo pregunta; quien descarga, comprueba la firma
-/// e instala es Puente (%LOCALAPPDATA%\Programs\Vigia-Puente\Puente.exe).
+/// e instala es Puente. Instalada con el Puente nuevo, Vigía vive en %ProgramFiles%\Vigia\versiones\x.y.z y Puente
+/// en %ProgramFiles%\Vigia\Puente.exe (solo administradores lo cambian). La instalación vieja usaba
+/// %LOCALAPPDATA%\Programs\Vigia-Puente\Puente.exe.
 /// </summary>
 public static class Updates
 {
     const string Api = "https://api.github.com/repos/JcperezDev/vigia/releases/latest";
-    public static string PuentePath { get; } = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs", "Vigia-Puente", "Puente.exe");
+
+    /// <summary>%ProgramFiles%\Vigia si este Vigia.exe corre desde ahí (versiones\x.y.z); si no, null.</summary>
+    public static string? InstallRoot
+    {
+        get
+        {
+            var root = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Vigia");
+            var me = Path.GetFullPath(AppContext.BaseDirectory).TrimEnd('\\');
+            var parent = Path.GetDirectoryName(me);
+            return parent is not null && Path.GetFileName(parent).Equals("versiones", StringComparison.OrdinalIgnoreCase)
+                && string.Equals(Path.GetDirectoryName(parent), root, StringComparison.OrdinalIgnoreCase) ? root : null;
+        }
+    }
+
+    /// <summary>¿Corre desde la instalación vieja de %LOCALAPPDATA%\Programs\Vigia?</summary>
+    public static bool Legacy => InstallRoot is null && string.Equals(Path.GetFullPath(AppContext.BaseDirectory).TrimEnd('\\'),
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs", "Vigia"), StringComparison.OrdinalIgnoreCase);
+
+    static readonly string LegacyPuente = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs", "Vigia-Puente", "Puente.exe");
+    public static string PuentePath => InstallRoot is { } r ? Path.Combine(r, "Puente.exe") : LegacyPuente;
+    /// <summary>Con la instalación nueva, Puente está en la carpeta protegida y no se baja ni se reemplaza desde Vigía.</summary>
+    public static bool Protected => InstallRoot is { } r && InstallTrust.Problem(r, 200) is null;
+
+    /// <summary>
+    /// Puente abre la versión nueva así antes de activarla: tienen que estar la interfaz, las traducciones y los
+    /// catálogos, y la carpeta tiene que estar protegida si es la de Archivos de programa. 0 = bien.
+    /// </summary>
+    public static int InstallCheck()
+    {
+        try
+        {
+            var ui = Path.Combine(AppContext.BaseDirectory, "wwwroot");
+            if (!File.Exists(Path.Combine(ui, "index.html")) || !File.Exists(Path.Combine(ui, "app.js"))) return 10;
+            foreach (var l in new[] { "es", "en", "pt", "fr", "de" })
+                if (!File.Exists(Path.Combine(ui, "i18n", l + ".json"))) return 11;
+            if (Tweaks.List().Count == 0) return 12;
+            if (AppCatalog.Catalog is null) return 13;
+            if (InstallRoot is { } r && InstallTrust.Problem(AppContext.BaseDirectory, 2000) is not null) return 14;
+            return 0;
+        }
+        catch { return 1; }
+    }
 
     public static Version Current
     {
@@ -89,7 +132,9 @@ public static class Updates
                 foreach (var a in assets.EnumerateArray())
                     if (a.TryGetProperty("name", out var n) && n.GetString() is string nm && nm.EndsWith("-win-x64.zip", StringComparison.OrdinalIgnoreCase)
                         && a.TryGetProperty("size", out var sz) && sz.TryGetInt64(out var bytes)) { size = bytes; break; }
-            return new(cur, latest.ToString(), latest > Current, notes, File.Exists(PuentePath), null, size);
+            // en la carpeta vieja (la ponía un Puente anterior) se ofrece «actualizar» aunque sea la misma versión:
+            // Puente la pasa a Archivos de programa sin tocar tus ajustes
+            return new(cur, latest.ToString(), latest > Current || (Legacy && latest >= Current), notes, File.Exists(PuentePath), null, size);
         }
         catch (Exception e) { return new(cur, null, false, null, File.Exists(PuentePath), Friendly(e)); }
     }
@@ -103,6 +148,7 @@ public static class Updates
     /// que alguien haya cambiado en su carpeta (es del usuario y Vigía corre como administrador).</param>
     public static async Task<string?> EnsurePuenteAsync(string? dest = null, bool fresh = false)
     {
+        if (dest is null && Protected) return File.Exists(PuentePath) ? null : "Falta Puente en la carpeta de Vigía. Vuelve a instalar Vigía con Puente.";
         dest ??= PuentePath;
         if (!fresh && File.Exists(dest)) return null;
         var dir = Path.GetDirectoryName(dest)!;
@@ -130,6 +176,9 @@ public static class Updates
                 using var fs = File.OpenRead(tmp);
                 if (!ec.VerifyData(fs, s, System.Security.Cryptography.HashAlgorithmName.SHA256)) return "La firma de Puente no coincide: no lo instalé.";
             }
+            // nunca se cambia un Puente por uno más viejo, aunque esté firmado (una versión vieja puede tener fallos ya arreglados)
+            if (File.Exists(dest) && FileVer(tmp) is { } got && FileVer(dest) is { } have && got < have)
+                return $"El Puente publicado ({got}) es más viejo que el que tienes ({have}); no lo cambié.";
             Directory.CreateDirectory(dir);
             File.Move(tmp, dest, true);
             return null;
@@ -138,12 +187,24 @@ public static class Updates
         finally { try { File.Delete(tmp); } catch { } }
     }
 
+    static Version? FileVer(string path)
+    {
+        var v = FileVersionInfo.GetVersionInfo(path);
+        return v.FileMajorPart + v.FileMinorPart + v.FileBuildPart > 0 ? new Version(v.FileMajorPart, v.FileMinorPart, v.FileBuildPart) : null;
+    }
+
     /// <summary>Abre Puente para que espere a que Vigía se cierre, la actualice y la vuelva a abrir.</summary>
     public static bool StartPuente()
     {
-        if (!File.Exists(PuentePath)) return false;
-        Process.Start(new ProcessStartInfo(PuentePath, $"--update --wait {Environment.ProcessId}")
-        { UseShellExecute = true, WorkingDirectory = Path.GetDirectoryName(PuentePath)! });
-        return true;
+        var p = PuentePath;
+        if (!File.Exists(p)) return false;
+        try
+        {
+            // Puente abre sin permisos y pide el de administrador (UAC) él mismo, solo para instalar
+            Process.Start(new ProcessStartInfo(p, $"--update --wait {Environment.ProcessId}")
+            { UseShellExecute = true, WorkingDirectory = Path.GetDirectoryName(p)! })?.Dispose();
+            return true;
+        }
+        catch (System.ComponentModel.Win32Exception) { return false; }
     }
 }
