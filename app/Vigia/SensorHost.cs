@@ -41,8 +41,8 @@ public static class SensorHost
         if (h == IntPtr.Zero) return (Share.Missing, null);
         try
         {
-            // Solo vale si lo creó SYSTEM o Administradores: un usuario normal no puede crear nombres Global\,
-            // y aunque lo hiciera en su sesión, su objeto tendría otro dueño y se ignora.
+            // Solo vale si lo creó SYSTEM o Administradores. Un usuario normal puede llegar a crear el nombre (probado en
+            // la VM con el servicio parado), pero su objeto tiene otro dueño y se ignora.
             if (!TrustedOwner(h)) return (Share.Untrusted, null);
             var v = MapViewOfFile(h, FILE_MAP_READ, 0, 0, (UIntPtr)Size);
             if (v == IntPtr.Zero) return (Share.Missing, null);

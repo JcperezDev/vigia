@@ -150,20 +150,29 @@ public static class Elevation
     /// el proceso con permisos no tiene por qué quedarse con ella. Lo siguiente que haga falta vuelve a pedir UAC.</summary>
     internal static TimeSpan IdleLimit = TimeSpan.FromMinutes(10);
 
+    /// <summary>Pedidos que la interfaz manda sola cada pocos segundos mientras el ayudante vive (sensores con permisos).
+    /// Se atienden, pero no cuentan como uso: si contaran, el ayudante no se cerraría nunca (visto en VigiaLab).</summary>
+    internal static readonly HashSet<string> Background = ["telemetry", "ping"];
+
     internal static async Task Loop(Stream pipe, SemaphoreSlim gate, CancellationToken ct)
     {
-        var running = new List<Task>();
+        var running = new List<Task>();   // solo lo que pidió la persona
+        var all = new List<Task>();
+        var lastUse = DateTime.UtcNow;
         while (!ct.IsCancellationRequested)
         {
             string? line;
             using (var idle = CancellationTokenSource.CreateLinkedTokenSource(ct))
             {
-                idle.CancelAfter(IdleLimit);
+                running.RemoveAll(t => t.IsCompleted);
+                if (running.Count > 0) lastUse = DateTime.UtcNow;   // hay algo en marcha (un USB, una ISO): no se corta a medias
+                var left = IdleLimit - (DateTime.UtcNow - lastUse);
+                idle.CancelAfter(left > TimeSpan.Zero ? left : TimeSpan.Zero);
                 try { line = await ReadLineAsync(pipe, idle.Token); }
                 catch (OperationCanceledException) when (!ct.IsCancellationRequested)
                 {
                     running.RemoveAll(t => t.IsCompleted);
-                    if (running.Count > 0) continue;   // hay algo en marcha (un USB, una ISO): no se corta a medias
+                    if (running.Count > 0) continue;
                     UiMessage.Note("ayudante: sin pedidos en un rato, me cierro (lo próximo vuelve a pedir permiso)");
                     break;
                 }
@@ -187,7 +196,8 @@ public static class Elevation
             }
             msg["cmd"] = cmd;
             running.RemoveAll(t => t.IsCompleted);
-            running.Add(Task.Run(async () =>
+            all.RemoveAll(t => t.IsCompleted);
+            var job = Task.Run(async () =>
             {
                 string? err = null;
                 try
@@ -198,9 +208,11 @@ public static class Elevation
                 }
                 catch (Exception e) { err = e is ArgumentException ? "Datos no válidos." : e.Message; }
                 try { await WriteLineAsync(pipe, gate, JsonSerializer.Serialize(new { id, end = true, error = err })); } catch { }
-            }, CancellationToken.None));
+            }, CancellationToken.None);
+            all.Add(job);
+            if (!Background.Contains(cmd)) { running.Add(job); lastUse = DateTime.UtcNow; }
         }
-        try { await Task.WhenAll(running).WaitAsync(TimeSpan.FromSeconds(5)); } catch { }
+        try { await Task.WhenAll(all).WaitAsync(TimeSpan.FromSeconds(5)); } catch { }
     }
 
     // ---------------------------------------------------------------- la interfaz: abre y usa el ayudante
@@ -506,6 +518,25 @@ public static class InstallTrust
             Check(answer.Contains("\"end\":true") && answer.Contains("no est"), "ayudante: un comando fuera de la lista recibe «no permitido»");
             srv2.Dispose();   // la interfaz se va: el ayudante termina sin esperar al límite
             Check(loop2.Wait(TimeSpan.FromSeconds(5)), "ayudante: si la interfaz se cierra, termina enseguida");
+            // lo que la interfaz manda sola (sensores cada pocos segundos) no lo mantiene vivo: visto en VigiaLab,
+            // seguía elevado 12 min después del último clic porque cada lectura de sensores reiniciaba la espera
+            Elevation.IdleLimit = TimeSpan.FromMilliseconds(800);
+            using var srv3 = new global::System.IO.Pipes.NamedPipeServerStream(pn + "c", global::System.IO.Pipes.PipeDirection.InOut, 1, global::System.IO.Pipes.PipeTransmissionMode.Byte, global::System.IO.Pipes.PipeOptions.Asynchronous);
+            using var cli3 = new global::System.IO.Pipes.NamedPipeClientStream(".", pn + "c", global::System.IO.Pipes.PipeDirection.InOut, global::System.IO.Pipes.PipeOptions.Asynchronous);
+            var acc3 = srv3.WaitForConnectionAsync();
+            cli3.Connect(5000); acc3.GetAwaiter().GetResult();
+            var loop3 = Elevation.Loop(cli3, new SemaphoreSlim(1, 1), CancellationToken.None);
+            var sw3 = Stopwatch.StartNew();
+            var drain = Task.Run(async () => { try { while (await Elevation.ReadLineAsync(srv3, CancellationToken.None) is not null) { } } catch { } });
+            int n3 = 0;
+            while (!loop3.IsCompleted && sw3.Elapsed < TimeSpan.FromSeconds(6))
+            {
+                try { srv3.Write(global::System.Text.Encoding.UTF8.GetBytes("{\"id\":" + (++n3) + ",\"cmd\":\"ping\",\"msg\":{}}\n")); srv3.Flush(); } catch { break; }
+                Thread.Sleep(150);
+            }
+            Check(loop3.Wait(TimeSpan.FromSeconds(2)) && sw3.Elapsed < TimeSpan.FromSeconds(4) && n3 >= 4,
+                $"ayudante: los pedidos de fondo (sensores) no lo mantienen elevado ({n3} pedidos, {sw3.Elapsed.TotalSeconds:0.0} s)");
+            srv3.Dispose(); drain.Wait(TimeSpan.FromSeconds(2));
         }
         catch (Exception e) { Check(false, "ayudante sin pedidos: " + e.GetType().Name + " " + e.Message); }
         finally { Elevation.IdleLimit = oldIdle; }
