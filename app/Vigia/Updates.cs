@@ -6,12 +6,12 @@ namespace Vigia;
 public record UpdateInfo(string Current, string? Latest, bool Available, string? Notes, bool PuenteFound, string? Error, long? Size = null);
 
 /// <summary>
-/// Mira si hay una versión nueva en JcperezDev/vigia-releases. Vigía solo pregunta; quien descarga, comprueba la firma
+/// Mira si hay una versión nueva en JcperezDev/vigia. Vigía solo pregunta; quien descarga, comprueba la firma
 /// e instala es Puente (%LOCALAPPDATA%\Programs\Vigia-Puente\Puente.exe).
 /// </summary>
 public static class Updates
 {
-    const string Api = "https://api.github.com/repos/JcperezDev/vigia-releases/releases/latest";
+    const string Api = "https://api.github.com/repos/JcperezDev/vigia/releases/latest";
     public static string PuentePath { get; } = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs", "Vigia-Puente", "Puente.exe");
 
     public static Version Current
@@ -66,7 +66,7 @@ public static class Updates
         catch (Exception e) { return new(cur, null, false, null, File.Exists(PuentePath), Friendly(e)); }
     }
 
-    const string PuenteUrl = "https://github.com/JcperezDev/vigia-releases/releases/latest/download/Puente.exe";
+    const string PuenteUrl = "https://github.com/JcperezDev/vigia/releases/latest/download/Puente.exe";
     // la misma clave pública que lleva Puente: solo se instala un Puente firmado por nosotros
     const string PublicKey = "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE2sn60BucOhX4a3HZt59BBg3gWbZ77dyDNEdmP0/+cFAaUg7jSEjaywk5q54fPIZKzpuUtQlsS01dcTNdbv0muA==";
 

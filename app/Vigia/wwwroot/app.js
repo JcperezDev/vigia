@@ -1543,10 +1543,10 @@
   // ---------- ayuda y apoyo ----------
   const goView = (v) => document.querySelector(`.nav[data-view="${v}"]`)?.click();
   document.querySelectorAll('.hp-go').forEach((b) => b.addEventListener('click', () => goView(b.dataset.go)));
-  const DOWNLOAD = 'https://jcperezdev.github.io/vigia-releases/';
+  const DOWNLOAD = 'https://vigiapc.vercel.app';
   $('sp-star').addEventListener('click', () => send({ cmd: 'openUrl', url: 'repo' }));
-  $('sp-issue').addEventListener('click', () => send({ cmd: 'openUrl', url: 'https://github.com/JcperezDev/vigia-releases/issues/new?title=Falla%3A%20' }));
-  $('sp-idea').addEventListener('click', () => send({ cmd: 'openUrl', url: 'https://github.com/JcperezDev/vigia-releases/issues/new?title=Idea%3A%20' }));
+  $('sp-issue').addEventListener('click', () => send({ cmd: 'openUrl', url: 'https://github.com/JcperezDev/vigia/issues/new?title=Falla%3A%20' }));
+  $('sp-idea').addEventListener('click', () => send({ cmd: 'openUrl', url: 'https://github.com/JcperezDev/vigia/issues/new?title=Idea%3A%20' }));
   $('sp-share').addEventListener('click', async () => {
     try { await navigator.clipboard.writeText(DOWNLOAD); $('sp-result').textContent = 'Enlace copiado.'; }
     catch { $('sp-result').textContent = `No pude copiar. El enlace es ${DOWNLOAD}`; }

@@ -2,14 +2,16 @@
 # Publica una versión de Vigía para que Puente la instale.
 #   1. compila Vigía (autocontenida) y Puente
 #   2. firma el .zip y Puente.exe con la clave de %USERPROFILE%\.vigia\release-key.pem (nunca va al repo)
-#   3. crea la versión vX.Y.Z en JcperezDev/vigia-releases (público, solo instaladores) y sube los archivos
-#   4. etiqueta el código en JcperezDev/vigia (privado)
+#   3. etiqueta el código y lo sube a JcperezDev/vigia (público)
+#   4. crea la versión vX.Y.Z en JcperezDev/vigia con los archivos, y la misma copia en JcperezDev/vigia-releases:
+#      las instalaciones hasta 0.20.17 buscan actualizaciones ahí; cuando casi nadie las use, se puede quitar MIRROR_REPO
 # Uso (git-bash):  tools/release.sh "Qué trae esta versión"
 set -euo pipefail
 cd "$(dirname "$0")/.."
 ROOT="$(pwd -W)"
 NOTES="${1:?Escribe las notas de la versión entre comillas}"
-PUB_REPO="JcperezDev/vigia-releases"
+PUB_REPO="JcperezDev/vigia"
+MIRROR_REPO="JcperezDev/vigia-releases"
 KEY="$USERPROFILE/.vigia/release-key.pem"
 DOTNET="$USERPROFILE/.dotnet/dotnet.exe"
 export DOTNET_ROOT="$USERPROFILE/.dotnet" DOTNET_NOLOGO=1 DOTNET_CLI_TELEMETRY_OPTOUT=1
@@ -49,16 +51,21 @@ done
 cp "$OUT/Puente.exe" "$OUT/Vigia-Setup.exe"
 ls -la "out/$V" | grep -E "zip|exe|sig"
 
-echo "== Publicando v$V"
-node -e "require('fs').writeFileSync(process.argv[1], JSON.stringify({tag_name:'v'+process.argv[2], target_commitish:'main', name:'Vigía '+process.argv[2], body:process.argv[3]}))" "$OUT/release.json" "$V" "$NOTES"
-api -o "$OUT/release-out.json" -H "Content-Type: application/json; charset=utf-8" --data-binary "@$OUT/release.json" "https://api.github.com/repos/$PUB_REPO/releases"
-RID=$(node -e "const r=require(process.argv[1]); if(!r.id){console.error(JSON.stringify(r)); process.exit(1)} console.log(r.id)" "$OUT/release-out.json")
-for f in "$ZIP" "$ZIP.sig" Puente.exe Puente.exe.sig Vigia-Setup.exe; do
-  code=$(api -o "$DISCARD" -w '%{http_code}' -H "Content-Type: application/octet-stream" --data-binary "@$OUT/$f" \
-    "https://uploads.github.com/repos/$PUB_REPO/releases/$RID/assets?name=$f")
-  echo "  $f: $code"; [ "$code" = 201 ] || exit 1
-done
-
+# la etiqueta va primero: así la versión de GitHub apunta al commit exacto y no a lo que tenga main en ese momento
 git rev-parse -q --verify "refs/tags/v$V" >/dev/null || git tag "v$V"
 git push -q origin main "v$V"
+
+node -e "require('fs').writeFileSync(process.argv[1], JSON.stringify({tag_name:'v'+process.argv[2], target_commitish:'main', name:'Vigía '+process.argv[2], body:process.argv[3]}))" "$OUT/release.json" "$V" "$NOTES"
+publish() {  # $1 = repo
+  echo "== Publicando v$V en $1"
+  api -o "$OUT/release-out.json" -H "Content-Type: application/json; charset=utf-8" --data-binary "@$OUT/release.json" "https://api.github.com/repos/$1/releases"
+  RID=$(node -e "const r=require(process.argv[1]); if(!r.id){console.error(JSON.stringify(r)); process.exit(1)} console.log(r.id)" "$OUT/release-out.json")
+  for f in "$ZIP" "$ZIP.sig" Puente.exe Puente.exe.sig Vigia-Setup.exe; do
+    code=$(api -o "$DISCARD" -w '%{http_code}' -H "Content-Type: application/octet-stream" --data-binary "@$OUT/$f" \
+      "https://uploads.github.com/repos/$1/releases/$RID/assets?name=$f")
+    echo "  $f: $code"; [ "$code" = 201 ] || exit 1
+  done
+}
+publish "$PUB_REPO"
+[ -z "$MIRROR_REPO" ] || publish "$MIRROR_REPO"
 echo "Listo: https://github.com/$PUB_REPO/releases/tag/v$V"

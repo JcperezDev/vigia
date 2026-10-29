@@ -335,7 +335,7 @@
   addEventListener('scroll', onScroll, { passive: true }); onScroll();
 
   // la versión publicada más reciente; si GitHub no responde, queda la escrita
-  fetch('https://api.github.com/repos/JcperezDev/vigia-releases/releases/latest')
+  fetch('https://api.github.com/repos/JcperezDev/vigia/releases/latest')
     .then((r) => (r.ok ? r.json() : null))
     .then((j) => { if (j && /^v\d+\.\d+\.\d+$/.test(j.tag_name)) $$('[data-ver]').forEach((e) => { e.textContent = j.tag_name; }); })
     .catch(() => {});

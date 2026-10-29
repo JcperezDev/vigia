@@ -4,7 +4,7 @@ Optimizador y monitor para PCs con Windows 10/11, pensado para jugar. Gratis, si
 
 [Read in English](README.md).
 
-**Descarga:** https://vigiapc.vercel.app · [Última versión](https://github.com/JcperezDev/vigia-releases/releases/latest)
+**Descarga:** https://vigiapc.vercel.app · [Última versión](https://github.com/JcperezDev/vigia/releases/latest)
 
 ## Qué hace
 

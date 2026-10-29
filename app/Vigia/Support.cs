@@ -4,14 +4,14 @@ using System.Text.Json.Nodes;
 namespace Vigia;
 
 /// <summary>
-/// «Apoya Vigía». Los enlaces de donación viven en support.json del repo público (vigia-releases):
+/// «Apoya Vigía». Los enlaces de donación viven en support.json del repo (JcperezDev/vigia):
 /// se cambian sin sacar versión nueva. Solo se lee al abrir la sección, nunca en segundo plano.
 /// Nada de cuentas ni datos del usuario: Vigía solo abre el enlace en el navegador.
 /// </summary>
 public static class Support
 {
-    const string Url = "https://raw.githubusercontent.com/JcperezDev/vigia-releases/main/support.json";
-    public const string Repo = "https://github.com/JcperezDev/vigia-releases";
+    const string Url = "https://raw.githubusercontent.com/JcperezDev/vigia/main/support.json";
+    public const string Repo = "https://github.com/JcperezDev/vigia";
 
     // Solo se abren enlaces https a estos sitios: aunque alguien tocara support.json, no puede mandar a otro lado.
     static readonly string[] Allowed = ["ko-fi.com", "paypal.me", "www.paypal.com", "github.com", "buymeacoffee.com", "www.buymeacoffee.com", "discord.gg"];
