@@ -656,6 +656,12 @@ static partial class Program
         Ui.Show("Listo: Vigía quitada", "Puente se borra solo al cerrar esta ventana.", 1.0);
         if (Layout.Under(me, Layout.Root))
             Process.Start(new ProcessStartInfo(Native.Sys("cmd.exe"), $"/d /c timeout /t 3 /nobreak >nul & rmdir /s /q \"{Layout.Root}\"") { CreateNoWindow = true, UseShellExecute = false, WindowStyle = ProcessWindowStyle.Hidden })?.Dispose();
+        else
+        {
+            // Lanzado desde fuera (Vigia-Setup.exe): se suelta el candado y se quita la carpeta, que ya quedó vacía.
+            busy?.Dispose();
+            try { if (Directory.Exists(Layout.Root) && !Directory.EnumerateFileSystemEntries(Layout.Root).Any()) Directory.Delete(Layout.Root); } catch { }
+        }
         if (Ui.Active) Thread.Sleep(2500);
         return 0;
     }
