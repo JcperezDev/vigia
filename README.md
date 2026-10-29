@@ -2,7 +2,7 @@
 
 A monitor and optimizer for Windows 10/11 PCs, built for gaming. Free, no ads, no accounts, and the source code is public.
 
-**Download:** https://vigiapc.vercel.app · [Latest release](https://github.com/JcperezDev/vigia-releases/releases/latest)
+**Download:** https://vigiapc.vercel.app · [Latest release](https://github.com/JcperezDev/vigia/releases/latest)
 
 The app is available in English, Spanish, Portuguese, French and German. [Leer en español](README.es.md).
 

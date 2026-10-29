@@ -15,12 +15,21 @@ const get = (url) => new Promise((ok, ko) => {
 });
 
 (async () => {
-  const rels = [];
-  for (let page = 1; ; page++) {
-    const r = await get(`https://api.github.com/repos/JcperezDev/vigia-releases/releases?per_page=100&page=${page}`);
-    rels.push(...r);
-    if (r.length < 100) break;
+  // las versiones están en JcperezDev/vigia; vigia-releases es la copia para instalaciones viejas.
+  // Las descargas de la misma versión se suman.
+  const byTag = new Map();
+  for (const repo of ['JcperezDev/vigia', 'JcperezDev/vigia-releases']) {
+    for (let page = 1; ; page++) {
+      const r = await get(`https://api.github.com/repos/${repo}/releases?per_page=100&page=${page}`);
+      for (const x of r) {
+        const prev = byTag.get(x.tag_name);
+        if (!prev) byTag.set(x.tag_name, { ...x, assets: x.assets.map((a) => ({ ...a })) });
+        else for (const a of x.assets) { const p = prev.assets.find((b) => b.name === a.name); if (p) p.download_count += a.download_count; else prev.assets.push({ ...a }); }
+      }
+      if (r.length < 100) break;
+    }
   }
+  const rels = [...byTag.values()];
   const rows = rels.map((r) => {
     const n = (re) => r.assets.filter((a) => re.test(a.name)).reduce((s, a) => s + a.download_count, 0);
     return { version: r.tag_name, date: r.published_at.slice(0, 10), setup: n(/^Vigia-Setup\.exe$/), puente: n(/^Puente\.exe$/), zip: n(/^Vigia-.*\.zip$/) };

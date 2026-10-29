@@ -7,7 +7,7 @@ using System.Text.Json;
 namespace Puente;
 
 /// <summary>
-/// Puente instala y actualiza Vigía desde las versiones publicadas en GitHub (JcperezDev/vigia-releases).
+/// Puente instala y actualiza Vigía desde las versiones publicadas en GitHub (JcperezDev/vigia).
 /// Solo instala archivos firmados con la clave de publicación: si alguien cambia un archivo de la versión,
 /// la firma no coincide y Puente no lo instala. La versión anterior se guarda para poder volver a ella.
 ///
@@ -20,7 +20,7 @@ namespace Puente;
 /// </summary>
 static class Program
 {
-    const string Repo = "JcperezDev/vigia-releases";
+    const string Repo = "JcperezDev/vigia";
 
     // Clave pública de publicación. La privada está solo en el PC donde se publican las versiones.
     const string PublicKey = "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE2sn60BucOhX4a3HZt59BBg3gWbZ77dyDNEdmP0/+cFAaUg7jSEjaywk5q54fPIZKzpuUtQlsS01dcTNdbv0muA==";
@@ -408,7 +408,7 @@ static class Program
         k.SetValue("InstallLocation", AppDir);
         k.SetValue("UninstallString", $"\"{puente}\" --uninstall");
         k.SetValue("QuietUninstallString", $"\"{puente}\" --uninstall --quiet");
-        k.SetValue("URLInfoAbout", "https://github.com/JcperezDev/vigia-releases");
+        k.SetValue("URLInfoAbout", "https://github.com/JcperezDev/vigia");
         k.SetValue("EstimatedSize", (int)Math.Min(size, int.MaxValue), Microsoft.Win32.RegistryValueKind.DWord);
         k.SetValue("NoModify", 1, Microsoft.Win32.RegistryValueKind.DWord);
         k.SetValue("NoRepair", 1, Microsoft.Win32.RegistryValueKind.DWord);
