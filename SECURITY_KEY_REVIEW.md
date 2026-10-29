@@ -13,6 +13,9 @@ Estados: `IMPLEMENTED` código hecho · `UNIT_TESTED` pruebas automáticas · `B
 sandbox de Codex, una de ellas con red. No hay rastro de que ninguna la leyera ni de que esté copiada en ningún sitio,
 pero no se puede demostrar que no ocurrió. Hasta que decidas: no se firma con ella (lo impide el código, ver abajo).
 
+Estado de publicación: **`SIGNING_BLOCKED`** mientras siga la entrada de `CodexSandboxUsers` en `.vigia` y la clave viva
+en la misma cuenta donde corren los agentes de programación (ver «Reauditoría» al final).
+
 ## Investigación (los 11 puntos)
 
 | # | Punto | Resultado | Evidencia |
@@ -86,14 +89,51 @@ no reconozcas), se puede **no rotar** y dejarlo como riesgo aceptado. Si prefier
 
 1. En la cuenta/PC de firma nueva: `Puente.exe --genkey nueva.pem` (imprime la clave pública), luego `--protect-key`,
    y copia offline.
-2. **Falta código** (no implementado): que Puente y Vigía confíen en **dos** claves públicas a la vez (la vieja y la
-   nueva). Es un cambio pequeño en `Program.cs` (`PublicKey`) y `Updates.cs`, con pruebas en puente-test.
+2. **Hecho en código (sin claves nuevas):** Puente (`Program.cs`, `NextKeys` + `VerifyWith`) y Vigía (`Updates.cs`,
+   `PuenteSigOk`) aceptan la clave actual **o** cualquiera de la lista `NextKeys`, que hoy va **vacía** (nada cambia
+   hasta rotar). Para rotar se pega en las dos listas la clave **pública** nueva. Probado con claves de prueba:
+   puente-test «relevo de clave» (con la nueva en la lista se instala; sin ella se rechaza) y selftest (3 casos, incluido
+   «esta versión no trae claves de relevo»).
 3. Versión **puente** N firmada con la clave **vieja**, cuyos binarios confían en las dos. Los usuarios actualizan
    normal.
 4. Esperar varias semanas a que casi todos estén en N.
 5. Versión N+1 firmada con la **nueva**; sus binarios confían solo en la nueva. La vieja se guarda offline y no se usa.
 6. Si hubiera señales de abuso: en N subir `minVersion` del manifiesto a N, avisar en el README y en las notas para que
    quien instale a mano baje Puente de nuevo.
+
+## Reauditoría (29-10-2026, tarde) — sin abrir la clave
+
+| Comprobación | Resultado | Evidencia |
+| --- | --- | --- |
+| ACL efectiva hoy | Igual: `CodexSandboxUsers:(I)(RX)` heredado de `.vigia`, donde es **explícito** `(OI)(CI)(RX)`. SYSTEM, Administradores y `Pickle OS`: control total. Dueño `Pickle OS` | `icacls`, `Get-Acl` |
+| Dónde más tiene Codex lectura | Entradas explícitas en `~\work` y `~\AppData` (y heredadas debajo, incluido el scratch con la clave de laboratorio). No en la raíz del perfil | `icacls` |
+| Cuentas del grupo | `CodexSandboxOffline` (último inicio de sesión 29-10 13:37) y `CodexSandboxOnline` (nunca) | `Get-LocalUser`, eventos 4624 de hoy: 8 inicios de `CodexSandboxOffline` entre 11:51 y 13:37, probablemente las revisiones de código de solo lectura lanzadas hoy (no cuadrado al minuto); ninguno de `CodexSandboxOnline` |
+| Auditoría de acceso a archivos | **Desactivada** (`auditpol`: File System = No Auditing). Windows no guarda quién abrió el archivo | `auditpol /get` |
+| Fecha de último acceso | Activada (`DisableLastAccess = 0`). Prueba con archivos de control: `icacls`, `Get-Acl` y `Get-Item` **no** la cambian; leer el contenido **sí**, y también `ls`/`stat` de la consola (abren el archivo). Último acceso de la clave: 29-10 18:55:32, y antes 18:00:09: coinciden al segundo con dos listados `ls -la ~/.vigia` de esta misma revisión | `scratch/p9/atime*.ps1`, historial de comandos |
+| Procesos del sandbox ahora | Ninguno | `Win32_Process` + dueño |
+| Índice de búsqueda de Windows | `.vigia` sin entradas | consulta al índice, solo rutas |
+| Referencias en código y scripts | Solo `tools/release.sh` (busca `.dpapi` y si no `.pem`) y la entropía DPAPI de `Native.cs`; los scripts de laboratorio usan `lab.pem` (ficticia) y nunca la ruta real | `grep -rn release-key` |
+
+Conclusión: **exposición potencial por permisos, sin evidencia de acceso efectivo por otra cuenta.** Los accesos que se
+ven los explica esta revisión. Como no hay auditoría de archivos y la fecha de acceso se pisa, tampoco se puede
+demostrar lo contrario. No se afirma robo.
+
+Además del sandbox de Codex, **cualquier proceso de `Pickle OS` puede leer la clave**, incluido Hermes y sus
+subagentes (lo demuestra que un `ls` de esta revisión tocó su fecha de acceso). Quitar la entrada de Codex cierra la
+vía de las otras cuentas, pero no esta. DPAPI con la misma cuenta tampoco la cierra. La única solución que impide que un
+agente de programación llegue a la clave de producción es que **la clave no esté en esta cuenta**: cuenta de firma
+aparte o PC/VM sin red, firmando con `Puente.exe --sign-release` (ya implementado) y `VIGIA_RELEASE_SIGN=fuera`.
+
+### Paso exacto que necesita tu autorización
+
+1. Quitar la lectura de Codex: `icacls "%USERPROFILE%\.vigia" /remove:g CodexSandboxUsers` y comprobar con
+   `Puente.exe --key-check "%USERPROFILE%\.vigia\release-key.pem"` (debe decir «Clave protegida», código 0).
+2. Elegir: (a) aceptar el riesgo y mover la clave a una cuenta de firma, o (b) rotar con el relevo de claves de arriba.
+   Recomendado: **(b)**, porque la ventana de exposición no se puede cerrar con pruebas y el relevo ya está hecho; la
+   rotación cuesta una versión intermedia.
+3. Tras mover o rotar, borrar el `.pem` de esta cuenta (borrado tuyo, no de un agente).
+
+Hasta entonces: `SIGNING_BLOCKED`.
 
 ## Próximo paso
 
