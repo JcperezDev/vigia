@@ -79,34 +79,51 @@ public static class Optimize
         return d.TotalHours < 1 ? "hace menos de 1 h" : d.TotalDays < 1 ? $"hace {d.TotalHours:0} h" : d.TotalDays < 2 ? "ayer" : $"hace {d.TotalDays:0} días";
     }
 
+    /// <summary>¿Está activa la tarea de Windows que optimiza las unidades cada semana? Se lee el XML de la tarea
+    /// (no el texto de schtasks, que cambia con el idioma): sin &lt;Enabled&gt;false&lt;/Enabled&gt; está activa.</summary>
     internal static bool ScheduledEnabled()
     {
         try
         {
-            var p = Process.Start(new ProcessStartInfo("schtasks.exe", @"/query /tn \Microsoft\Windows\Defrag\ScheduledDefrag /fo csv /nh")
-                { RedirectStandardOutput = true, CreateNoWindow = true, UseShellExecute = false })!;
+            var p = Process.Start(new ProcessStartInfo(Path.Combine(Environment.SystemDirectory, "schtasks.exe"), @"/query /tn \Microsoft\Windows\Defrag\ScheduledDefrag /xml")
+                { RedirectStandardOutput = true, StandardOutputEncoding = Oem(), CreateNoWindow = true, UseShellExecute = false })!;
             var o = p.StandardOutput.ReadToEnd(); p.WaitForExit(5000);
-            return p.ExitCode == 0 && !o.Contains("Disabled", StringComparison.OrdinalIgnoreCase) && !o.Contains("Deshabilitad", StringComparison.OrdinalIgnoreCase);
+            return p.ExitCode == 0 && TaskXmlEnabled(o);
+        }
+        catch { return false; }
+    }
+
+    internal static bool TaskXmlEnabled(string xml)
+    {
+        try
+        {
+            var doc = System.Xml.Linq.XDocument.Parse(xml.Trim('\uFEFF', ' ', '\r', '\n', '\0'));
+            var en = doc.Descendants().FirstOrDefault(e => e.Name.LocalName == "Settings")?.Elements().FirstOrDefault(e => e.Name.LocalName == "Enabled");
+            return en is null || !en.Value.Trim().Equals("false", StringComparison.OrdinalIgnoreCase);
         }
         catch { return false; }
     }
 
     static Encoding Oem() { try { return Encoding.GetEncoding(System.Globalization.CultureInfo.CurrentCulture.TextInfo.OEMCodePage); } catch { return Encoding.UTF8; } }
 
-    /// <summary>Solo análisis (defrag /A): devuelve % fragmentado. No modifica el disco.</summary>
+    /// <summary>Solo análisis (Win32_Volume.DefragAnalysis, lo mismo que defrag /A): % fragmentado. No modifica el disco
+    /// y no depende del idioma de Windows.</summary>
     public static int? Analyze(string letter)
     {
+        if (!Regex.IsMatch(letter, "^[A-Za-z]:$")) return null;
         try
         {
-            var p = Process.Start(new ProcessStartInfo(Defrag, $"{letter} /A")
-                { RedirectStandardOutput = true, StandardOutputEncoding = Oem(), CreateNoWindow = true, UseShellExecute = false })!;
-            var o = p.StandardOutput.ReadToEnd();
-            if (!p.WaitForExit(120_000)) { p.Kill(); return null; }
-            var line = o.Split('\n').FirstOrDefault(x => x.Contains("fragment", StringComparison.OrdinalIgnoreCase) && x.Contains('%'));
-            var m = line is null ? Match.Empty : Regex.Match(line, @"(\d+)\s*%");
-            return m.Success ? int.Parse(m.Groups[1].Value) : null;
+            using var s = new System.Management.ManagementObjectSearcher($"SELECT * FROM Win32_Volume WHERE DriveLetter = '{letter.ToUpperInvariant()}'");
+            foreach (System.Management.ManagementObject v in s.Get())
+                using (v)
+                {
+                    var r = v.InvokeMethod("DefragAnalysis", null, null);
+                    if (r?["ReturnValue"] is not uint rc || rc != 0 || r["DefragAnalysis"] is not System.Management.ManagementBaseObject a) return null;
+                    return Convert.ToInt32(a["TotalPercentFragmentation"]);
+                }
         }
-        catch { return null; }
+        catch { }
+        return null;
     }
 
     static int _active;
@@ -190,5 +207,28 @@ public static class Optimize
     public static void Cancel()
     {
         lock (_lock) { if (_active > 0 || _running is { HasExited: false }) { _cancelled = true; try { if (_running is { HasExited: false }) _running.Kill(true); } catch { } } }
+    }
+
+    public static string SelfTest()
+    {
+        var log = new List<string>();
+        void Check(bool ok, string what) => log.Add($"{(ok ? "OK  " : "FAIL")} {what}");
+        const string on = "<?xml version=\"1.0\" encoding=\"UTF-16\"?><Task xmlns=\"http://schemas.microsoft.com/windows/2004/02/mit/task\"><Settings><Hidden>true</Hidden></Settings></Task>";
+        const string off = "<Task xmlns=\"http://schemas.microsoft.com/windows/2004/02/mit/task\"><Settings><Enabled>false</Enabled></Settings></Task>";
+        Check(TaskXmlEnabled(on), "tarea sin <Enabled> = activa");
+        Check(!TaskXmlEnabled(off), "tarea con <Enabled>false = apagada");
+        Check(!TaskXmlEnabled("Error: El sistema no puede encontrar el archivo"), "texto que no es XML = no se da por activa");
+        Check(Analyze("C:\\..\\x") is null && Analyze("ZZ") is null, "analizar una unidad no válida se rechaza");
+        var sched = ScheduledEnabled();
+        log.Add($"info tarea semanal de Windows: {(sched ? "activa" : "apagada o no se pudo leer")}");
+        var st = Status(false);
+        Check(st.Volumes.Count > 0 && st.Volumes.All(v => v.Media is "SSD" or "HDD" or "Desconocido"), $"unidades detectadas: {string.Join(" ", st.Volumes.Select(v => v.Letter + "=" + v.Media))}");
+        // análisis real (solo lee) en el primer disco mecánico, si hay
+        if (st.Volumes.FirstOrDefault(v => v.Media == "HDD") is { } hdd && !Busy)
+        {
+            var f = Analyze(hdd.Letter);
+            Check(f is >= 0 and <= 100, $"análisis de fragmentación de {hdd.Letter} sin leer texto de defrag: {f?.ToString() ?? "sin dato"} %");
+        }
+        return string.Join(Environment.NewLine, log);
     }
 }

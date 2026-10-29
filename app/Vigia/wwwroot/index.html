@@ -170,6 +170,21 @@
       <header class="head"><h1>Almacenamiento</h1></header>
       <ul class="drives" id="drives"></ul>
 
+      <section class="optsec" aria-labelledby="opt-title">
+        <header class="clean-head optsec-head">
+          <div><h2 id="opt-title">Optimizar unidades</h2><p class="sub">Windows suele hacerlo solo cada semana. TRIM en los SSD y desfragmentación solo en discos mecánicos que lo necesiten.</p></div>
+          <button class="btn" id="o-analyze">Analizar fragmentación</button>
+        </header>
+        <ul class="vols" id="vols"><li class="empty">Cargando unidades…</li></ul>
+        <p class="sched" id="sched"></p>
+        <section class="oprun" id="oprun" hidden aria-live="polite">
+          <div class="oprun-head"><strong id="op-title"></strong><button class="btn" id="op-cancel">Detener</button></div>
+          <div class="bar big-bar"><i id="op-bar"></i></div>
+          <p class="op-line" id="op-line"></p>
+        </section>
+        <p class="op-result" id="op-result" aria-live="polite"></p>
+      </section>
+
       <section class="clean" aria-labelledby="clean-title">
         <header class="clean-head">
           <div>
@@ -191,21 +206,6 @@
         <button class="btn" id="h-scan">Escanear</button>
       </header>
       <div class="hcards" id="health-list" aria-live="polite"><p class="empty">Escaneando…</p></div>
-    </section>
-
-    <section class="view" id="view-opt" hidden>
-      <header class="head">
-        <div><h1>Optimizar</h1><p class="sub">TRIM en los SSD y desfragmentación en los discos mecánicos.</p></div>
-        <button class="btn" id="o-analyze">Analizar fragmentación</button>
-      </header>
-      <ul class="vols" id="vols"><li class="empty">Cargando unidades…</li></ul>
-      <p class="sched" id="sched"></p>
-      <section class="oprun" id="oprun" hidden aria-live="polite">
-        <div class="oprun-head"><strong id="op-title"></strong><button class="btn" id="op-cancel">Detener</button></div>
-        <div class="bar big-bar"><i id="op-bar"></i></div>
-        <p class="op-line" id="op-line"></p>
-      </section>
-      <p class="op-result" id="op-result" aria-live="polite"></p>
     </section>
 
     <section class="view" id="view-mem" hidden>

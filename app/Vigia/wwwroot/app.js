@@ -1111,7 +1111,7 @@
   const loaded = new Map();
   let changes = 0;
   const changed = () => { changes += 1; };
-  const REREAD = new Set(['opt', 'diag', 'sug', 'mem', 'tweaks', 'apps', 'simple', 'tools', 'startup', 'games', 'backups']);
+  const REREAD = new Set(['storage', 'diag', 'sug', 'mem', 'tweaks', 'apps', 'simple', 'tools', 'startup', 'games', 'backups']);
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') changed(); });
   document.querySelectorAll('.nav[data-view]').forEach((b) => b.addEventListener('click', () => {
     const v = b.dataset.view;
@@ -1120,10 +1120,9 @@
     loaded.set(v, changes);
     if (v === 'simple' && again && $('sm-ask').hidden) return;   // modo simple corriendo o terminado: no se toca
     if (v === 'health') $('h-scan').click();
-    else if (v === 'opt') send({ cmd: 'optStatus', analyze: false });
     else if (v === 'diag') $('d-run').click();
     else if (v === 'sug') { if (!sugDone || again) $('s-run').click(); }
-    else if (v === 'storage' && !targets.length) $('scan').click();
+    else if (v === 'storage') { if (!targets.length) $('scan').click(); send({ cmd: 'optStatus', analyze: false }); }
     else if (v === 'mem') send({ cmd: 'settingsGet' });
     else if (v === 'tweaks') send({ cmd: 'tweaksList' });
     else if (v === 'apps' || v === 'simple') { if (v === 'simple' && bloat.length) smApps(); else send({ cmd: 'bloatList' }); }
@@ -1339,7 +1338,7 @@
     const [view, act] = page.split('-');
     document.querySelector(`.nav[data-view="${view}"]`)?.click();
     if (anchor) setTimeout(() => $(anchor)?.scrollIntoView(), 2500);
-    if (act === 'run' && view === 'opt') setTimeout(() => document.querySelector('.vol .btn')?.click(), 2500);
+    if (act === 'run' && view === 'storage') setTimeout(() => document.querySelector('.vol .btn')?.click(), 2500);
     if (act === 'run' && view === 'mem') setTimeout(() => $('m-free').click(), 2500);
     if (act === 'excl') setTimeout(() => { document.querySelector('.excluded').open = true; }, 500);
     // 'simple-demo' / 'simple-done': solo para capturas; pinta el progreso sin mandar nada al backend

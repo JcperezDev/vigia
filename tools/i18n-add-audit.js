@@ -168,6 +168,10 @@ const T = {
   'El instalador de PawnIO terminó con código {0}.': ['The PawnIO installer exited with code {0}.', 'O instalador do PawnIO terminou com código {0}.', 'Le programme d\u2019installation de PawnIO s\u2019est terminé avec le code {0}.', 'Das PawnIO-Installationsprogramm endete mit Code {0}.'],
   '{0}. No se cambió nada: quedó como estaba.': ['{0}. Nothing was changed: it was left as it was.', '{0}. Nada foi alterado: ficou como estava.', '{0}. Rien n\u2019a été modifié : tout est resté comme avant.', '{0}. Nichts wurde geändert: alles blieb wie vorher.'],
   '{0}. No se pudo dejar todo como estaba; usa Revertir o la copia de seguridad.': ['{0}. Not everything could be put back; use Revert or the backup.', '{0}. Não foi possível deixar tudo como estava; use Reverter ou o backup.', '{0}. Impossible de tout remettre comme avant ; utilisez Annuler ou la sauvegarde.', '{0}. Nicht alles konnte zurückgesetzt werden; nutze Rückgängig oder die Sicherung.'],
+  "Optimizar unidades": ["Optimize drives", "Otimizar unidades", "Optimiser les lecteurs", "Laufwerke optimieren"],
+  "Windows suele hacerlo solo cada semana. TRIM en los SSD y desfragmentación solo en discos mecánicos que lo necesiten.": ["Windows usually does this on its own every week. TRIM on SSDs, and defragmentation only on hard drives that need it.", "O Windows costuma fazer isso sozinho toda semana. TRIM nos SSDs e desfragmentação só em discos mecânicos que precisem.", "Windows le fait généralement seul chaque semaine. TRIM sur les SSD, et défragmentation seulement sur les disques durs qui en ont besoin.", "Windows erledigt das meist selbst jede Woche. TRIM auf SSDs, Defragmentierung nur auf Festplatten, die es brauchen."],
+  "{0} archivos": ["{0} files", "{0} arquivos", "{0} fichiers", "{0} Dateien"],
+  "{0} entradas": ["{0} entries", "{0} entradas", "{0} entrées", "{0} Einträge"],
 };
 const langs = ['en', 'pt', 'fr', 'de'];
 for (const [i, lang] of langs.entries()) {

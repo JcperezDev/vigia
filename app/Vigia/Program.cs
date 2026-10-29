@@ -289,7 +289,8 @@ static class Program
                 + Environment.NewLine + "--- equipo" + Environment.NewLine + Rig.SelfTest()
                 + Environment.NewLine + "--- herramientas" + Environment.NewLine + Toolbox.SelfTest()
                 + Environment.NewLine + "--- antitrampas" + Environment.NewLine + AntiCheat.SelfTest()
-                + Environment.NewLine + "--- memoria" + Environment.NewLine + Memory.SelfTest();
+                + Environment.NewLine + "--- memoria" + Environment.NewLine + Memory.SelfTest()
+                + Environment.NewLine + "--- discos" + Environment.NewLine + Optimize.SelfTest();
             File.WriteAllText(args[1], report);
             return report.Contains("FAIL") ? 1 : 0;
         }

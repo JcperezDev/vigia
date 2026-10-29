@@ -120,7 +120,7 @@ dd { margin: 0; font: 500 14px "JBMono", monospace; font-variant-numeric: tabula
 .clean-head h2 { color: var(--fg); font-size: 15px; }
 .sub { margin: 4px 0 0; color: var(--fg-3); font-size: 12px; max-width: 60ch; }
 .targets { list-style: none; margin: 0; padding: 6px 0; }
-.targets li { display: grid; grid-template-columns: 22px 1fr auto; align-items: center; gap: 12px; padding: 10px 20px; }
+.targets li { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 10px 20px; }
 .targets li.empty { display: block; color: var(--fg-3); font-size: 13px; padding: 18px 20px; }
 .rows li.empty { padding: 14px 16px; }
 .targets label { display: contents; cursor: pointer; }
@@ -681,3 +681,5 @@ td.empty.loading::before { display: inline-block; vertical-align: -2px; margin-r
 .tw-one[open] > summary { margin-bottom: 4px; }
 .head .actions[hidden] { display: none; }
 #ask-p { white-space: pre-line; }
+.optsec { margin-top: 22px; }
+.optsec-head { padding: 0 2px 14px; border-bottom: 0; }
