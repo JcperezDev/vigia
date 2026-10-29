@@ -40,6 +40,32 @@ public static class Updates
         return await CheckOnceAsync();
     }
 
+    /// <summary>Lee «v1.2.3», «1.2.3», «1.2», «1.2.3-beta» o «1.2.3-rc.1». Devuelve false si no tiene esa forma (sin excepción).
+    /// pre = true si trae sufijo de prueba. No usa la versión del ensamblado (4 números) para nada de esto.</summary>
+    internal static bool TryParseTag(string? tag, out Version v, out bool pre)
+    {
+        v = new Version(0, 0, 0); pre = false;
+        var m = System.Text.RegularExpressions.Regex.Match(tag?.Trim() ?? "", @"^[vV]?(\d{1,5})\.(\d{1,5})(?:\.(\d{1,5}))?(?:-([0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?$");
+        if (!m.Success) return false;
+        v = new Version(int.Parse(m.Groups[1].Value), int.Parse(m.Groups[2].Value), m.Groups[3].Success ? int.Parse(m.Groups[3].Value) : 0);
+        pre = m.Groups[4].Success;
+        return true;
+    }
+
+    public static string SelfTest()
+    {
+        var log = new List<string>();
+        void Check(bool ok, string what) => log.Add($"{(ok ? "OK  " : "FAIL")} {what}");
+        Check(TryParseTag("v1.2.3", out var a, out var p1) && a == new Version(1, 2, 3) && !p1, "v1.2.3");
+        Check(TryParseTag("1.2.3", out var b, out var p2) && b == new Version(1, 2, 3) && !p2, "1.2.3");
+        Check(TryParseTag("0.20", out var c, out _) && c == new Version(0, 20, 0), "0.20 = 0.20.0");
+        Check(TryParseTag("1.2.3-beta", out var d, out var p3) && d == new Version(1, 2, 3) && p3, "1.2.3-beta es de prueba");
+        Check(TryParseTag("1.2.3-rc.1", out _, out var p4) && p4, "1.2.3-rc.1 es de prueba");
+        Check(!TryParseTag("latest", out _, out _) && !TryParseTag("", out _, out _) && !TryParseTag(null, out _, out _) && !TryParseTag("1.2.3.4.5", out _, out _), "versiones raras se rechazan sin excepción");
+        Check(TryParseTag("0.20.18", out var n, out _) && TryParseTag("0.20.9", out var o, out _) && n > o, "0.20.18 > 0.20.9 (no por texto)");
+        return string.Join(Environment.NewLine, log);
+    }
+
     static async Task<UpdateInfo> CheckOnceAsync()
     {
         var cur = Current.ToString();
@@ -52,10 +78,12 @@ public static class Updates
             if (res.StatusCode == System.Net.HttpStatusCode.NotFound) return new(cur, null, false, null, File.Exists(PuentePath), null);
             res.EnsureSuccessStatusCode();
             using var doc = JsonDocument.Parse(await res.Content.ReadAsStringAsync());
-            var tag = doc.RootElement.GetProperty("tag_name").GetString()!.TrimStart('v', 'V');
+            var tag = doc.RootElement.TryGetProperty("tag_name", out var tn) ? tn.GetString() ?? "" : "";
+            var pre = doc.RootElement.TryGetProperty("prerelease", out var pr) && pr.ValueKind == JsonValueKind.True;
             var notes = doc.RootElement.TryGetProperty("body", out var b) ? b.GetString() : null;
-            var latest = Version.Parse(tag);
-            latest = new Version(latest.Major, latest.Minor, Math.Max(latest.Build, 0));
+            // versión con forma rara o de prueba (-beta, -rc.1): en el canal estable no se ofrece
+            if (!TryParseTag(tag, out var latest, out var tagPre) || pre || tagPre)
+                return new(cur, null, false, null, File.Exists(PuentePath), null);
             long? size = null;   // lo que baja Puente: el zip de la app
             if (doc.RootElement.TryGetProperty("assets", out var assets) && assets.ValueKind == JsonValueKind.Array)
                 foreach (var a in assets.EnumerateArray())

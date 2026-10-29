@@ -84,13 +84,44 @@ public static class Debloat
     {
         var (exit, output) = Tweaks.Run("powershell.exe",
             "-NoProfile -NonInteractive -Command \"Get-AppxPackage | Select-Object Name,Version | ConvertTo-Json -Compress\"");
+        return exit == 0 ? ParseInstalled(output) : new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+    }
+
+    /// <summary>Lee la lista de PowerShell sin romperse: salida vacía, avisos antes del JSON, JSON roto, un solo paquete
+    /// (objeto en vez de lista) o campos que no son texto. Lo que no se entiende se salta; nunca lanza.</summary>
+    internal static Dictionary<string, string> ParseInstalled(string? output)
+    {
         var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        if (exit != 0) return map;
-        var node = JsonNode.Parse(output.Trim() is { Length: > 0 } s ? s : "[]");
-        var arr = node is JsonArray a ? a : new JsonArray(node);
-        foreach (var p in arr.OfType<JsonObject>())
-            if ((string?)p["Name"] is { } n) map[n] = (string?)p["Version"] ?? "";
+        var s = output ?? "";
+        var start = s.IndexOfAny(['[', '{']);
+        if (start < 0) return map;
+        JsonNode? node;
+        try { node = JsonNode.Parse(s[start..].Trim()); }
+        catch (JsonException) { return map; }
+        IEnumerable<JsonNode?> items = node is JsonArray a ? a : [node];
+        foreach (var p in items.OfType<JsonObject>())
+        {
+            try
+            {
+                if (p["Name"] is JsonValue nv && nv.TryGetValue<string>(out var n) && n.Length > 0)
+                    map[n] = p["Version"] is JsonValue vv && vv.TryGetValue<string>(out var v) ? v : "";
+            }
+            catch (InvalidOperationException) { }
+        }
         return map;
+    }
+
+    public static string SelfTest()
+    {
+        var log = new List<string>();
+        void Check(bool ok, string what) => log.Add($"{(ok ? "OK  " : "FAIL")} {what}");
+        Check(ParseInstalled("").Count == 0 && ParseInstalled(null).Count == 0, "salida vacía = lista vacía");
+        Check(ParseInstalled("[{\"Name\":\"A.B\",\"Version\":\"1.0\"},{\"Name\":\"C.D\",\"Version\":\"2.0\"}]").Count == 2, "lista normal");
+        Check(ParseInstalled("{\"Name\":\"A.B\",\"Version\":\"1.0\"}")["A.B"] == "1.0", "un solo paquete (objeto, no lista)");
+        Check(ParseInstalled("ADVERTENCIA: algo\r\n[{\"Name\":\"A.B\",\"Version\":\"1.0\"}]").ContainsKey("a.b"), "aviso antes del JSON");
+        Check(ParseInstalled("[{\"Name\":\"A.B\",\"Ver").Count == 0, "JSON cortado = lista vacía, sin excepción");
+        Check(ParseInstalled("[{\"Name\":5},{\"Name\":null},{\"Name\":\"Ok.App\",\"Version\":{\"Major\":1}}]") is var m && m.Count == 1 && m["Ok.App"] == "", "campos raros se saltan; el resto se lista");
+        return string.Join(Environment.NewLine, log);
     }
 
     public static List<BloatResult> Remove(IEnumerable<string> ids)

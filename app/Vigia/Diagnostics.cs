@@ -242,6 +242,28 @@ public static partial class Diagnostics
     [System.Runtime.InteropServices.DllImport("ntdll.dll")]
     static extern int NtQueryTimerResolution(out uint min, out uint max, out uint cur);
 
+    /// <summary>¿El arranque trae esa opción puesta? Los nombres de bcdedit no cambian con el idioma, pero los valores sí
+    /// (Yes/Sí/Sim/Oui/Ja). Ninguna de estas opciones existe por defecto: si aparece con un valor que no sea «no», está puesta.</summary>
+    internal static bool BcdSet(string bcd, string key)
+    {
+        var m = System.Text.RegularExpressions.Regex.Match(bcd ?? "", $@"^\s*{System.Text.RegularExpressions.Regex.Escape(key)}\s+(\S+)", System.Text.RegularExpressions.RegexOptions.Multiline | System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        return m.Success && !new[] { "no", "não", "nao", "non", "nein" }.Contains(m.Groups[1].Value.ToLowerInvariant());
+    }
+
+    public static string BcdSelfTest()
+    {
+        var log = new List<string>();
+        void Check(bool ok, string what) => log.Add($"{(ok ? "OK  " : "FAIL")} {what}");
+        Check(BcdSet("identifier {current}\r\nuseplatformclock        Yes\r\n", "useplatformclock"), "bcdedit en inglés (Yes)");
+        Check(BcdSet("identificador {current}\r\nuseplatformclock        Sí\r\n", "useplatformclock"), "bcdedit en español (Sí)");
+        Check(BcdSet("Bezeichner {current}\r\ndisabledynamictick      Ja\r\n", "disabledynamictick"), "bcdedit en alemán (Ja)");
+        Check(BcdSet("useplatformclock        Oui", "useplatformclock") && BcdSet("useplatformclock Sim", "useplatformclock"), "bcdedit en francés y portugués");
+        Check(!BcdSet("disabledynamictick      Nein", "disabledynamictick") && !BcdSet("disabledynamictick Não", "disabledynamictick"), "«no» en cualquier idioma = no puesta");
+        Check(!BcdSet("description             Windows 11\r\nnx                      OptIn", "useplatformclock"), "opción ausente = no puesta");
+        Check(BcdSet("tscsyncpolicy           Enhanced", "tscsyncpolicy"), "tscsyncpolicy Enhanced");
+        return string.Join(Environment.NewLine, log);
+    }
+
     static DiagItem Clock()
     {
         var bad = new List<string>();
@@ -253,7 +275,7 @@ public static partial class Diagnostics
                 ("useplatformtick", "useplatformtick: tick fijo de la placa en vez del de la CPU."),
                 ("disabledynamictick", "disabledynamictick: la CPU no descansa entre ticks. Más consumo, casi sin ganancia."),
                 ("tscsyncpolicy", "tscsyncpolicy: cambia cómo se sincroniza el reloj entre núcleos.") })
-                if (System.Text.RegularExpressions.Regex.IsMatch(bcd, $@"^\s*{key}\s+(Yes|Enhanced|Legacy|Default)\b", System.Text.RegularExpressions.RegexOptions.Multiline | System.Text.RegularExpressions.RegexOptions.IgnoreCase))
+                if (BcdSet(bcd, key))
                     bad.Add(why);
         }
         catch { }

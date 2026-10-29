@@ -290,7 +290,10 @@ static class Program
                 + Environment.NewLine + "--- herramientas" + Environment.NewLine + Toolbox.SelfTest()
                 + Environment.NewLine + "--- antitrampas" + Environment.NewLine + AntiCheat.SelfTest()
                 + Environment.NewLine + "--- memoria" + Environment.NewLine + Memory.SelfTest()
-                + Environment.NewLine + "--- discos" + Environment.NewLine + Optimize.SelfTest();
+                + Environment.NewLine + "--- discos" + Environment.NewLine + Optimize.SelfTest()
+                + Environment.NewLine + "--- versiones" + Environment.NewLine + Updates.SelfTest()
+                + Environment.NewLine + "--- apps de Windows (lectura de PowerShell)" + Environment.NewLine + Debloat.SelfTest()
+                + Environment.NewLine + "--- arranque (bcdedit en cualquier idioma)" + Environment.NewLine + Diagnostics.BcdSelfTest();
             File.WriteAllText(args[1], report);
             return report.Contains("FAIL") ? 1 : 0;
         }

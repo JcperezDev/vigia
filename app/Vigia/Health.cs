@@ -52,7 +52,7 @@ public static class Health
     public static Dictionary<int, string> MediaByDisk() =>
         Wmi(StorageNs, "SELECT DeviceId, MediaType FROM MSFT_PhysicalDisk")
             .Where(d => int.TryParse(d["DeviceId"]?.ToString(), out _))
-            .ToDictionary(d => int.Parse(d["DeviceId"].ToString()!), d => MediaName(Convert.ToInt32(d["MediaType"] ?? 0)));
+            .GroupBy(d => int.Parse(d["DeviceId"]!.ToString()!)).ToDictionary(g => g.Key, g => MediaName(Convert.ToInt32(g.First()["MediaType"] ?? 0)));
 
     static string MediaName(int m) => m switch { 3 => "HDD", 4 => "SSD", 5 => "SCM", _ => "Desconocido" };
     static string BusName(int b) => b switch { 17 => "NVMe", 11 => "SATA", 7 => "USB", 8 => "RAID", 10 => "SAS", 3 => "ATA", _ => "Otro" };
@@ -92,7 +92,7 @@ public static class Health
 
         foreach (var d in Wmi(StorageNs, "SELECT DeviceId, FriendlyName, MediaType, BusType, HealthStatus, OperationalStatus, Size FROM MSFT_PhysicalDisk"))
         {
-            var num = int.Parse(d["DeviceId"].ToString()!);
+            if (!int.TryParse(d["DeviceId"]?.ToString(), out var num)) continue;   // un disco mal identificado no tumba el resto
             var model = ((string?)d["FriendlyName"])?.Trim() ?? $"Disco {num}";
             var media = MediaName(Convert.ToInt32(d["MediaType"] ?? 0));
             var bus = BusName(Convert.ToInt32(d["BusType"] ?? 0));
