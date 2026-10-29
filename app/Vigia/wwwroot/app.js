@@ -617,35 +617,321 @@
   }
 
   // ---------- apps de Windows ----------
+  // «bloat» es la lista corta del catálogo (modo simple e ISO). La vista Apps usa el inventario completo: «apps».
   let bloat = [];
-  const apSel = () => [...document.querySelectorAll('#ap-list input:checked')].map((c) => c.dataset.id);
   function renderBloat(list) {
     bloat = list;
     isoApps();
     smApps();
     if (!$('view-apps').hidden) send({ cmd: 'tweaksList' });
-    const shown = list.filter((a) => a.installed);
-    $('ap-remove').disabled = true;
-    $('ap-rec').hidden = $('ap-remove').hidden = !shown.length;
-    $('ap-list').hidden = !shown.length;   // nada que quitar: no se muestra nada
-    if (!shown.length) { $('ap-list').replaceChildren(); return; }
-    $('ap-list').replaceChildren(...shown.map((a) => {
-      const li = el('li', `row${a.blocked ? ' off-limits' : ''}`);
-      const cb = el('input'); cb.type = 'checkbox'; cb.dataset.id = a.id; cb.id = `ap-${a.id}`; cb.disabled = !!a.blocked;
-      cb.addEventListener('change', () => { const n = apSel().length; $('ap-remove').disabled = !n; $('ap-remove').textContent = n ? `Quitar (${n})` : 'Quitar seleccionadas'; });
-      const body = el('label'); body.htmlFor = cb.id;
-      body.append(el('strong', null, a.name), el('p', null, a.detail));
-      if (a.useful) body.append(el('p', 'src', 'Sirve para trabajar o pedir ayuda: no se marca sola. Si la quitas, vuelve desde Microsoft Store.'));
-      if (a.blocked) body.append(el('p', 'src why', a.blocked));
-      li.append(cb, body, el('span', 'state', a.version ? `v${a.version}` : ''));
+  }
+
+  const AP_RANK = { safe: 0, custom: 1, advanced: 2, never: 9 };
+  const AP_MODE_NOTE = {
+    safe: 'Solo apps sueltas de tu usuario que casi nadie usa. No toca otros usuarios ni los usuarios nuevos.',
+    custom: 'Eliges una por una, también las útiles. Solo tu usuario; ves editor, riesgo, dependencias y cómo se recupera.',
+    advanced: 'Además: quitar el aprovisionamiento (usuarios nuevos) y desinstalar programas clásicos. Pide confirmar aparte y puede pedir permisos de administrador.',
+  };
+  const AP_CAT = { protected: 'Sistema protegido', useful: 'Útil', optional: 'Opcional', oem: 'Del fabricante', unknown: 'Desconocida' };
+  const AP_RISK = { bajo: 'Riesgo bajo', medio: 'Riesgo medio', alto: 'Riesgo alto' };
+  const AP_ORIGIN = { microsoft: 'Microsoft', oem: 'Fabricante', third: 'Terceros' };
+  const AP_REC = { A: 'Se puede volver a registrar', B: 'Vuelve desde Microsoft Store', C: 'Recuperación manual', D: 'No se recupera sola' };
+  const AP_ACTION = {
+    'remove-user': 'Quitar de tu usuario', deprovision: 'Quitar el aprovisionamiento (usuarios nuevos)',
+    'remove-user+deprovision': 'Quitar de tu usuario y de los usuarios nuevos', 'win32-msi': 'Abrir su desinstalador (MSI)',
+    'win32-settings': 'Abrir Configuración de Windows para desinstalarlo', none: 'No se hace nada',
+  };
+  const AP_STATE = {
+    removed: 'Quitada', gone: 'Ya no estaba', uninstalled: 'Desinstalado', opened: 'Abierto: termina en Configuración',
+    skipped: 'Saltada', failed: 'Falló', 'cancelled-by-user': 'Cancelado en el asistente', 'not-started': 'Sin empezar',
+    cancelled: 'Cancelado', registered: 'Vuelta a registrar', pending: 'Sin terminar',
+  };
+  const AP_OP = { 'remove-user': 'Quitar de tu usuario', deprovision: 'Quitar aprovisionamiento', 'remove-user+deprovision': 'Quitar de tu usuario y aprovisionamiento',
+    'win32-msi': 'Desinstalar programa', 'win32-settings': 'Desinstalar programa', 'restore-register': 'Volver a registrar', 'restore-store': 'Abrir en Microsoft Store' };
+  const AP_FILTERS = [['all', 'Todas'], ['review', 'Recomendadas para revisar'], ['microsoft', 'Microsoft'], ['oem', 'Fabricante'], ['third', 'Terceros'],
+    ['protected', 'Sistema protegido'], ['removable', 'Se pueden quitar'], ['unknown', 'Desconocidas'], ['win32', 'Programas clásicos']];
+  const AP_PAGE = 200;
+  let apData = null, apMode = 'safe', apFilter = 'all', apQ = '', apShowAll = false, apPlanNow = null, apBusy = false;
+  const apSel = new Map();   // clave -> también quitar el aprovisionamiento
+
+  const apAll = () => (apData ? [...apData.apps, ...apData.win32] : []);
+  const apFind = (k) => apAll().find((x) => x.key === k);
+  // ¿se puede marcar en este modo? Lo protegido nunca; el backend lo vuelve a comprobar al armar el plan.
+  function apCan(a, mode = apMode) {
+    if (a.blocked || a.category === 'protected' || a.minMode === 'never') return false;
+    if (AP_RANK[a.minMode] > AP_RANK[mode]) return false;
+    if (a.kind === 'win32') return mode === 'advanced';
+    return a.me || (mode === 'advanced' && a.provisioned);
+  }
+  function apMatches(a) {
+    switch (apFilter) {
+      case 'review': if (!a.recommended) return false; break;
+      case 'microsoft': case 'oem': case 'third': if (a.origin !== apFilter) return false; break;
+      case 'protected': if (a.category !== 'protected') return false; break;
+      case 'removable': if (!apCan(a)) return false; break;
+      case 'unknown': if (a.category !== 'unknown') return false; break;
+      case 'win32': if (a.kind !== 'win32') return false; break;
+      default: break;
+    }
+    if (!apQ) return true;
+    const t = `${a.display} ${a.name} ${a.publisher} ${a.family} ${AP_CAT[a.category] || ''} ${window.vigiaI18n.t(AP_CAT[a.category] || '')}`.toLowerCase();
+    return apQ.split(/\s+/).every((w) => t.includes(w));
+  }
+
+  function renderApps(d) {
+    apData = d; apBusy = false;
+    busyBtn($('ap-scan'), false, 'Analizar');
+    $('ap-export').disabled = !d.ok;
+    if (!d.ok) {
+      $('ap-stats').hidden = $('ap-tools').hidden = $('ap-bar').hidden = true;
+      $('ap-list').replaceChildren(el('li', 'empty', `No pude leer las apps: ${d.error || 'error desconocido'}. No se muestra una lista vacía como si no hubiera nada; vuelve a analizar.`));
+      apHistory(d.history || []);
+      return;
+    }
+    // lo que ya no existe o no se puede marcar en este modo sale de la selección
+    for (const k of [...apSel.keys()]) { const a = apFind(k); if (!a || !apCan(a)) apSel.delete(k); }
+    const all = apAll();
+    const n = (f) => all.filter(f).length;
+    $('ap-stats').replaceChildren(...[
+      ['Detectadas', all.length], ['Opcionales', n((a) => a.category === 'optional')], ['Protegidas', n((a) => a.category === 'protected')],
+      ['Desconocidas', n((a) => a.category === 'unknown')], ['Programas clásicos', d.win32.length], ['Seleccionadas', apSel.size],
+    ].map(([t, v]) => { const w = el('div'); w.append(el('dt', null, t), el('dd', null, String(v))); return w; }));
+    $('ap-stats').hidden = false;
+    const warn = [];
+    if (!d.allUsers) warn.push('Sin permisos de administrador solo se ven las apps de tu usuario; las de otros usuarios y el aprovisionamiento pueden no aparecer completos.');
+    if (d.managed) warn.push('Este PC lo administra una organización: sus directivas mandan. Si una impide quitar algo, Vigía avisa y no la salta.');
+    if (d.storeBlocked) warn.push('Microsoft Store está bloqueada por directiva: lo que quites no se podrá reinstalar desde ahí.');
+    const back = d.apps.filter((a) => a.returned).map((a) => a.display);
+    if (back.length) warn.push(`Volvieron después de quitarlas (por ejemplo, tras una actualización de Windows): ${back.join(', ')}. No se quitan solas; decide tú.`);
+    if (d.added?.length) warn.push(`Nuevas desde el último análisis: ${d.added.join(', ')}.`);
+    if (d.gone?.length) warn.push(`Ya no están desde el último análisis: ${d.gone.join(', ')}.`);
+    for (const w of d.warnings || []) warn.push(w);
+    $('ap-warn').replaceChildren(...warn.map((w) => el('p', 'src', w)));
+    $('ap-warn').hidden = !warn.length;
+    $('ap-tools').hidden = false;
+    apFiltersDraw();
+    apDraw();
+    apHistory(d.history || []);
+    send({ cmd: 'bloatList' });
+  }
+
+  function apFiltersDraw() {
+    const all = apAll();
+    $('ap-filters').replaceChildren(...AP_FILTERS.map(([id, label]) => {
+      const keep = apFilter; apFilter = id; const c = all.filter(apMatches).length; apFilter = keep;
+      const b = el('button', 'chipf', label); b.append(el('small', null, String(c))); b.type = 'button'; b.setAttribute('role', 'radio'); b.setAttribute('aria-checked', String(apFilter === id));
+      b.addEventListener('click', () => { apFilter = id; apShowAll = false; apFiltersDraw(); apDraw(); });
+      return b;
+    }));
+  }
+
+  function apRow(a) {
+    const can = apCan(a);
+    const li = el('li', `row ap-row${can ? '' : ' off-limits'}`);
+    const cb = el('input'); cb.type = 'checkbox'; cb.id = `ap-${a.key}`; cb.disabled = !can; cb.checked = apSel.has(a.key);
+    cb.addEventListener('change', () => {
+      if (cb.checked) apSel.set(a.key, false); else apSel.delete(a.key);
+      const n = apRow(a); li.replaceWith(n); n.querySelector('input').focus(); apDraw(true);
+    });
+    const body = el('label'); body.htmlFor = cb.id;
+    const head = el('strong', null, a.display);
+    body.append(head);
+    const meta = [AP_CAT[a.category], a.publisher || 'Editor desconocido', AP_ORIGIN[a.origin]];
+    if (a.version) meta.push(`v${a.version}`);
+    body.append(el('p', 'src', meta.filter(Boolean).join(' · ')));
+    if (a.detail) body.append(el('p', null, a.detail));
+    if (a.why) body.append(el('p', 'src', a.why));
+    const facts = [];
+    if (a.kind === 'appx') {
+      facts.push(a.me ? 'En tu usuario' : 'No está en tu usuario');
+      if (a.others > 0) facts.push(plural(a.others, 'usuario más', 'usuarios más'));
+      if (a.provisioned) facts.push('Aprovisionada para usuarios nuevos');
+    } else facts.push(a.scope === 'machine' ? 'Programa para todo el equipo' : 'Programa de tu usuario');
+    if (AP_RISK[a.risk] && a.category !== 'protected') facts.push(AP_RISK[a.risk]);
+    if (a.recovery && AP_REC[a.recovery] && a.category !== 'protected') facts.push(AP_REC[a.recovery]);
+    body.append(el('p', 'src', facts.join(' · ')));
+    if (a.dependents?.length) body.append(el('p', 'src why', `La usan: ${a.dependents.join(', ')}`));
+    if (a.blocked) body.append(el('p', 'src why', a.blocked));
+    else if (!can && a.category !== 'protected' && a.minMode !== 'never') {
+      body.append(el('p', 'src', a.kind === 'win32' ? 'Se desinstala en modo Avanzado.' : AP_RANK[a.minMode] > AP_RANK[apMode]
+        ? (a.minMode === 'advanced' ? 'Se elige en modo Avanzado.' : 'Se elige en modo Personalizado.') : 'Solo está aprovisionada: se quita en modo Avanzado.'));
+    }
+    if (can && apMode === 'advanced' && a.kind === 'appx' && a.provisioned && apSel.has(a.key)) {
+      const lab = el('label', 'chk ap-deprov'); const d = el('input'); d.type = 'checkbox'; d.checked = !!apSel.get(a.key);
+      d.addEventListener('change', () => { apSel.set(a.key, d.checked); apDraw(true); });
+      lab.append(d, el('span', null, 'También quitar el aprovisionamiento (usuarios nuevos)'));
+      body.append(lab);
+    }
+    const more = el('details', 'ap-id'); more.append(el('summary', null, 'Detalles'));
+    const kv = [['Identificador', a.family || a.name], ['Paquete', a.name]];
+    if (a.arch) kv.push(['Arquitectura', a.arch]);
+    if (a.deps?.length) kv.push(['Depende de', a.deps.join(', ')]);
+    if (a.recoveryText && a.category !== 'protected') kv.push(['Si la quitas', a.recoveryText]);
+    for (const [k, v] of kv) { const p = el('p', 'src ap-kv'); p.append(el('b', null, k), el('span', null, v)); more.append(p); }
+    body.append(more);
+    li.append(cb, body, el('span', `state ap-cat-${a.category}`, AP_CAT[a.category] || ''));
+    return li;
+  }
+
+  function apDraw(selOnly) {
+    if (!apData) return;
+    const items = apAll().filter(apMatches);
+    if (!selOnly) {
+      const shown = apShowAll ? items : items.slice(0, AP_PAGE);
+      const frag = document.createDocumentFragment();
+      shown.forEach((a) => frag.append(apRow(a)));
+      if (!shown.length) frag.append(el('li', 'empty', apQ ? 'Nada coincide con la búsqueda.' : 'Nada en este filtro.'));
+      $('ap-list').replaceChildren(frag);
+      $('ap-more').hidden = items.length <= shown.length;
+      if (!$('ap-more').hidden) {
+        const b = el('button', 'linkish', 'Mostrar todas');
+        b.addEventListener('click', () => { apShowAll = true; apDraw(); });
+        $('ap-more').replaceChildren(document.createTextNode(`Se ven ${shown.length} de ${items.length}. `), b);
+      }
+    }
+    const sel = [...apSel.keys()].map(apFind).filter(Boolean);
+    const risky = sel.filter((a) => a.risk !== 'bajo' || a.category !== 'optional').length;
+    const dep = [...apSel.values()].filter(Boolean).length;
+    let t = sel.length ? plural(sel.length, 'seleccionada', 'seleccionadas') : 'Nada seleccionado';
+    if (risky) t += ` · ${plural(risky, 'con riesgo o útil', 'con riesgo o útiles')}`;
+    if (dep) t += ` · ${plural(dep, 'aprovisionamiento', 'aprovisionamientos')}`;
+    $('ap-bar-t').textContent = t;
+    $('ap-bar').hidden = false;
+    $('ap-review').disabled = !sel.length || apBusy;
+    $('ap-clear').disabled = !sel.length;
+    $('ap-rec').hidden = apMode !== 'safe';
+    const st = $('ap-stats').querySelectorAll('dd'); if (st.length === 6) st[5].textContent = String(sel.length);
+  }
+
+  function apSetMode(m) {
+    apMode = m;
+    document.querySelectorAll('#ap-mode button').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.mode === m)));
+    $('ap-mode-note').textContent = AP_MODE_NOTE[m];
+    for (const k of [...apSel.keys()]) { const a = apFind(k); if (!a || !apCan(a)) apSel.delete(k); else if (m !== 'advanced') apSel.set(k, false); }
+    apClosePlan();
+    if (apData?.ok) { apFiltersDraw(); apDraw(); }
+  }
+  document.querySelectorAll('#ap-mode button').forEach((b) => b.addEventListener('click', async () => {
+    const m = b.dataset.mode; if (m === apMode || apBusy) return;
+    if (m === 'advanced' && !(await ask('Modo Avanzado', 'Permite quitar el aprovisionamiento (afecta a los usuarios nuevos de este PC) y desinstalar programas clásicos. Cada cosa se confirma en el plan, y lo protegido sigue sin poder elegirse.', 'Activar'))) return;
+    apSetMode(m);
+  }));
+  let apQTimer = 0;
+  $('ap-q').addEventListener('input', () => { clearTimeout(apQTimer); apQTimer = setTimeout(() => { apQ = $('ap-q').value.trim().toLowerCase(); apShowAll = false; apFiltersDraw(); apDraw(); }, 120); });
+  $('ap-scan').addEventListener('click', () => { if (apBusy) return; busyBtn($('ap-scan'), true, 'Analizando…'); send({ cmd: 'appsScan', force: true }); });
+  $('ap-export').addEventListener('click', () => { busyBtn($('ap-export'), true, 'Exportando…'); send({ cmd: 'appsExport' }); });
+  $('ap-clear').addEventListener('click', () => { apSel.clear(); apClosePlan(); apDraw(); });
+  $('ap-rec').addEventListener('click', () => {
+    for (const a of apAll()) if (a.recommended && apCan(a)) apSel.set(a.key, false);
+    apDraw();
+  });
+  const apReq = () => ({ mode: apMode, keys: [...apSel.keys()], deprovision: [...apSel].filter(([, v]) => v).map(([k]) => k) });
+  $('ap-review').addEventListener('click', () => { busyBtn($('ap-review'), true, 'Revisando…'); send({ cmd: 'appsPreview', ...apReq() }); });
+
+  function apClosePlan() { apPlanNow = null; $('ap-plan').hidden = true; $('ap-run-result').textContent = ''; }
+  function renderAppsPlan(p, note) {
+    busyBtn($('ap-review'), false, 'Revisar selección');
+    apPlanNow = p;
+    const s = p.summary;
+    const sum = [
+      ['Seleccionadas', s.selected], ['Listas para quitar', s.ready], ['Protegidas (no se tocan)', s.protected], ['No compatibles', s.unsupported],
+      ['Piden administrador', s.admin], ['Usuarios afectados', s.users || '—'], ['Aprovisionamientos que cambian', s.deprovision],
+      ['Sin restauración automática', s.noAutoRestore], ['Abiertas (ciérralas antes)', s.running], ['Reinicio', s.restart],
+    ];
+    $('ap-sum').replaceChildren(...sum.map(([t, v]) => { const w = el('div'); w.append(el('dt', null, t), el('dd', null, String(v))); return w; }));
+    $('ap-plan-list').replaceChildren(...p.items.map((i) => {
+      const li = el('li', `row ap-pi${i.ok ? '' : ' off-limits'}`);
+      li.append(el('span', `pill ${i.ok ? (i.running.length ? 'lv-warn' : 'lv-ok') : 'lv-bad'}`, i.ok ? (i.running.length ? 'Abierta' : 'Se hace') : 'No se hace'));
+      const b = el('div'); b.append(el('strong', null, i.display), el('p', null, AP_ACTION[i.action] || i.action));
+      if (i.problem) b.append(el('p', 'src why', i.problem));
+      if (i.keep) b.append(el('p', 'src', `Se conserva: ${i.keep}`));
+      for (const c of i.consequences || []) b.append(el('p', 'src', c));
+      if (i.dependents?.length) b.append(el('p', 'src why', `La usan: ${i.dependents.join(', ')}`));
+      if (i.ok && i.recoveryText) { const r = el('p', 'src ap-kv'); r.append(el('b', null, AP_REC[i.recovery] || 'Recuperación'), el('span', null, i.recoveryText)); b.append(r); }
+      const tags = [i.users, i.admin ? 'Pide administrador' : '', i.publisher].filter(Boolean);
+      if (tags.length) b.append(el('p', 'src', tags.join(' · ')));
+      li.append(b, el('span', 'state', i.version ? `v${i.version}` : ''));
+      return li;
+    }));
+    const okN = p.items.filter((i) => i.ok).length;
+    $('ap-agree').checked = false; $('ap-agree2').checked = false;
+    $('ap-agree2-row').hidden = !s.deprovision;
+    $('ap-go').disabled = true; $('ap-go').hidden = false; $('ap-back').hidden = false; $('ap-stop').hidden = true;
+    $('ap-agree').disabled = !okN;
+    $('ap-steps').hidden = true; $('ap-steps').replaceChildren();
+    $('ap-run-result').textContent = note || (okN ? '' : 'Nada de la selección se puede quitar; mira el motivo en cada una.');
+    $('ap-run-result').classList.toggle('bad', !!note);
+    $('ap-plan').hidden = false;
+    $('ap-plan').scrollIntoView({ block: 'start', behavior: 'smooth' });
+  }
+  const apGoReady = () => { $('ap-go').disabled = !apPlanNow || !$('ap-agree').checked || (apPlanNow.summary.deprovision > 0 && !$('ap-agree2').checked); };
+  $('ap-agree').addEventListener('change', apGoReady);
+  $('ap-agree2').addEventListener('change', apGoReady);
+  $('ap-back').addEventListener('click', apClosePlan);
+  $('ap-go').addEventListener('click', () => {
+    if (!apPlanNow) return;
+    apBusy = true;
+    const todo = apPlanNow.items.filter((i) => i.ok);
+    $('ap-steps').replaceChildren(...todo.map((i) => { const li = el('li'); li.dataset.key = i.key; li.append(el('i'), el('b', null, i.display)); return li; }));
+    $('ap-steps').hidden = false;
+    if (todo[0]) $('ap-steps').firstChild.className = 'run';
+    $('ap-go').hidden = $('ap-back').hidden = true; $('ap-stop').hidden = false; $('ap-stop').disabled = false;
+    $('ap-agree').disabled = $('ap-agree2').disabled = true;
+    $('ap-run-result').textContent = 'Quitando de a una…'; $('ap-run-result').classList.remove('bad');
+    send({ cmd: 'appsRun', ...apReq(), token: apPlanNow.token });
+  });
+  $('ap-stop').addEventListener('click', () => { $('ap-stop').disabled = true; $('ap-stop').textContent = 'Cancelando…'; send({ cmd: 'appsCancel' }); });
+  function apStep(s) {
+    const li = [...$('ap-steps').children].find((x) => x.dataset.key === s.key); if (!li) return;
+    const ok = ['removed', 'gone', 'uninstalled', 'opened'].includes(s.state);
+    li.className = ok ? 'ok' : 'warn';
+    li.querySelector('small')?.remove();
+    li.append(el('small', null, `${AP_STATE[s.state] || s.state}${s.error ? `: ${s.error}` : ''}`));
+    const next = li.nextElementSibling; if (next && !next.className) next.className = 'run';
+  }
+  function apDone(r) {
+    apBusy = false;
+    $('ap-stop').hidden = true; $('ap-stop').textContent = 'Cancelar lo que falta';
+    $('ap-agree').disabled = $('ap-agree2').disabled = false;
+    if (r.changed && r.newPlan) { renderAppsPlan(r.newPlan, 'Las apps cambiaron desde la vista previa: no se quitó nada. Revisa este plan nuevo.'); return; }
+    for (const s of r.steps) apStep(s);
+    [...$('ap-steps').children].forEach((li) => { if (li.className === 'run') li.className = ''; });
+    const bits = [plural(r.removed, 'hecha', 'hechas')];
+    if (r.failed) bits.push(plural(r.failed, 'con error', 'con error'));
+    if (r.skipped) bits.push(plural(r.skipped, 'saltada', 'saltadas'));
+    if (r.notStarted) bits.push(plural(r.notStarted, 'sin empezar', 'sin empezar'));
+    $('ap-run-result').replaceChildren(el('span', null, `${bits.join(' · ')}.`));
+    if (r.stopReason) $('ap-run-result').append(' ', el('span', null, r.stopReason));
+    $('ap-run-result').classList.toggle('bad', r.failed > 0 || r.stopped);
+    $('ap-back').hidden = false; $('ap-back').textContent = 'Cerrar';
+    apPlanNow = null; apSel.clear();
+  }
+
+  function apHistory(h) {
+    $('ap-hist').hidden = !h.length;
+    $('ap-hist-list').replaceChildren(...h.map((e) => {
+      const li = el('li', 'row ap-hrow');
+      const ok = ['removed', 'gone', 'uninstalled', 'registered', 'opened'].includes(e.state);
+      li.append(el('span', `pill ${ok ? 'lv-ok' : e.state === 'pending' ? 'lv-warn' : 'lv-bad'}`, AP_STATE[e.state] || e.state));
+      const b = el('div');
+      b.append(el('strong', null, e.display || e.name));
+      b.append(el('p', 'src', `${new Date(e.at).toLocaleString(window.vigiaI18n.locale())} · ${AP_OP[e.op] || e.op}`));
+      if (e.error) b.append(el('p', 'src why', e.error));
+      if (e.restoreText) b.append(el('p', 'src', e.restoreText));
+      else if (e.recovery && AP_REC[e.recovery]) b.append(el('p', 'src', AP_REC[e.recovery]));
+      li.append(b);
+      if (e.restore === 'A' || e.restore === 'B') {
+        const btn = el('button', 'btn', e.restore === 'A' ? 'Volver a registrar' : 'Abrir en Microsoft Store');
+        btn.addEventListener('click', async () => {
+          const txt = e.restore === 'A' ? 'Vuelve a registrar la app con los archivos que Windows aún guarda. Sus datos de antes no vuelven.' : 'Abre su página en Microsoft Store; la instalas tú desde ahí si sigue publicada.';
+          if (!(await ask(e.display || e.name, txt, 'Recuperar'))) return;
+          busyBtn(btn, true, 'Recuperando…'); send({ cmd: 'appsRestore', id: e.id });
+        });
+        li.append(btn);
+      } else li.append(el('span', 'state', ''));
       return li;
     }));
   }
-  $('ap-remove').addEventListener('click', () => { busyBtn($('ap-remove'), true, 'Quitando…'); send({ cmd: 'bloatRemove', ids: apSel() }); });
-  $('ap-rec').addEventListener('click', () => {
-    document.querySelectorAll('#ap-list input[type=checkbox]').forEach((c) => { const a = bloat.find((b) => b.id === c.dataset.id); if (a && !c.disabled) c.checked = a.risk === 'bajo' && !a.useful; });
-    const n = apSel().length; $('ap-remove').disabled = !n; $('ap-remove').textContent = n ? `Quitar (${n})` : 'Quitar seleccionadas';
-  });
   // Sin «Sin anuncios ni apps sugeridas», Windows vuelve a instalar parte de estas apps por su cuenta.
   function apNote(items) {
     const t = items.find((x) => x.id === 'suggestions-off'); const n = $('ap-note');
@@ -1158,7 +1444,8 @@
     else if (v === 'storage') { if (!targets.length) $('scan').click(); send({ cmd: 'optStatus', analyze: false }); }
     else if (v === 'mem') send({ cmd: 'settingsGet' });
     else if (v === 'tweaks') send({ cmd: 'tweaksList' });
-    else if (v === 'apps' || v === 'simple') { if (v === 'simple' && bloat.length) smApps(); else send({ cmd: 'bloatList' }); }
+    else if (v === 'apps') { if (!apBusy) { busyBtn($('ap-scan'), true, 'Analizando…'); send({ cmd: 'appsScan', force: again }); } }
+    else if (v === 'simple') { if (bloat.length) smApps(); else send({ cmd: 'bloatList' }); }
     else if (v === 'bios') send({ cmd: 'biosGet' });
     else if (v === 'iso' && !usbBusy) send({ cmd: 'usbList' });
     else if (v === 'tools') send({ cmd: 'toolsList' });
@@ -1687,7 +1974,7 @@
 
   // ---------- mensajes del backend ----------
   // respuestas que significan que algo del sistema cambió
-  const DONE = new Set(['tweaksDone', 'simpleDone', 'bloatDone', 'startupAll', 'secDone', 'sugDone', 'gameDone', 'backupDone', 'optDone', 'autoStart', 'wallDone', 'memFreed', 'startupDone', 'displayDone', 'toolDone']);
+  const DONE = new Set(['tweaksDone', 'simpleDone', 'bloatDone', 'appsDone', 'appsRestored', 'startupAll', 'secDone', 'sugDone', 'gameDone', 'backupDone', 'optDone', 'autoStart', 'wallDone', 'memFreed', 'startupDone', 'displayDone', 'toolDone']);
   if (host) host.addEventListener('message', (e) => {
     const { type, payload } = e.data;
     if (DONE.has(type)) changed();
@@ -1733,9 +2020,17 @@
     else if (type === 'procs') renderProcs(payload);
     else if (type === 'procDone') { $('pr-alert').hidden = false; $('pr-alert').textContent = payload.message; }
     else if (type === 'bloatDone') {
-      busyBtn($('ap-remove'), false, 'Quitar seleccionadas');
       const bad = payload.filter((r) => !r.ok);
       $('ap-result').textContent = bad.length ? `No se pudieron quitar: ${bad.map((r) => `${r.id} (${r.error})`).join('; ')}.` : `${plural(payload.length, 'app quitada', 'apps quitadas')}.`;
+    }
+    else if (type === 'apps') renderApps(payload);
+    else if (type === 'appsPlan') renderAppsPlan(payload);
+    else if (type === 'appsStep') apStep(payload);
+    else if (type === 'appsDone') apDone(payload);
+    else if (type === 'appsRestored') { $('ap-result').textContent = payload.message; $('ap-result').classList.toggle('bad', !payload.ok); }
+    else if (type === 'appsExported') {
+      busyBtn($('ap-export'), false, 'Exportar lista');
+      $('ap-result').textContent = payload.ok ? `Lista guardada en ${payload.path}` : `No se pudo exportar: ${payload.path}`; $('ap-result').classList.toggle('bad', !payload.ok);
     }
     else if (type === 'tools') renderTools(payload);
     else if (type === 'startup') { renderStartup(payload); suAllShow(payload); }

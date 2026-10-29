@@ -55,11 +55,13 @@ public static class AppPlanner
             if (!doUser && !doDeprov) problem ??= "No está en tu usuario. Solo se puede quitar el aprovisionamiento, en modo Avanzado.";
             // frameworks y no removibles: aunque alguien fuerce la clave, nunca entran
             if (p.Framework || p.NonRemovable || p.Signature.Equals("System", StringComparison.OrdinalIgnoreCase)) problem = v.Why;
-            if (v.Category == "protected") prot++;
+            var isProt = v.Category == "protected" || v.MinMode == "never";
+            if (isProt) prot++;
             var running = problem is null && doUser ? host.RunningUnder(p.Location).ToArray() : [];
-            var action = doUser && doDeprov ? "remove-user+deprovision" : doDeprov ? "deprovision" : "remove-user";
+            var action = doUser && doDeprov ? "remove-user+deprovision" : doDeprov ? "deprovision" : doUser ? "remove-user" : "none";
             var (rec, recText) = AppRecovery.Estimate(p, AppCatalog.Find(p.Name), inv.StoreBlocked, doDeprov);
             var cons = new List<string>();
+            if (isProt) { doUser = false; doDeprov = false; action = "none"; (rec, recText) = ("-", ""); }
             if (doUser) cons.Add("Se borran sus datos locales en tu usuario (ajustes, archivos sin sincronizar).");
             if (doDeprov) cons.Add("Los usuarios que se creen desde ahora ya no la tendrán.");
             if (v.Dependents.Length > 0) cons.Add($"Otras apps dependen de ella: {string.Join(", ", v.Dependents)}.");
@@ -71,7 +73,7 @@ public static class AppPlanner
                 (_, false, true) => "Se queda aprovisionada: los usuarios nuevos la tendrán.",
                 _ => "",
             };
-            var users = doUser && doDeprov ? "Tu usuario y los usuarios nuevos" : doDeprov ? "Usuarios nuevos" : "Solo tu usuario";
+            var users = doUser && doDeprov ? "Tu usuario y los usuarios nuevos" : doDeprov ? "Usuarios nuevos" : doUser ? "Solo tu usuario" : "";
             items.Add(new PlanItem(key, "appx", p.Name, v.Display, action, problem is null, problem, keep, cons.ToArray(), rec, recText,
                 Admin: doDeprov, running, users, v.Dependents, p.FullName, doDeprov ? p.ProvName : null, p.Location, p.Family, p.Version,
                 v.Publisher, p.Arch, p.Provisioned, null));
@@ -96,8 +98,9 @@ public static class AppPlanner
         var users = ok.Any(i => i.Action.Contains("deprovision")) ? (ok.Any(i => i.Action.StartsWith("remove-user")) ? "Tu usuario y los usuarios nuevos" : "Usuarios nuevos")
             : ok.Any(i => i.Users == "Todo el equipo") ? "Todo el equipo" : ok.Count > 0 ? "Solo tu usuario" : "Nadie";
         var sum = new PlanSummary(items.Count, ok.Count(i => i.Running.Length == 0), prot,
-            items.Count(i => !i.Ok), ok.Count(i => i.Admin), users, ok.Count(i => i.Action.Contains("deprovision")),
-            ok.Count(i => i.Recovery is "C" or "D"), ok.Count(i => i.Running.Length > 0), "No hace falta reiniciar.");
+            Math.Max(0, items.Count(i => !i.Ok) - prot), ok.Count(i => i.Admin), users, ok.Count(i => i.Action.Contains("deprovision")),
+            ok.Count(i => i.Recovery is "C" or "D"), ok.Count(i => i.Running.Length > 0),
+            ok.Any(i => i.Kind == "win32") ? "Algunos desinstaladores de programas piden reiniciar al terminar." : "No hace falta reiniciar.");
         return new Plan(TokenOf(mode, items), mode, items, sum);
     }
 
@@ -148,7 +151,8 @@ public static class AppPlanner
             AppHistory.End(rec, state, err);
             var step = new ExecStep(it.Key, it.Display, state, err, row, todo.Count);
             steps.Add(step); progress?.Invoke(step);
-            if (state is "removed" or "gone" or "opened" or "uninstalled") { removed++; inARow = 0; }
+            if (state is "removed" or "gone" or "uninstalled") { removed++; inARow = 0; }
+            else if (state is "opened" or "cancelled-by-user") { skipped++; inARow = 0; }   // lo termina (o lo cancela) la persona en la ventana de Windows
             else if (state == "cancelled") { stopped = true; why = "Cancelado."; }
             else
             {

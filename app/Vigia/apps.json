@@ -31,7 +31,7 @@
  "oem": ["Dell", "HP Inc", "Hewlett", "Lenovo", "ASUS", "ASUSTeK", "Micro-Star", "MSI", "Acer", "Samsung", "Realtek", "Dolby", "NVIDIA", "AMD", "Advanced Micro Devices", "Intel", "Synaptics", "ELAN", "Waves", "Logitech", "Razer", "Corsair", "Gigabyte", "Toshiba", "Dynabook", "Huawei", "Xiaomi", "Alienware"],
  "win32Protect": [
   "^Microsoft Visual C\\+\\+", "^Microsoft \\.NET", "^Microsoft Windows Desktop Runtime", "^Microsoft ASP\\.NET Core", "^Windows App Runtime", "^Windows App SDK",
-  "^Microsoft Edge", "WebView2", "^Microsoft Update Health Tools", "^Update for Windows", "^Windows PC Health Check", "^Vigía", "^Vigia", "^PawnIO",
+  "^Microsoft Edge", "WebView2", "^Microsoft Update Health Tools", "Application Compatibility", "^Microsoft GameInput", "^Update for Windows", "^Windows PC Health Check", "^Vigía", "^Vigia", "^PawnIO",
   "Anti-?Cheat", "BattlEye", "Riot Vanguard", "Driver", "Chipset", "Controlador", "Redistributable", "Runtime", "Framework", "DirectX"
  ],
  "apps": [

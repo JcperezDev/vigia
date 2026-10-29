@@ -366,11 +366,45 @@
 
     <section class="view" id="view-apps" hidden>
       <header class="head">
-        <div><h1>Apps de Windows</h1><p class="sub">Se quitan solo de tu usuario. Si extrañas alguna, vuelve desde Microsoft Store.</p></div>
-        <div class="ds-act"><button class="btn" id="ap-rec">Marcar las recomendadas</button><button class="btn primary" id="ap-remove" disabled>Quitar seleccionadas</button></div>
+        <div><h1>Apps de Windows</h1><p class="sub">Revisa lo que hay instalado y quita solo lo que no usas. Nada se quita sin ver antes el plan.</p></div>
+        <div class="ds-act"><button class="btn" id="ap-export" disabled>Exportar lista</button><button class="btn" id="ap-scan">Analizar</button></div>
       </header>
+      <div class="ap-modes">
+        <div class="seg" role="radiogroup" aria-label="Modo" id="ap-mode">
+          <button type="button" role="radio" data-mode="safe" aria-checked="true">Seguro</button>
+          <button type="button" role="radio" data-mode="custom" aria-checked="false">Personalizado</button>
+          <button type="button" role="radio" data-mode="advanced" aria-checked="false">Avanzado</button>
+        </div>
+        <p class="src" id="ap-mode-note">Solo apps sueltas de tu usuario que casi nadie usa. No toca otros usuarios ni los usuarios nuevos.</p>
+      </div>
+      <dl class="stats ap-stats" id="ap-stats" hidden></dl>
+      <div class="ap-warn" id="ap-warn" hidden></div>
+      <div class="ap-tools" id="ap-tools" hidden>
+        <div class="ap-filters" role="radiogroup" aria-label="Filtro" id="ap-filters"></div>
+        <input type="search" id="ap-q" placeholder="Buscar por nombre, editor, identificador o categoría" aria-label="Buscar apps" autocomplete="off" spellcheck="false">
+      </div>
       <p class="result" id="ap-result" aria-live="polite"></p>
-      <ul class="rows" id="ap-list"><li class="empty">Buscando apps instaladas…</li></ul>
+      <ul class="rows ap-list" id="ap-list"><li class="empty">Buscando apps instaladas…</li></ul>
+      <p class="src ap-more" id="ap-more" hidden></p>
+      <div class="ap-bar" id="ap-bar" hidden>
+        <span id="ap-bar-t"></span>
+        <div class="ds-act"><button class="btn" id="ap-clear">Cancelar</button><button class="btn" id="ap-rec">Marcar las recomendadas</button><button class="btn primary" id="ap-review" disabled>Revisar selección</button></div>
+      </div>
+      <section class="ap-plan" id="ap-plan" hidden aria-labelledby="ap-plan-h">
+        <h2 id="ap-plan-h">Antes de quitar nada</h2>
+        <dl class="ap-sum" id="ap-sum"></dl>
+        <ul class="rows" id="ap-plan-list"></ul>
+        <label class="chk ap-ok"><input type="checkbox" id="ap-agree"><span>Leí el plan: quitar exactamente esto.</span></label>
+        <label class="chk ap-ok" id="ap-agree2-row" hidden><input type="checkbox" id="ap-agree2"><span>Entiendo que quitar el aprovisionamiento afecta a los usuarios nuevos de este PC.</span></label>
+        <div class="ds-act"><button class="btn" id="ap-back">Volver</button><button class="btn primary" id="ap-go" disabled>Quitar ahora</button><button class="btn" id="ap-stop" hidden>Cancelar lo que falta</button></div>
+        <ul class="stages ap-steps" id="ap-steps" hidden></ul>
+        <p class="result" id="ap-run-result" aria-live="polite"></p>
+      </section>
+      <details class="ap-hist" id="ap-hist" hidden>
+        <summary>Historial de apps quitadas</summary>
+        <p class="src">Es un registro de lo que se hizo, no una copia de las apps ni de sus datos. «Recuperar» solo aparece cuando hay una forma real de hacerlo hoy.</p>
+        <ul class="rows" id="ap-hist-list"></ul>
+      </details>
       <p class="src ap-note" id="ap-note" hidden></p>
       <section class="wall" id="wall" aria-labelledby="wall-h">
         <img class="wall-img" src="fondo.jpg" alt="Fondo de VigíaOS: curvas de nivel oscuras con el nombre al centro" width="320" height="180">

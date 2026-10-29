@@ -28,6 +28,18 @@ static class Program
             }, new JsonSerializerOptions(Json) { WriteIndented = true }));
             return 0;
         }
+        if (args.Length >= 2 && args[0] == "--apps-scan")   // solo lectura: inventario de apps clasificado (no quita nada)
+        {
+            File.WriteAllText(args[1], JsonSerializer.Serialize(Debloat.View(force: true), new JsonSerializerOptions(Json) { WriteIndented = true }));
+            return 0;
+        }
+        if (args.Length >= 3 && args[0] == "--apps-plan")   // solo lectura: Vigia --apps-plan <claves separadas por |> <salida.json> [safe|custom|advanced]
+        {
+            var mode = args.Length >= 4 ? args[3] : "safe";
+            var plan = Debloat.Preview(new PlanRequest(mode, args[1].Split('|', StringSplitOptions.RemoveEmptyEntries).Select(k => (k, false)).ToList()));
+            File.WriteAllText(args[2], JsonSerializer.Serialize(plan, new JsonSerializerOptions(Json) { WriteIndented = true }));
+            return 0;
+        }
         if (args.Length >= 2 && args[0] == "--suggest")   // solo lectura: sugerencias con lo medido ahora
         {
             using var t = new Telemetry();
@@ -643,6 +655,19 @@ sealed partial class MainForm : Form
         base.WndProc(ref m);
     }
 
+    /// <summary>Claves del inventario que manda la interfaz (nunca se pasan a PowerShell: se buscan en el inventario leído).</summary>
+    static List<string> AppsIds(JsonNode? n) =>
+        (n as JsonArray ?? []).Select(x => x is JsonValue v && v.TryGetValue<string>(out var s) ? s : null)
+            .Where(s => s is { Length: > 0 and <= 300 } && !s.Any(char.IsControl))   // el plan solo acepta claves que existen en el inventario
+            .Select(s => s!).Distinct(StringComparer.OrdinalIgnoreCase).Take(500).ToList();
+
+    static PlanRequest AppsRequest(JsonNode? msg)
+    {
+        var mode = (string?)msg?["mode"] is { } m && AppPlanner.Modes.Contains(m) ? m : "safe";
+        var deprov = new HashSet<string>(AppsIds(msg?["deprovision"]), StringComparer.OrdinalIgnoreCase);
+        return new PlanRequest(mode, AppsIds(msg?["keys"]).Select(k => (k, mode == "advanced" && deprov.Contains(k))).ToList());
+    }
+
     void Send(string type, object payload) =>
         _web.CoreWebView2?.PostWebMessageAsJson(JsonSerializer.Serialize(new { type, payload }, Program.Json));
 
@@ -749,10 +774,44 @@ sealed partial class MainForm : Form
                     Send("bloat", await Task.Run(Debloat.List));
                     break;
                 case "bloatRemove":
-                    var bids = msg["ids"]!.AsArray().Select(x => (string)x!).ToList();
-                    await Task.Run(() => RestorePoint.Create("Vigía: antes de quitar apps"));
+                    // lista corta antigua (modo seguro: solo tu usuario, mismas comprobaciones que la vista Apps)
+                    var bids = AppsIds(msg["ids"]);
                     Send("bloatDone", await Task.Run(() => Debloat.Remove(bids)));
                     Send("bloat", await Task.Run(Debloat.List));
+                    break;
+                // Vista Apps: operaciones identificadas; la interfaz solo manda claves del inventario y el modo, nunca órdenes
+                case "appsScan":
+                    Send("apps", await Task.Run(() => Debloat.View(force: (bool?)msg["force"] == true)));
+                    break;
+                case "appsPreview":
+                    Send("appsPlan", await Task.Run(() => Debloat.Preview(AppsRequest(msg))));
+                    break;
+                case "appsRun":
+                    var areq = AppsRequest(msg);
+                    var atok = (string?)msg["token"] ?? "";
+                    if (areq.Items.Any(i => i.Deprovision) || areq.Mode != "safe")
+                        await Task.Run(() => RestorePoint.Create("Vigía: antes de quitar apps"));
+                    var ares = await Task.Run(() => Debloat.Run(areq, atok, st => BeginInvoke(() => Send("appsStep", st))));
+                    Send("appsDone", ares);
+                    Send("apps", await Task.Run(() => Debloat.View(force: true)));
+                    break;
+                case "appsCancel":
+                    Debloat.Cancel();
+                    break;
+                case "appsRestore":
+                    var hid = (string?)msg["id"] ?? "";
+                    if (!System.Text.RegularExpressions.Regex.IsMatch(hid, "^[0-9a-f]{12}$")) { Send("appsRestored", new { ok = false, message = "id" }); break; }
+                    var (rok, rmsg) = await Task.Run(() => Debloat.Restore(hid));
+                    Send("appsRestored", new { ok = rok, message = rmsg });
+                    Send("apps", await Task.Run(() => Debloat.View(force: true)));
+                    break;
+                case "appsExport":
+                    try { Send("appsExported", new { ok = true, path = await Task.Run(Debloat.Export) }); }
+                    catch (Exception ex) { Send("appsExported", new { ok = false, path = ex.Message }); }
+                    break;
+                case "appsSettings":
+                    // programas clásicos: se abre la página de Windows; la desinstalación la confirma el usuario ahí
+                    try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("ms-settings:appsfeatures") { UseShellExecute = true }); } catch { }
                     break;
                 case "wallGet":
                     Send("wall", Wallpaper.Status());

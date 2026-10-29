@@ -260,6 +260,10 @@ public static class Debloat
             Check(!it["Microsoft.VCLibs.140.00"].Ok && p1.Summary.Protected == 1, "un framework nunca entra, aunque se pida");
             Check(!it["Microsoft.BingWeather"].Ok && it["Microsoft.BingWeather"].Keep.Contains("usuarios nuevos"), "modo seguro: no se quita el aprovisionamiento, y lo dice");
             Check(!it["no.existe_1_x64__abc"].Ok, "una app que ya no existe no entra");
+            Check(p1.Summary is { Selected: 5, Ready: 1, Protected: 1, Unsupported: 3 }, "resumen: lo protegido no se cuenta otra vez como «no compatible»");
+            Check(AppPlanner.Build(h, inv, new("custom", [(K("Microsoft.GetHelp"), false)])).Items[0] is { Ok: false, Action: "none", Users: "" },
+                "no está en tu usuario y no se pide desaprovisionar: no se hace nada (ni se dice «tu usuario»)");
+            Check(it["Microsoft.VCLibs.140.00"] is { Action: "none", Recovery: "-" }, "protegida: sin acción ni recuperación que mostrar");
             Check(AppPlanner.Build(h, inv, new("custom", [(K("Microsoft.Copilot"), false)])).Items[0].Ok, "modo personalizado: se puede elegir una útil");
             var adv = AppPlanner.Build(h, inv, new("advanced", [(K("Microsoft.BingWeather"), true), (K("Microsoft.GetHelp"), true), (K("Microsoft.SecHealthUI"), false)]));
             Check(adv.Items[0].Action == "remove-user+deprovision" && adv.Items[0].Admin && adv.Items[0].Recovery == "A" && adv.Summary.Deprovision == 2,
