@@ -27,24 +27,43 @@ public static class Tweaks
     public static bool Lab => Environment.GetEnvironmentVariable("VIGIA_LAB") == "1" || File.Exists(Path.Combine(Settings.Dir, "lab.flag"));
 
     // ---------- catálogo ----------
-    sealed record Def(string Id, string Group, string Title, string Detail, string Risk, string Source, bool Reboot, bool Tested, JsonArray Ops);
+    sealed record Def(string Id, string Group, string Title, string Detail, string Risk, string Source, bool Reboot, bool Tested, JsonArray Ops, bool Retired = false);
 
-    static List<Def>? _catalog;
+    static List<Def>? _all;
     internal static Func<List<JsonObject>>? CatalogOverride;   // para --selftest
 
     /// <summary>El título de un ajuste, como sale en Ajustes.</summary>
-    public static string? TitleOf(string id) { try { return Catalog().FirstOrDefault(d => d.Id == id)?.Title; } catch { return null; } }
+    public static string? TitleOf(string id) { try { return All().FirstOrDefault(d => d.Id == id)?.Title; } catch { return null; } }
 
-    static List<Def> Catalog()
+    /// <summary>Los ajustes que se ofrecen. Los retirados (los que tenían riesgo) ya no salen ni se pueden aplicar.</summary>
+    static List<Def> Catalog() => All().Where(d => !d.Retired).ToList();
+
+    /// <summary>Todos, retirados incluidos: hacen falta para devolver a su valor original lo que Vigía puso en versiones anteriores.</summary>
+    static List<Def> All()
     {
         if (CatalogOverride is not null) return CatalogOverride().Select(ToDef).ToList();
-        if (_catalog is not null) return _catalog;
+        if (_all is not null) return _all;
         var root = JsonNode.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "tweaks.json")))!.AsArray();
-        return _catalog = root.Select(n => ToDef(n!.AsObject())).ToList();
+        return _all = root.Select(n => ToDef(n!.AsObject())).ToList();
     }
 
     static Def ToDef(JsonObject o) => new((string)o["id"]!, (string)o["group"]!, (string)o["title"]!, (string)o["detail"]!,
-        (string?)o["risk"] ?? "bajo", (string?)o["source"] ?? "", (bool?)o["reboot"] ?? false, (bool?)o["tested"] ?? false, o["ops"]!.AsArray());
+        (string?)o["risk"] ?? "bajo", (string?)o["source"] ?? "", (bool?)o["reboot"] ?? false, (bool?)o["tested"] ?? false, o["ops"]!.AsArray(),
+        (bool?)o["retired"] ?? false);
+
+    /// <summary>
+    /// Deshace los ajustes retirados que Vigía aplicó antes (solo esos: los que tienen copia del valor original).
+    /// Hace copia de seguridad antes, como cualquier «Revertir». Si no hay nada que deshacer, no toca nada.
+    /// </summary>
+    public static TweakBatch? UndoRetired()
+    {
+        string[] ids;
+        lock (Gate) { var bk = LoadBackup(); ids = All().Where(d => d.Retired && bk.ContainsKey(d.Id)).Select(d => d.Id).ToArray(); }
+        if (ids.Length == 0) return null;
+        var r = Revert(ids);
+        Log($"retirados deshechos: {string.Join(", ", ids)} -> {(r.Ok ? "ok" : "con errores")}");
+        return r;
+    }
 
     public static List<TweakView> List()
     {
@@ -90,6 +109,7 @@ public static class Tweaks
             var t = Task((string)op["task"]!);
             return t is null ? null : (bool)t.Enabled == (bool)op["enabled"]!;
         }
+        if (op["power"] is not null) return PowerAc(op) is { } v ? v == (uint)op["ac"]! : null;
         return (string?)op["special"] switch
         {
             "power-ultimate" => CpuAwake(),
@@ -165,12 +185,12 @@ public static class Tweaks
         lock (Gate)
         {
             var bk = LoadBackup();
-            var undo = Catalog().Where(d => ids.Contains(d.Id) && bk.ContainsKey(d.Id)).ToList();
+            var undo = All().Where(d => ids.Contains(d.Id) && bk.ContainsKey(d.Id)).ToList();
             if (undo.Count > 0 && CatalogOverride is null &&
                 Backups.Save("ajustes", undo.Count == 1 ? $"Revertir: {undo[0].Title}" : $"Revertir {undo.Count} ajustes", undo.Select(SnapshotOf)) is null)
                 return new(false, null, undo.Select(d => new TweakResult(d.Id, false, StateOf(d), "No pude guardar la copia de seguridad; no cambié nada.")).ToArray(), false);
             var results = new List<TweakResult>();
-            foreach (var d in Catalog().Where(d => ids.Contains(d.Id)))
+            foreach (var d in All().Where(d => ids.Contains(d.Id)))
             {
                 if (bk[d.Id] is not JsonObject saved)
                 {
@@ -189,7 +209,7 @@ public static class Tweaks
                 }
                 catch (Exception e) { Log($"revertir {d.Id}: ERROR {e.Message}"); results.Add(new(d.Id, false, StateOf(d), e.Message)); }
             }
-            return new(results.All(r => r.Ok), null, results.ToArray(), Catalog().Any(d => d.Reboot && ids.Contains(d.Id)));
+            return new(results.All(r => r.Ok), null, results.ToArray(), All().Any(d => d.Reboot && ids.Contains(d.Id)));
         }
     }
 
@@ -199,7 +219,7 @@ public static class Tweaks
 
     internal static JsonObject? SnapshotItem(string id)
     {
-        lock (Gate) return Catalog().FirstOrDefault(d => d.Id == id) is { } d ? SnapshotOf(d) : null;
+        lock (Gate) return All().FirstOrDefault(d => d.Id == id) is { } d ? SnapshotOf(d) : null;
     }
 
     /// <summary>Estado actual de todos los ajustes del catálogo (para la copia «original»).</summary>
@@ -220,7 +240,7 @@ public static class Tweaks
         lock (Gate)
         {
             var id = (string)it["id"]!;
-            var d = Catalog().FirstOrDefault(x => x.Id == id) ?? throw new InvalidOperationException("Ese ajuste ya no está en el catálogo.");
+            var d = All().FirstOrDefault(x => x.Id == id) ?? throw new InvalidOperationException("Ese ajuste ya no está en el catálogo.");
             var saved = it["saved"]!.AsObject();
             var ops = d.Ops.Select(x => x!.AsObject()).ToList();
             for (int i = ops.Count - 1; i >= 0; i--)
@@ -265,6 +285,7 @@ public static class Tweaks
                 o[i.ToString()] = new JsonObject { ["start"] = Snap(k, "Start"), ["delayed"] = Snap(k, "DelayedAutostart") };
             }
             else if (op["task"] is not null && Task((string)op["task"]!) is { } t) o[i.ToString()] = new JsonObject { ["enabled"] = (bool)t.Enabled };
+            else if (op["power"] is not null && Active() is { } pg && PowerAc(op) is { } pv) o[i.ToString()] = new JsonObject { ["scheme"] = pg.ToString(), ["ac"] = pv };
             else if ((string?)op["special"] == "power-ultimate") o[i.ToString()] = new JsonObject { ["active"] = ActiveScheme() };
             else if ((string?)op["special"] == "hibernate-off") o[i.ToString()] = new JsonObject { ["on"] = Matches(op) == false };
             else if ((string?)op["special"] == "dynamictick") o[i.ToString()] = new JsonObject { ["set"] = Matches(op) == true };
@@ -286,6 +307,7 @@ public static class Tweaks
             if (RegRead(k, "Start").value is not null) SvcStart((string)op["svc"]!, (long)op["start"]!);
         }
         else if (op["task"] is not null && Task((string)op["task"]!) is { } t) t.Enabled = (bool)op["enabled"]!;
+        else if (op["power"] is not null) { if (Active() is { } pg) PowerSetAc(pg, op, (uint)op["ac"]!); }
         else switch ((string?)op["special"])
         {
             case "power-ultimate":
@@ -331,6 +353,11 @@ public static class Tweaks
             }
         }
         else if (op["task"] is not null && s is not null && Task((string)op["task"]!) is { } t) t.Enabled = (bool)s["enabled"]!;
+        else if (op["power"] is not null && s is not null)
+        {
+            // al plan donde estaba; si ese plan ya no existe (p. ej. el de Vigía se borró), no hay nada que devolver
+            if (Guid.TryParse((string?)s["scheme"], out var sg)) try { PowerSetAc(sg, op, (uint)s["ac"]!); } catch { }
+        }
         else switch ((string?)op["special"])
         {
             case "power-ultimate":
@@ -490,6 +517,26 @@ public static class Tweaks
     // Así cuentan Alto rendimiento, Máximo rendimiento y los planes propios (de la placa o de otro programa).
     [DllImport("powrprof.dll")] static extern uint PowerGetActiveScheme(IntPtr root, out IntPtr guid);
     [DllImport("powrprof.dll")] static extern uint PowerReadACValueIndex(IntPtr root, ref Guid scheme, ref Guid sub, ref Guid setting, out uint value);
+    [DllImport("powrprof.dll")] static extern uint PowerWriteACValueIndex(IntPtr root, ref Guid scheme, ref Guid sub, ref Guid setting, uint value);
+    [DllImport("powrprof.dll")] static extern uint PowerSetActiveScheme(IntPtr root, ref Guid scheme);
+
+    /// <summary>Valor enchufado de un ajuste del plan activo. «power»: "subgrupo/ajuste".</summary>
+    static uint? PowerAc(JsonObject op)
+    {
+        if (Active() is not { } g) return null;
+        var p = ((string)op["power"]!).Split('/');
+        Guid sub = new(p[0]), set = new(p[1]);
+        return PowerReadACValueIndex(IntPtr.Zero, ref g, ref sub, ref set, out var v) == 0 ? v : null;
+    }
+    static void PowerSetAc(Guid scheme, JsonObject op, uint value)
+    {
+        var p = ((string)op["power"]!).Split('/');
+        Guid sub = new(p[0]), set = new(p[1]);
+        var r = PowerWriteACValueIndex(IntPtr.Zero, ref scheme, ref sub, ref set, value);
+        if (r != 0) throw new Exception("Windows no dejó cambiar el plan de energía.");
+        // el cambio no cuenta hasta que el plan se vuelve a activar
+        if (Active() is { } a && a == scheme) PowerSetActiveScheme(IntPtr.Zero, ref scheme);
+    }
     [DllImport("powrprof.dll", CharSet = CharSet.Unicode)] static extern uint PowerReadFriendlyName(IntPtr root, ref Guid scheme, IntPtr sub, IntPtr setting, byte[]? buf, ref uint size);
     [DllImport("kernel32.dll")] static extern IntPtr LocalFree(IntPtr p);
     static Guid? Active()
@@ -610,6 +657,19 @@ public static class Tweaks
             Check((string?)RegRead(K, "lista").value == "SwapEffectUpgradeEnable=1;VRROptimizeEnable=0;", $"lista restaurada ({RegRead(K, "lista").value})");
             Check(!LoadBackup().ContainsKey("st"), "copia eliminada tras revertir");
             Check(Revert(["st"]).Results[0].Error is not null, "revertir sin copia avisa en vez de inventar");
+
+            // ajuste del plan de energía: «apagar la pantalla tras…» (inofensivo), +60 s y de vuelta
+            var vop = new JsonObject { ["power"] = "7516b95f-f776-4464-8c53-06167f40cc99/3c0bc021-c8a8-4e07-a973-6b14cbcb2b7e", ["ac"] = 0 };
+            if (PowerAc(vop) is { } was)
+            {
+                vop["ac"] = was + 60;
+                CatalogOverride = () => [new JsonObject { ["id"] = "stp", ["group"] = "t", ["title"] = "t", ["detail"] = "t", ["tested"] = true, ["ops"] = new JsonArray(vop.DeepClone()) }];
+                var pa = Apply(["stp"]);
+                Check(pa.Ok && PowerAc(vop) == was + 60, $"plan de energía: aplicar ({PowerAc(vop)})");
+                var pr = Revert(["stp"]);
+                Check(pr.Ok && PowerAc(vop) == was, $"plan de energía: vuelve al valor de antes ({PowerAc(vop)} = {was})");
+            }
+            else Check(false, "plan de energía: no se pudo leer");
         }
         catch (Exception e) { Check(false, $"excepción: {e}"); }
         finally

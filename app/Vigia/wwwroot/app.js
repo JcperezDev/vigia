@@ -419,7 +419,7 @@
       sugKeepT = setInterval(() => { n -= 1; b.textContent = `Se ve bien (${n})`; if (n <= 0) clearInterval(sugKeepT); }, 1000);
     }
   }
-  function sugAuto() { if (!sugDone && document.visibilityState === 'visible') send({ cmd: 'suggest' }); }
+  function sugAuto() { if (!sugDone && document.visibilityState === 'visible') send({ cmd: 'suggest', auto: true }); }
   setTimeout(sugAuto, 20000);
   document.addEventListener('visibilitychange', () => setTimeout(sugAuto, 3000));
 
@@ -521,7 +521,7 @@
   // «Aplicar todo»: los de riesgo bajo que faltan. Fuera la impresión (rompe imprimir) y, en laptop, lo que gasta batería.
   let twLaptop = false;
   const twAll = () => tweaks.filter((t) => t.risk === 'bajo' && !t.blocked && t.state !== 'applied' && t.state !== 'na'
-    && !['print-off', 'boot-info'].includes(t.id) && !(twLaptop && ['power-ultimate', 'hibernate-off'].includes(t.id)));
+    && !['print-off', 'boot-info', 'hags'].includes(t.id) && !(twLaptop && ['power-ultimate', 'hibernate-off', 'usb-suspend-off', 'pcie-aspm-off'].includes(t.id)));
   function twAllCard() {
     const n = twAll().length;
     // los de riesgo medio no entran en «Aplicar todo»: si quedan, se dice dónde están
@@ -1062,19 +1062,26 @@
     dsNative = d.saved || n;
     $('ds-restore').hidden = !d.saved;
     if (!n || !c) { $('ds-sub').textContent = 'No pude leer la pantalla principal.'; return; }
-    $('ds-sub').textContent = c.hz > 1 ? (d.stretched ? `Ahora: ${dsRes(c)} estirada a ${c.hz} Hz. La normal es ${dsRes(d.saved)}.` : `Ahora: ${dsRes(c)} a ${c.hz} Hz.`)
-      : d.stretched ? `Ahora: ${dsRes(c)} estirada. La normal es ${dsRes(d.saved)}.` : `Ahora: ${dsRes(c)}.`;
+    const same = (m) => Math.abs(m.width / m.height - dsNative.width / dsNative.height) < 0.02;
+    const changed = d.stretched && d.saved;
+    $('ds-sub').textContent = changed
+      ? (same(c) ? (c.hz > 1 ? `Ahora: ${dsRes(c)} a ${c.hz} Hz. La normal es ${dsRes(d.saved)}.` : `Ahora: ${dsRes(c)}. La normal es ${dsRes(d.saved)}.`)
+        : (c.hz > 1 ? `Ahora: ${dsRes(c)} estirada a ${c.hz} Hz. La normal es ${dsRes(d.saved)}.` : `Ahora: ${dsRes(c)} estirada. La normal es ${dsRes(d.saved)}.`))
+      : c.hz > 1 ? `Ahora: ${dsRes(c)} a ${c.hz} Hz.` : `Ahora: ${dsRes(c)}.`;
     // primero las que la tarjeta ya tiene; luego las de la lista de Vigía, que se crean en su panel al aplicarlas
     const extra = d.extra || [];
-    const opt = (m, made) => {
-      const o = el('option', null, dsRes(m));
+    const nick = { '1280x720': 'HD', '1920x1080': 'Full HD', '2560x1440': '2K', '3840x2160': '4K' };
+    const opt = (m) => {
+      const k = `${m.width}x${m.height}`;
+      const o = el('option', null, nick[k] ? `${dsRes(m)}  ·  ${nick[k]}` : dsRes(m));
       o.value = `${m.width}x${m.height}`;
       return o;
     };
-    const opts = [...d.options.map((m) => opt(m, false)), ...extra.map((m) => opt(m, true))];
     const all = [...d.options, ...extra];
+    const group = (label, list) => { const g = el('optgroup'); g.label = label; g.append(...list.map((m) => opt(m))); return g; };
+    const normals = all.filter(same), stretched = all.filter((m) => !same(m));
     const other = el('option', null, 'Otra…'); other.value = 'custom';
-    $('ds-mode').replaceChildren(...opts, other);
+    $('ds-mode').replaceChildren(...[normals.length && group('Normales', normals), stretched.length && group('Estiradas', stretched)].filter(Boolean), other);
     const cur = `${c.width}x${c.height}`;
     $('ds-mode').value = d.stretched && all.some((m) => `${m.width}x${m.height}` === cur) ? cur
       : all.some((m) => m.width === 1440 && m.height === 1080) ? '1440x1080' : all[0] ? `${all[0].width}x${all[0].height}` : 'custom';
@@ -1084,7 +1091,7 @@
     if (!$('ds-w').value) { $('ds-w').value = Math.round(dsNative.height * 4 / 3 / 2) * 2; $('ds-h').value = dsNative.height; }
     $('ds-custom').hidden = $('ds-mode').value !== 'custom';
     $('ds-apply').disabled = false;
-    $('ds-apply').textContent = d.stretched ? 'Cambiar' : 'Estirar';
+    $('ds-apply').textContent = 'Aplicar';
     dsEstimate();
   }
   function dsConfirm(show) {
@@ -1113,7 +1120,7 @@
   });
   $('ds-restore').addEventListener('click', () => { dsConfirm(false); send({ cmd: 'displayRestore' }); });
   $('ds-undo').addEventListener('click', () => { dsConfirm(false); send({ cmd: 'displayRestore' }); });
-  $('ds-keep').addEventListener('click', () => { dsConfirm(false); $('ds-result').textContent = 'Listo. «Volver a la normal» la deja como estaba.'; $('ds-result').classList.remove('bad'); });
+  $('ds-keep').addEventListener('click', () => { dsConfirm(false); send({ cmd: 'displayKeep' }); $('ds-result').textContent = 'Listo. «Volver a la normal» la deja como estaba.'; $('ds-result').classList.remove('bad'); });
 
   // Cada sección carga sus datos al abrirla. Si desde entonces se cambió algo (en otra sección, o fuera de Vigía
   // mientras la ventana estaba oculta), se vuelven a leer al volver a ella. Escanear discos o almacenamiento solo la primera vez.
@@ -1148,8 +1155,7 @@
   const SM_Q = [
     { k: 'games', q: '¿Juegas en esta PC?', h: 'Prioridad para juegos, GPU potente, modo juego y ratón sin aceleración.', def: true },
     { k: 'printer', q: '¿Usas impresora o «Imprimir a PDF»?', h: 'Si dices que no, se apaga la cola de impresión.', def: true },
-    { k: 'xbox', q: '¿Usas Xbox, Game Pass o la barra Win+G?', h: 'Si no, se quitan las apps y servicios de Xbox.', def: false },
-    { k: 'search', q: '¿Buscas archivos desde el menú Inicio?', h: 'Si no, se apaga el indexador y deja de leer el disco por detrás.', def: true },
+    { k: 'xbox', q: '¿Usas Xbox, Game Pass o la barra Win+G?', h: 'Si no, se quitan las apps de Xbox y la grabación de fondo.', def: false },
     { k: 'laptop', q: '¿Es una laptop que usas con batería?', h: 'Si es laptop, no se pone el plan de energía de Vigía ni se apaga la hibernación.', def: false },
     { k: 'visual', q: '¿Quitar transparencias y animaciones?', h: 'Windows se ve más simple y responde más rápido.', def: true },
     { k: 'privacy', q: '¿Apagar telemetría y anuncios de Windows?', h: 'Menos datos a Microsoft y nada de apps sugeridas.', def: true },
@@ -1368,7 +1374,7 @@
     }, 2500);
     // 'simple-choices': para capturas; pinta la lista de ajustes con datos de ejemplo
     if (view === 'simple' && act === 'choices') setTimeout(() => smPlan({ changes: 3, names: ['Servicios de Xbox', 'Windows Update sin sorpresas', 'Apagar la hibernación'], stages: smStages, choices: [
-      { id: 'services-xbox', title: 'Servicios de Xbox', detail: 'Fortnite y Steam no los usan. Rompe Xbox Game Pass, los logros de Xbox y Minecraft de la Tienda.' },
+      { id: 'smb1-off', title: 'Apagar el compartir archivos antiguo (SMB1)', detail: 'Protocolo de los 90 que usó WannaCry. Solo lo necesitan NAS o impresoras muy viejas.' },
       { id: 'update-control', title: 'Windows Update sin sorpresas', detail: 'No reinicia solo con la sesión abierta y no reemplaza tu driver de NVIDIA. Las actualizaciones de seguridad siguen llegando.' },
       { id: 'hibernate-off', title: 'Apagar la hibernación', detail: 'Borra hiberfil.sys (ocupa casi lo mismo que tu RAM en C:). También desactiva el inicio rápido.' }] }) ?? $('sm-twlist').scrollIntoView({ block: 'center' }), 4000);
   };

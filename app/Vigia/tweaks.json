@@ -1,355 +1,1018 @@
 [
   {
-    "id": "power-ultimate", "tested": true, "group": "Rendimiento", "risk": "bajo", "reboot": false,
+    "id": "power-ultimate",
+    "tested": true,
+    "group": "Rendimiento",
+    "risk": "bajo",
+    "reboot": false,
     "title": "Plan de energía de Vigía",
     "detail": "Crea el plan «Vigía» y lo activa: enchufado, el procesador no baja de velocidad entre fotogramas. Gasta algo más en reposo. Tu plan de antes vuelve con «Deshacer».",
     "source": "",
-    "ops": [ { "special": "power-ultimate" } ]
+    "ops": [
+      {
+        "special": "power-ultimate"
+      }
+    ]
   },
   {
-    "id": "mmcss-games", "group": "Rendimiento", "risk": "bajo", "reboot": true,
+    "id": "mmcss-games",
+    "group": "Rendimiento",
+    "risk": "bajo",
+    "reboot": true,
     "title": "Prioridad alta para juegos",
     "detail": "El programador multimedia de Windows da más CPU y GPU a los juegos (prioridad 6, GPU 8, categoría High).",
     "source": "",
     "ops": [
-      { "reg": "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Multimedia\\SystemProfile\\Tasks\\Games", "name": "GPU Priority", "type": "dword", "value": 8 },
-      { "reg": "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Multimedia\\SystemProfile\\Tasks\\Games", "name": "Priority", "type": "dword", "value": 6 },
-      { "reg": "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Multimedia\\SystemProfile\\Tasks\\Games", "name": "Scheduling Category", "type": "string", "value": "High" },
-      { "reg": "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Multimedia\\SystemProfile\\Tasks\\Games", "name": "SFIO Priority", "type": "string", "value": "High" }
+      {
+        "reg": "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Multimedia\\SystemProfile\\Tasks\\Games",
+        "name": "GPU Priority",
+        "type": "dword",
+        "value": 8
+      },
+      {
+        "reg": "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Multimedia\\SystemProfile\\Tasks\\Games",
+        "name": "Priority",
+        "type": "dword",
+        "value": 6
+      },
+      {
+        "reg": "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Multimedia\\SystemProfile\\Tasks\\Games",
+        "name": "Scheduling Category",
+        "type": "string",
+        "value": "High"
+      },
+      {
+        "reg": "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Multimedia\\SystemProfile\\Tasks\\Games",
+        "name": "SFIO Priority",
+        "type": "string",
+        "value": "High"
+      }
     ]
   },
   {
-    "id": "responsiveness", "group": "Rendimiento", "risk": "bajo", "reboot": true,
+    "id": "responsiveness",
+    "group": "Rendimiento",
+    "risk": "bajo",
+    "reboot": true,
     "title": "Sin reserva de CPU para tareas de fondo",
     "detail": "SystemResponsiveness 0 y sin límite de red para multimedia. Windows deja de apartar el 20 % de la CPU.",
     "source": "",
     "ops": [
-      { "reg": "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Multimedia\\SystemProfile", "name": "NetworkThrottlingIndex", "type": "dword", "value": 4294967295 },
-      { "reg": "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Multimedia\\SystemProfile", "name": "SystemResponsiveness", "type": "dword", "value": 0 }
+      {
+        "reg": "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Multimedia\\SystemProfile",
+        "name": "NetworkThrottlingIndex",
+        "type": "dword",
+        "value": 4294967295
+      },
+      {
+        "reg": "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Multimedia\\SystemProfile",
+        "name": "SystemResponsiveness",
+        "type": "dword",
+        "value": 0
+      }
     ]
   },
   {
-    "id": "priority-separation", "group": "Rendimiento", "risk": "bajo", "reboot": false,
+    "id": "priority-separation",
+    "group": "Rendimiento",
+    "risk": "bajo",
+    "reboot": false,
     "title": "Más tiempo de CPU para la ventana activa",
     "detail": "Win32PrioritySeparation = 0x16. El juego en primer plano recibe turnos más largos que lo que corre detrás.",
     "source": "",
-    "ops": [ { "reg": "HKLM\\SYSTEM\\CurrentControlSet\\Control\\PriorityControl", "name": "Win32PrioritySeparation", "type": "dword", "value": 22 } ]
+    "ops": [
+      {
+        "reg": "HKLM\\SYSTEM\\CurrentControlSet\\Control\\PriorityControl",
+        "name": "Win32PrioritySeparation",
+        "type": "dword",
+        "value": 22
+      }
+    ]
   },
   {
-    "id": "svchost-split", "group": "Memoria", "risk": "bajo", "reboot": true,
+    "id": "svchost-split",
+    "group": "Memoria",
+    "risk": "bajo",
+    "reboot": true,
     "title": "Agrupar los servicios de Windows",
     "detail": "Ajusta SvcHostSplitThresholdInKB a tu RAM. Menos procesos svchost.exe y algo menos de memoria usada.",
     "source": "",
-    "ops": [ { "reg": "HKLM\\SYSTEM\\CurrentControlSet\\Control", "name": "SvcHostSplitThresholdInKB", "type": "dword", "value": "$ramKB" } ]
+    "ops": [
+      {
+        "reg": "HKLM\\SYSTEM\\CurrentControlSet\\Control",
+        "name": "SvcHostSplitThresholdInKB",
+        "type": "dword",
+        "value": "$ramKB"
+      }
+    ]
   },
   {
-    "id": "hibernate-off", "group": "Memoria", "risk": "bajo", "reboot": false,
+    "id": "hibernate-off",
+    "group": "Memoria",
+    "risk": "bajo",
+    "reboot": false,
     "title": "Apagar la hibernación",
     "detail": "Borra hiberfil.sys (ocupa casi lo mismo que tu RAM en C:). También desactiva el inicio rápido.",
     "source": "",
-    "ops": [ { "special": "hibernate-off" } ]
+    "ops": [
+      {
+        "special": "hibernate-off"
+      }
+    ]
   },
   {
-    "id": "game-dvr-off", "group": "Juegos", "risk": "bajo", "reboot": false,
+    "id": "game-dvr-off",
+    "group": "Juegos",
+    "risk": "bajo",
+    "reboot": false,
     "title": "Apagar la grabación de fondo de Xbox",
     "detail": "Game DVR graba los últimos segundos de juego todo el tiempo. Apagado, la barra de juegos sigue funcionando.",
     "source": "",
     "ops": [
-      { "reg": "HKCU\\System\\GameConfigStore", "name": "GameDVR_Enabled", "type": "dword", "value": 0 },
-      { "reg": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\GameDVR", "name": "AppCaptureEnabled", "type": "dword", "value": 0 },
-      { "reg": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\GameDVR", "name": "AllowGameDVR", "type": "dword", "value": 0 }
+      {
+        "reg": "HKCU\\System\\GameConfigStore",
+        "name": "GameDVR_Enabled",
+        "type": "dword",
+        "value": 0
+      },
+      {
+        "reg": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\GameDVR",
+        "name": "AppCaptureEnabled",
+        "type": "dword",
+        "value": 0
+      },
+      {
+        "reg": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\GameDVR",
+        "name": "AllowGameDVR",
+        "type": "dword",
+        "value": 0
+      }
     ]
   },
   {
-    "id": "background-apps", "group": "Juegos", "risk": "bajo", "reboot": false,
+    "id": "background-apps",
+    "group": "Juegos",
+    "risk": "bajo",
+    "reboot": false,
     "title": "Apps de la Tienda sin trabajo de fondo",
     "detail": "Las apps de Microsoft Store dejan de ejecutarse cuando no están abiertas.",
     "source": "",
     "ops": [
-      { "reg": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\BackgroundAccessApplications", "name": "GlobalUserDisabled", "type": "dword", "value": 1 },
-      { "reg": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Search", "name": "BackgroundAppGlobalToggle", "type": "dword", "value": 0 }
+      {
+        "reg": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\BackgroundAccessApplications",
+        "name": "GlobalUserDisabled",
+        "type": "dword",
+        "value": 1
+      },
+      {
+        "reg": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Search",
+        "name": "BackgroundAppGlobalToggle",
+        "type": "dword",
+        "value": 0
+      }
     ]
   },
   {
-    "id": "transparency-off", "group": "Juegos", "risk": "bajo", "reboot": false,
+    "id": "transparency-off",
+    "group": "Juegos",
+    "risk": "bajo",
+    "reboot": false,
     "title": "Quitar la transparencia de Windows",
     "detail": "La barra de tareas y los menús dejan de difuminar el fondo. Menos trabajo para la GPU en el escritorio.",
     "source": "",
-    "ops": [ { "reg": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize", "name": "EnableTransparency", "type": "dword", "value": 0 } ]
+    "ops": [
+      {
+        "reg": "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize",
+        "name": "EnableTransparency",
+        "type": "dword",
+        "value": 0
+      }
+    ]
   },
   {
-    "id": "mouse-raw", "group": "Ratón y teclado", "risk": "bajo", "reboot": false,
+    "id": "mouse-raw",
+    "group": "Ratón y teclado",
+    "risk": "bajo",
+    "reboot": false,
     "title": "Ratón sin aceleración",
     "detail": "Quita «Mejorar la precisión del puntero» y aplica la curva 1:1. El movimiento depende solo de la distancia, no de la velocidad.",
     "source": "",
     "ops": [
-      { "reg": "HKCU\\Control Panel\\Mouse", "name": "MouseSpeed", "type": "string", "value": "0" },
-      { "reg": "HKCU\\Control Panel\\Mouse", "name": "MouseThreshold1", "type": "string", "value": "0" },
-      { "reg": "HKCU\\Control Panel\\Mouse", "name": "MouseThreshold2", "type": "string", "value": "0" },
-      { "reg": "HKCU\\Control Panel\\Mouse", "name": "SmoothMouseXCurve", "type": "binary", "value": "0000000000000000C0CC0C0000000000809919000000000040662600000000000033330000000000" },
-      { "reg": "HKCU\\Control Panel\\Mouse", "name": "SmoothMouseYCurve", "type": "binary", "value": "0000000000000000000038000000000000007000000000000000A800000000000000E00000000000" },
-      { "special": "mouse-refresh", "post": true }
+      {
+        "reg": "HKCU\\Control Panel\\Mouse",
+        "name": "MouseSpeed",
+        "type": "string",
+        "value": "0"
+      },
+      {
+        "reg": "HKCU\\Control Panel\\Mouse",
+        "name": "MouseThreshold1",
+        "type": "string",
+        "value": "0"
+      },
+      {
+        "reg": "HKCU\\Control Panel\\Mouse",
+        "name": "MouseThreshold2",
+        "type": "string",
+        "value": "0"
+      },
+      {
+        "reg": "HKCU\\Control Panel\\Mouse",
+        "name": "SmoothMouseXCurve",
+        "type": "binary",
+        "value": "0000000000000000C0CC0C0000000000809919000000000040662600000000000033330000000000"
+      },
+      {
+        "reg": "HKCU\\Control Panel\\Mouse",
+        "name": "SmoothMouseYCurve",
+        "type": "binary",
+        "value": "0000000000000000000038000000000000007000000000000000A800000000000000E00000000000"
+      },
+      {
+        "special": "mouse-refresh",
+        "post": true
+      }
     ]
   },
   {
-    "id": "accessibility-keys", "group": "Ratón y teclado", "risk": "bajo", "reboot": false,
+    "id": "accessibility-keys",
+    "group": "Ratón y teclado",
+    "risk": "bajo",
+    "reboot": false,
     "title": "Sin atajos de accesibilidad en mitad de la partida",
     "detail": "Pulsar Mayús cinco veces ya no abre «Teclas especiales». Lo mismo con teclas filtro, alternancia y teclas de ratón.",
     "source": "",
     "ops": [
-      { "reg": "HKCU\\Control Panel\\Accessibility\\StickyKeys", "name": "Flags", "type": "string", "value": "506" },
-      { "reg": "HKCU\\Control Panel\\Accessibility\\Keyboard Response", "name": "Flags", "type": "string", "value": "122" },
-      { "reg": "HKCU\\Control Panel\\Accessibility\\ToggleKeys", "name": "Flags", "type": "string", "value": "58" },
-      { "reg": "HKCU\\Control Panel\\Accessibility\\MouseKeys", "name": "Flags", "type": "string", "value": "0" }
+      {
+        "reg": "HKCU\\Control Panel\\Accessibility\\StickyKeys",
+        "name": "Flags",
+        "type": "string",
+        "value": "506"
+      },
+      {
+        "reg": "HKCU\\Control Panel\\Accessibility\\Keyboard Response",
+        "name": "Flags",
+        "type": "string",
+        "value": "122"
+      },
+      {
+        "reg": "HKCU\\Control Panel\\Accessibility\\ToggleKeys",
+        "name": "Flags",
+        "type": "string",
+        "value": "58"
+      },
+      {
+        "reg": "HKCU\\Control Panel\\Accessibility\\MouseKeys",
+        "name": "Flags",
+        "type": "string",
+        "value": "0"
+      }
     ]
   },
   {
-    "id": "input-queue", "group": "Ratón y teclado", "risk": "medio", "reboot": true,
+    "id": "input-queue",
+    "retired": true,
+    "group": "Ratón y teclado",
+    "risk": "medio",
+    "reboot": true,
     "title": "Cola corta de ratón y teclado",
     "detail": "Baja el búfer de entrada de 100 a 20 eventos. Con ratones de 4000-8000 Hz puede perder movimientos: pruébalo antes.",
     "source": "",
     "ops": [
-      { "reg": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\mouclass\\Parameters", "name": "MouseDataQueueSize", "type": "dword", "value": 20 },
-      { "reg": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\kbdclass\\Parameters", "name": "KeyboardDataQueueSize", "type": "dword", "value": 20 }
+      {
+        "reg": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\mouclass\\Parameters",
+        "name": "MouseDataQueueSize",
+        "type": "dword",
+        "value": 20
+      },
+      {
+        "reg": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\kbdclass\\Parameters",
+        "name": "KeyboardDataQueueSize",
+        "type": "dword",
+        "value": 20
+      }
     ]
   },
   {
-    "id": "shutdown-fast", "tested": true, "group": "Windows", "risk": "medio", "reboot": false,
+    "id": "shutdown-fast",
+    "retired": true,
+    "tested": true,
+    "group": "Windows",
+    "risk": "medio",
+    "reboot": false,
     "title": "Cerrar programas colgados sin esperar",
     "detail": "Menús sin retardo y apagado más rápido. Al apagar, los programas que no respondan se cierran solos: guarda antes.",
     "source": "",
     "ops": [
-      { "reg": "HKCU\\Control Panel\\Desktop", "name": "MenuShowDelay", "type": "string", "value": "0" },
-      { "reg": "HKCU\\Control Panel\\Desktop", "name": "WaitToKillAppTimeout", "type": "string", "value": "5000" },
-      { "reg": "HKCU\\Control Panel\\Desktop", "name": "HungAppTimeout", "type": "string", "value": "4000" },
-      { "reg": "HKCU\\Control Panel\\Desktop", "name": "AutoEndTasks", "type": "string", "value": "1" },
-      { "reg": "HKLM\\SYSTEM\\CurrentControlSet\\Control", "name": "WaitToKillServiceTimeout", "type": "string", "value": "2000" }
+      {
+        "reg": "HKCU\\Control Panel\\Desktop",
+        "name": "MenuShowDelay",
+        "type": "string",
+        "value": "0"
+      },
+      {
+        "reg": "HKCU\\Control Panel\\Desktop",
+        "name": "WaitToKillAppTimeout",
+        "type": "string",
+        "value": "5000"
+      },
+      {
+        "reg": "HKCU\\Control Panel\\Desktop",
+        "name": "HungAppTimeout",
+        "type": "string",
+        "value": "4000"
+      },
+      {
+        "reg": "HKCU\\Control Panel\\Desktop",
+        "name": "AutoEndTasks",
+        "type": "string",
+        "value": "1"
+      },
+      {
+        "reg": "HKLM\\SYSTEM\\CurrentControlSet\\Control",
+        "name": "WaitToKillServiceTimeout",
+        "type": "string",
+        "value": "2000"
+      }
     ]
   },
   {
-    "id": "end-task", "group": "Windows", "risk": "bajo", "reboot": false,
+    "id": "end-task",
+    "group": "Windows",
+    "risk": "bajo",
+    "reboot": false,
     "title": "«Finalizar tarea» en la barra de tareas",
     "detail": "Clic derecho sobre un programa en la barra de tareas para cerrarlo aunque esté colgado.",
     "source": "",
-    "ops": [ { "reg": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced\\TaskbarDeveloperSettings", "name": "TaskbarEndTask", "type": "dword", "value": 1 } ]
+    "ops": [
+      {
+        "reg": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced\\TaskbarDeveloperSettings",
+        "name": "TaskbarEndTask",
+        "type": "dword",
+        "value": 1
+      }
+    ]
   },
   {
-    "id": "suggestions-off", "group": "Windows", "risk": "bajo", "reboot": false,
+    "id": "suggestions-off",
+    "group": "Windows",
+    "risk": "bajo",
+    "reboot": false,
     "title": "Sin anuncios ni apps sugeridas",
     "detail": "Windows deja de instalar apps promocionadas y de mostrar sugerencias en Inicio y en Configuración.",
     "source": "",
     "ops": [
-      { "reg": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager", "name": "ContentDeliveryAllowed", "type": "dword", "value": 0 },
-      { "reg": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager", "name": "OemPreInstalledAppsEnabled", "type": "dword", "value": 0 },
-      { "reg": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager", "name": "PreInstalledAppsEnabled", "type": "dword", "value": 0 },
-      { "reg": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager", "name": "SilentInstalledAppsEnabled", "type": "dword", "value": 0 },
-      { "reg": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager", "name": "SubscribedContent-310093Enabled", "type": "dword", "value": 0 },
-      { "reg": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager", "name": "SubscribedContent-314559Enabled", "type": "dword", "value": 0 },
-      { "reg": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager", "name": "SubscribedContent-338387Enabled", "type": "dword", "value": 0 },
-      { "reg": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\CloudContent", "name": "DisableWindowsConsumerFeatures", "type": "dword", "value": 1 }
+      {
+        "reg": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager",
+        "name": "ContentDeliveryAllowed",
+        "type": "dword",
+        "value": 0
+      },
+      {
+        "reg": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager",
+        "name": "OemPreInstalledAppsEnabled",
+        "type": "dword",
+        "value": 0
+      },
+      {
+        "reg": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager",
+        "name": "PreInstalledAppsEnabled",
+        "type": "dword",
+        "value": 0
+      },
+      {
+        "reg": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager",
+        "name": "SilentInstalledAppsEnabled",
+        "type": "dword",
+        "value": 0
+      },
+      {
+        "reg": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager",
+        "name": "SubscribedContent-310093Enabled",
+        "type": "dword",
+        "value": 0
+      },
+      {
+        "reg": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager",
+        "name": "SubscribedContent-314559Enabled",
+        "type": "dword",
+        "value": 0
+      },
+      {
+        "reg": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\ContentDeliveryManager",
+        "name": "SubscribedContent-338387Enabled",
+        "type": "dword",
+        "value": 0
+      },
+      {
+        "reg": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\CloudContent",
+        "name": "DisableWindowsConsumerFeatures",
+        "type": "dword",
+        "value": 1
+      }
     ]
   },
   {
-    "id": "telemetry-off", "group": "Privacidad", "risk": "bajo", "reboot": true,
+    "id": "telemetry-off",
+    "group": "Privacidad",
+    "risk": "bajo",
+    "reboot": true,
     "title": "Telemetría de Windows al mínimo",
     "detail": "Para el servicio de seguimiento (DiagTrack) y el envío de datos de uso y diagnóstico a Microsoft.",
     "source": "",
     "ops": [
-      { "reg": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection", "name": "AllowTelemetry", "type": "dword", "value": 0 },
-      { "svc": "DiagTrack", "start": 4 },
-      { "svc": "dmwappushservice", "start": 4 }
+      {
+        "reg": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection",
+        "name": "AllowTelemetry",
+        "type": "dword",
+        "value": 0
+      },
+      {
+        "svc": "DiagTrack",
+        "start": 4
+      },
+      {
+        "svc": "dmwappushservice",
+        "start": 4
+      }
     ]
   },
   {
-    "id": "telemetry-tasks", "group": "Privacidad", "risk": "bajo", "reboot": false,
+    "id": "telemetry-tasks",
+    "group": "Privacidad",
+    "risk": "bajo",
+    "reboot": false,
     "title": "Tareas programadas de recogida de datos",
     "detail": "Desactiva seis tareas que analizan compatibilidad, uso de USB y discos para enviarlo a Microsoft.",
     "source": "",
     "ops": [
-      { "task": "\\Microsoft\\Windows\\Application Experience\\Microsoft Compatibility Appraiser", "enabled": false },
-      { "task": "\\Microsoft\\Windows\\Application Experience\\ProgramDataUpdater", "enabled": false },
-      { "task": "\\Microsoft\\Windows\\Customer Experience Improvement Program\\Consolidator", "enabled": false },
-      { "task": "\\Microsoft\\Windows\\Customer Experience Improvement Program\\UsbCeip", "enabled": false },
-      { "task": "\\Microsoft\\Windows\\DiskDiagnostic\\Microsoft-Windows-DiskDiagnosticDataCollector", "enabled": false },
-      { "task": "\\Microsoft\\Windows\\Windows Error Reporting\\QueueReporting", "enabled": false }
+      {
+        "task": "\\Microsoft\\Windows\\Application Experience\\Microsoft Compatibility Appraiser",
+        "enabled": false
+      },
+      {
+        "task": "\\Microsoft\\Windows\\Application Experience\\ProgramDataUpdater",
+        "enabled": false
+      },
+      {
+        "task": "\\Microsoft\\Windows\\Customer Experience Improvement Program\\Consolidator",
+        "enabled": false
+      },
+      {
+        "task": "\\Microsoft\\Windows\\Customer Experience Improvement Program\\UsbCeip",
+        "enabled": false
+      },
+      {
+        "task": "\\Microsoft\\Windows\\DiskDiagnostic\\Microsoft-Windows-DiskDiagnosticDataCollector",
+        "enabled": false
+      },
+      {
+        "task": "\\Microsoft\\Windows\\Windows Error Reporting\\QueueReporting",
+        "enabled": false
+      }
     ]
   },
   {
-    "id": "activity-off", "group": "Privacidad", "risk": "bajo", "reboot": false,
+    "id": "activity-off",
+    "group": "Privacidad",
+    "risk": "bajo",
+    "reboot": false,
     "title": "Sin historial de actividad ni ubicación",
     "detail": "Windows deja de guardar qué abres y deja de dar tu ubicación a las apps.",
     "source": "",
     "ops": [
-      { "reg": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\System", "name": "EnableActivityFeed", "type": "dword", "value": 0 },
-      { "reg": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\System", "name": "PublishUserActivities", "type": "dword", "value": 0 },
-      { "reg": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\System", "name": "UploadUserActivities", "type": "dword", "value": 0 },
-      { "reg": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager\\ConsentStore\\location", "name": "Value", "type": "string", "value": "Deny" },
-      { "svc": "lfsvc", "start": 4 }
+      {
+        "reg": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\System",
+        "name": "EnableActivityFeed",
+        "type": "dword",
+        "value": 0
+      },
+      {
+        "reg": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\System",
+        "name": "PublishUserActivities",
+        "type": "dword",
+        "value": 0
+      },
+      {
+        "reg": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\System",
+        "name": "UploadUserActivities",
+        "type": "dword",
+        "value": 0
+      },
+      {
+        "reg": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager\\ConsentStore\\location",
+        "name": "Value",
+        "type": "string",
+        "value": "Deny"
+      },
+      {
+        "svc": "lfsvc",
+        "start": 4
+      }
     ]
   },
   {
-    "id": "services-unused", "group": "Servicios", "risk": "bajo", "reboot": true,
+    "id": "services-unused",
+    "group": "Servicios",
+    "risk": "bajo",
+    "reboot": true,
     "title": "Servicios que casi nadie usa",
     "detail": "Fax, registro remoto, mapas sin conexión, monitor de rendimiento gráfico, informe de errores y otros cinco.",
     "source": "",
     "ops": [
-      { "svc": "Fax", "start": 4 },
-      { "svc": "RemoteRegistry", "start": 4 },
-      { "svc": "MapsBroker", "start": 4 },
-      { "svc": "GraphicsPerfSvc", "start": 4 },
-      { "svc": "WerSvc", "start": 4 },
-      { "svc": "PcaSvc", "start": 4 },
-      { "svc": "Wecsvc", "start": 4 },
-      { "svc": "WMPNetworkSvc", "start": 4 },
-      { "svc": "NetTcpPortSharing", "start": 4 },
-      { "svc": "TrkWks", "start": 4 }
+      {
+        "svc": "Fax",
+        "start": 4
+      },
+      {
+        "svc": "RemoteRegistry",
+        "start": 4
+      },
+      {
+        "svc": "MapsBroker",
+        "start": 4
+      },
+      {
+        "svc": "GraphicsPerfSvc",
+        "start": 4
+      },
+      {
+        "svc": "WerSvc",
+        "start": 4
+      },
+      {
+        "svc": "PcaSvc",
+        "start": 4
+      },
+      {
+        "svc": "Wecsvc",
+        "start": 4
+      },
+      {
+        "svc": "WMPNetworkSvc",
+        "start": 4
+      },
+      {
+        "svc": "NetTcpPortSharing",
+        "start": 4
+      },
+      {
+        "svc": "TrkWks",
+        "start": 4
+      }
     ]
   },
   {
-    "id": "print-off", "group": "Servicios", "risk": "bajo", "reboot": true,
+    "id": "print-off",
+    "group": "Servicios",
+    "risk": "bajo",
+    "reboot": true,
     "title": "Apagar la impresión",
     "detail": "Para la cola de impresión si no tienes impresora. También deja de funcionar «Imprimir a PDF». Cierra la puerta a fallos tipo PrintNightmare.",
     "source": "",
-    "ops": [{ "svc": "Spooler", "start": 4 }]
+    "ops": [
+      {
+        "svc": "Spooler",
+        "start": 4
+      }
+    ]
   },
   {
-    "id": "services-xbox", "tested": true, "group": "Servicios", "risk": "medio", "reboot": true,
+    "id": "services-xbox",
+    "retired": true,
+    "tested": true,
+    "group": "Servicios",
+    "risk": "medio",
+    "reboot": true,
     "title": "Servicios de Xbox",
     "detail": "Fortnite y Steam no los usan. Rompe Xbox Game Pass, los logros de Xbox y Minecraft de la Tienda.",
     "source": "",
     "ops": [
-      { "svc": "XblAuthManager", "start": 4 },
-      { "svc": "XblGameSave", "start": 4 },
-      { "svc": "XboxNetApiSvc", "start": 4 }
+      {
+        "svc": "XblAuthManager",
+        "start": 4
+      },
+      {
+        "svc": "XblGameSave",
+        "start": 4
+      },
+      {
+        "svc": "XboxNetApiSvc",
+        "start": 4
+      }
     ]
   },
   {
-    "id": "search-off", "tested": true, "group": "Servicios", "risk": "medio", "reboot": true,
+    "id": "search-off",
+    "retired": true,
+    "tested": true,
+    "group": "Servicios",
+    "risk": "medio",
+    "reboot": true,
     "title": "Indexador de búsqueda",
     "detail": "Menos lecturas de disco en segundo plano. A cambio, buscar en Inicio y en el Explorador es mucho más lento.",
     "source": "",
-    "ops": [ { "svc": "WSearch", "start": 4 } ]
+    "ops": [
+      {
+        "svc": "WSearch",
+        "start": 4
+      }
+    ]
   },
   {
-    "id": "update-control", "group": "Actualizaciones", "risk": "bajo", "reboot": false,
+    "id": "update-control",
+    "group": "Actualizaciones",
+    "risk": "bajo",
+    "reboot": false,
     "title": "Windows Update sin sorpresas",
     "detail": "No reinicia solo con la sesión abierta y no reemplaza tu driver de NVIDIA. Las actualizaciones de seguridad siguen llegando.",
     "source": "",
     "ops": [
-      { "reg": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsUpdate\\AU", "name": "NoAutoRebootWithLoggedOnUsers", "type": "dword", "value": 1 },
-      { "reg": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsUpdate", "name": "ExcludeWUDriversInQualityUpdate", "type": "dword", "value": 1 }
+      {
+        "reg": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsUpdate\\AU",
+        "name": "NoAutoRebootWithLoggedOnUsers",
+        "type": "dword",
+        "value": 1
+      },
+      {
+        "reg": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsUpdate",
+        "name": "ExcludeWUDriversInQualityUpdate",
+        "type": "dword",
+        "value": 1
+      }
     ]
   },
   {
-    "id": "gpu-high", "group": "Juegos", "risk": "bajo", "reboot": false,
+    "id": "gpu-high",
+    "group": "Juegos",
+    "risk": "bajo",
+    "reboot": false,
     "title": "Juegos en la tarjeta gráfica potente",
     "detail": "Windows manda los juegos a la NVIDIA y no a los gráficos del Ryzen. Solo cambia esa opción y deja las demás de gráficos como estaban.",
     "source": "",
-    "ops": [ { "reg": "HKCU\\Software\\Microsoft\\DirectX\\UserGpuPreferences", "name": "DirectXUserGlobalSettings", "kv": "GpuPreference", "value": "2" } ]
+    "ops": [
+      {
+        "reg": "HKCU\\Software\\Microsoft\\DirectX\\UserGpuPreferences",
+        "name": "DirectXUserGlobalSettings",
+        "kv": "GpuPreference",
+        "value": "2"
+      }
+    ]
   },
   {
-    "id": "windowed-opt", "group": "Juegos", "risk": "bajo", "reboot": false,
+    "id": "windowed-opt",
+    "group": "Juegos",
+    "risk": "bajo",
+    "reboot": false,
     "title": "Optimizaciones para juegos en ventana",
     "detail": "Los juegos en ventana sin bordes van con la misma latencia que en pantalla completa. Es la opción de Windows 11 en Pantalla > Gráficos.",
     "source": "",
-    "ops": [ { "reg": "HKCU\\Software\\Microsoft\\DirectX\\UserGpuPreferences", "name": "DirectXUserGlobalSettings", "kv": "SwapEffectUpgradeEnable", "value": "1" } ]
+    "ops": [
+      {
+        "reg": "HKCU\\Software\\Microsoft\\DirectX\\UserGpuPreferences",
+        "name": "DirectXUserGlobalSettings",
+        "kv": "SwapEffectUpgradeEnable",
+        "value": "1"
+      }
+    ]
   },
   {
-    "id": "hags", "group": "Juegos", "risk": "bajo", "reboot": true,
+    "id": "hags",
+    "group": "Juegos",
+    "risk": "bajo",
+    "reboot": true,
     "title": "Programación de GPU acelerada por hardware",
     "detail": "La tarjeta gráfica ordena su propia memoria y Windows trabaja menos por fotograma. Necesario para generación de fotogramas de DLSS.",
     "source": "",
-    "ops": [ { "reg": "HKLM\\SYSTEM\\CurrentControlSet\\Control\\GraphicsDrivers", "name": "HwSchMode", "type": "dword", "value": 2 } ]
+    "ops": [
+      {
+        "reg": "HKLM\\SYSTEM\\CurrentControlSet\\Control\\GraphicsDrivers",
+        "name": "HwSchMode",
+        "type": "dword",
+        "value": 2
+      }
+    ]
   },
   {
-    "id": "game-mode", "group": "Juegos", "risk": "bajo", "reboot": false,
+    "id": "game-mode",
+    "group": "Juegos",
+    "risk": "bajo",
+    "reboot": false,
     "title": "Modo juego de Windows",
     "detail": "Mientras juegas, Windows no instala actualizaciones ni reinicia, y da prioridad al juego.",
     "source": "",
     "ops": [
-      { "reg": "HKCU\\Software\\Microsoft\\GameBar", "name": "AutoGameModeEnabled", "type": "dword", "value": 1 },
-      { "reg": "HKCU\\Software\\Microsoft\\GameBar", "name": "AllowAutoGameMode", "type": "dword", "value": 1 }
+      {
+        "reg": "HKCU\\Software\\Microsoft\\GameBar",
+        "name": "AutoGameModeEnabled",
+        "type": "dword",
+        "value": 1
+      },
+      {
+        "reg": "HKCU\\Software\\Microsoft\\GameBar",
+        "name": "AllowAutoGameMode",
+        "type": "dword",
+        "value": 1
+      }
     ]
   },
   {
-    "id": "animations-off", "group": "Windows", "risk": "bajo", "reboot": true,
+    "id": "animations-off",
+    "group": "Windows",
+    "risk": "bajo",
+    "reboot": true,
     "title": "Menos animaciones de Windows",
     "detail": "Quita las animaciones al abrir, minimizar y en la barra de tareas. Las letras siguen suavizadas. Se nota al volver a entrar en la sesión.",
     "source": "",
     "ops": [
-      { "reg": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\VisualEffects", "name": "VisualFXSetting", "type": "dword", "value": 3 },
-      { "reg": "HKCU\\Control Panel\\Desktop\\WindowMetrics", "name": "MinAnimate", "type": "string", "value": "0" },
-      { "reg": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced", "name": "TaskbarAnimations", "type": "dword", "value": 0 },
-      { "reg": "HKCU\\Control Panel\\Desktop", "name": "FontSmoothing", "type": "string", "value": "2" }
+      {
+        "reg": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\VisualEffects",
+        "name": "VisualFXSetting",
+        "type": "dword",
+        "value": 3
+      },
+      {
+        "reg": "HKCU\\Control Panel\\Desktop\\WindowMetrics",
+        "name": "MinAnimate",
+        "type": "string",
+        "value": "0"
+      },
+      {
+        "reg": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
+        "name": "TaskbarAnimations",
+        "type": "dword",
+        "value": 0
+      },
+      {
+        "reg": "HKCU\\Control Panel\\Desktop",
+        "name": "FontSmoothing",
+        "type": "string",
+        "value": "2"
+      }
     ]
   },
   {
-    "id": "startup-delay", "group": "Windows", "risk": "bajo", "reboot": true,
+    "id": "startup-delay",
+    "group": "Windows",
+    "risk": "bajo",
+    "reboot": true,
     "title": "Programas de inicio sin espera",
     "detail": "Windows espera unos segundos antes de abrir lo que arranca contigo. Esto quita esa espera.",
     "source": "",
     "ops": [
-      { "reg": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Serialize", "name": "StartupDelayInMSec", "type": "dword", "value": 0 },
-      { "reg": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Serialize", "name": "WaitForIdleState", "type": "dword", "value": 0 }
+      {
+        "reg": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Serialize",
+        "name": "StartupDelayInMSec",
+        "type": "dword",
+        "value": 0
+      },
+      {
+        "reg": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Serialize",
+        "name": "WaitForIdleState",
+        "type": "dword",
+        "value": 0
+      }
     ]
   },
   {
-    "id": "boot-info", "group": "Windows", "risk": "bajo", "reboot": false,
+    "id": "boot-info",
+    "group": "Windows",
+    "risk": "bajo",
+    "reboot": false,
     "title": "Ver qué hace Windows al encender y apagar",
     "detail": "En vez de «Espere», Windows dice qué está cargando. Sirve para ver dónde se traba.",
     "source": "",
-    "ops": [ { "reg": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System", "name": "VerboseStatus", "type": "dword", "value": 1 } ]
+    "ops": [
+      {
+        "reg": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System",
+        "name": "VerboseStatus",
+        "type": "dword",
+        "value": 1
+      }
+    ]
   },
   {
-    "id": "smb1-off", "group": "Windows", "risk": "bajo", "reboot": true,
+    "id": "smb1-off",
+    "group": "Windows",
+    "risk": "bajo",
+    "reboot": true,
     "title": "Apagar el compartir archivos antiguo (SMB1)",
     "detail": "Protocolo de los 90 que usó WannaCry. Solo lo necesitan NAS o impresoras muy viejas.",
     "source": "",
-    "ops": [ { "reg": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\LanmanServer\\Parameters", "name": "SMB1", "type": "dword", "value": 0 } ]
+    "ops": [
+      {
+        "reg": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\LanmanServer\\Parameters",
+        "name": "SMB1",
+        "type": "dword",
+        "value": 0
+      }
+    ]
   },
   {
-    "id": "browsers-bg", "group": "Rendimiento", "risk": "bajo", "reboot": false,
+    "id": "browsers-bg",
+    "group": "Rendimiento",
+    "risk": "bajo",
+    "reboot": false,
     "title": "Chrome y Edge se cierran de verdad",
     "detail": "Al cerrar la ventana no se quedan en memoria ni arrancan con Windows. Chrome mostrará «Gestionado por tu organización»: es normal.",
     "source": "",
     "ops": [
-      { "reg": "HKLM\\SOFTWARE\\Policies\\Google\\Chrome", "name": "BackgroundModeEnabled", "type": "dword", "value": 0 },
-      { "reg": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Edge", "name": "BackgroundModeEnabled", "type": "dword", "value": 0 },
-      { "reg": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Edge", "name": "StartupBoostEnabled", "type": "dword", "value": 0 }
+      {
+        "reg": "HKLM\\SOFTWARE\\Policies\\Google\\Chrome",
+        "name": "BackgroundModeEnabled",
+        "type": "dword",
+        "value": 0
+      },
+      {
+        "reg": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Edge",
+        "name": "BackgroundModeEnabled",
+        "type": "dword",
+        "value": 0
+      },
+      {
+        "reg": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Edge",
+        "name": "StartupBoostEnabled",
+        "type": "dword",
+        "value": 0
+      }
     ]
   },
   {
-    "id": "ad-id-off", "group": "Privacidad", "risk": "bajo", "reboot": false,
+    "id": "ad-id-off",
+    "group": "Privacidad",
+    "risk": "bajo",
+    "reboot": false,
     "title": "Sin identificador de anuncios",
     "detail": "Las apps dejan de compartir un número tuyo para mostrarte anuncios.",
     "source": "",
     "ops": [
-      { "reg": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\AdvertisingInfo", "name": "Enabled", "type": "dword", "value": 0 },
-      { "reg": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\AdvertisingInfo", "name": "DisabledByGroupPolicy", "type": "dword", "value": 1 }
+      {
+        "reg": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\AdvertisingInfo",
+        "name": "Enabled",
+        "type": "dword",
+        "value": 0
+      },
+      {
+        "reg": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\AdvertisingInfo",
+        "name": "DisabledByGroupPolicy",
+        "type": "dword",
+        "value": 1
+      }
     ]
   },
   {
-    "id": "firefox-telemetry", "group": "Privacidad", "risk": "bajo", "reboot": false,
+    "id": "firefox-telemetry",
+    "group": "Privacidad",
+    "risk": "bajo",
+    "reboot": false,
     "title": "Firefox sin enviar datos de uso",
     "detail": "Apaga la telemetría y el agente que revisa cuál es tu navegador predeterminado.",
     "source": "",
     "ops": [
-      { "reg": "HKLM\\SOFTWARE\\Policies\\Mozilla\\Firefox", "name": "DisableTelemetry", "type": "dword", "value": 1 },
-      { "reg": "HKLM\\SOFTWARE\\Policies\\Mozilla\\Firefox", "name": "DisableDefaultBrowserAgent", "type": "dword", "value": 1 }
+      {
+        "reg": "HKLM\\SOFTWARE\\Policies\\Mozilla\\Firefox",
+        "name": "DisableTelemetry",
+        "type": "dword",
+        "value": 1
+      },
+      {
+        "reg": "HKLM\\SOFTWARE\\Policies\\Mozilla\\Firefox",
+        "name": "DisableDefaultBrowserAgent",
+        "type": "dword",
+        "value": 1
+      }
     ]
   },
   {
-    "id": "wer-off", "group": "Privacidad", "risk": "bajo", "reboot": false,
+    "id": "wer-off",
+    "group": "Privacidad",
+    "risk": "bajo",
+    "reboot": false,
     "title": "No enviar informes de errores a Microsoft",
     "detail": "Cuando un programa se cierra solo, Windows no prepara ni sube el informe. El Diagnóstico de Vigía sigue viendo los cierres.",
     "source": "",
-    "ops": [ { "reg": "HKLM\\SOFTWARE\\Microsoft\\Windows\\Windows Error Reporting", "name": "Disabled", "type": "dword", "value": 1 } ]
+    "ops": [
+      {
+        "reg": "HKLM\\SOFTWARE\\Microsoft\\Windows\\Windows Error Reporting",
+        "name": "Disabled",
+        "type": "dword",
+        "value": 1
+      }
+    ]
   },
   {
-    "id": "p2p-updates-off", "group": "Actualizaciones", "risk": "bajo", "reboot": false,
+    "id": "p2p-updates-off",
+    "group": "Actualizaciones",
+    "risk": "bajo",
+    "reboot": false,
     "title": "Actualizaciones sin compartir tu internet",
     "detail": "Windows baja las actualizaciones solo de Microsoft y no usa tu conexión para mandarlas a otros PCs.",
     "source": "",
-    "ops": [ { "reg": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\DeliveryOptimization", "name": "DODownloadMode", "type": "dword", "value": 0 } ]
+    "ops": [
+      {
+        "reg": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\DeliveryOptimization",
+        "name": "DODownloadMode",
+        "type": "dword",
+        "value": 0
+      }
+    ]
+  },
+  {
+    "id": "usb-suspend-off",
+    "group": "Ratón y teclado",
+    "risk": "bajo",
+    "reboot": false,
+    "title": "USB sin suspensión",
+    "detail": "Windows deja de dormir los puertos USB para ahorrar. Se acaban los cortes de ratón, teclado o cascos que se desconectan un segundo. Solo enchufado.",
+    "source": "",
+    "ops": [
+      {
+        "power": "2a737441-1930-4402-8d77-b2bebba308a3/48e6b7a6-50f5-4782-a5d4-53bb8f07e226",
+        "ac": 0
+      }
+    ]
+  },
+  {
+    "id": "pcie-aspm-off",
+    "group": "Rendimiento",
+    "risk": "bajo",
+    "reboot": false,
+    "title": "Tarjeta gráfica y disco sin ahorro de enlace",
+    "detail": "Windows deja de dormir la conexión PCI Express de la gráfica y el NVMe entre usos. Quita pequeños tirones al despertar. Solo enchufado.",
+    "source": "",
+    "ops": [
+      {
+        "power": "501a4d13-42af-4429-9fd1-a8218c268e20/ee12f906-d277-404b-b6da-e5fa1a576df5",
+        "ac": 0
+      }
+    ]
+  },
+  {
+    "id": "vrr-windowed",
+    "group": "Juegos",
+    "risk": "bajo",
+    "reboot": false,
+    "title": "G-Sync/FreeSync en juegos en ventana",
+    "detail": "La frecuencia variable del monitor también funciona en juegos sin bordes que no la piden. Es la opción de Windows en Pantalla > Gráficos.",
+    "source": "",
+    "ops": [
+      {
+        "reg": "HKCU\\Software\\Microsoft\\DirectX\\UserGpuPreferences",
+        "name": "DirectXUserGlobalSettings",
+        "kv": "VRROptimizeEnable",
+        "value": "1"
+      }
+    ]
+  },
+  {
+    "id": "widgets-off",
+    "group": "Rendimiento",
+    "risk": "bajo",
+    "reboot": false,
+    "title": "Sin Widgets",
+    "detail": "Quita el panel de noticias y el tiempo de la barra de tareas y los procesos que deja abiertos por detrás.",
+    "source": "",
+    "ops": [
+      {
+        "reg": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Dsh",
+        "name": "AllowNewsAndInterests",
+        "type": "dword",
+        "value": 0
+      }
+    ]
+  },
+  {
+    "id": "start-web-off",
+    "group": "Privacidad",
+    "risk": "bajo",
+    "reboot": false,
+    "title": "Inicio busca solo en tu PC",
+    "detail": "Lo que escribes en el menú Inicio no se manda a Bing y los resultados salen antes.",
+    "source": "",
+    "ops": [
+      {
+        "reg": "HKCU\\Software\\Policies\\Microsoft\\Windows\\Explorer",
+        "name": "DisableSearchBoxSuggestions",
+        "type": "dword",
+        "value": 1
+      }
+    ]
+  },
+  {
+    "id": "recall-off",
+    "group": "Privacidad",
+    "risk": "bajo",
+    "reboot": false,
+    "title": "Sin capturas de Recall",
+    "detail": "Windows no guarda capturas de lo que haces en pantalla. Solo cuenta en PCs que traen Recall.",
+    "source": "",
+    "ops": [
+      {
+        "reg": "HKCU\\Software\\Policies\\Microsoft\\Windows\\WindowsAI",
+        "name": "DisableAIDataAnalysis",
+        "type": "dword",
+        "value": 1
+      }
+    ]
   }
 ]

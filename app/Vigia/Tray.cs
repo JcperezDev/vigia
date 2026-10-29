@@ -103,18 +103,25 @@ sealed partial class MainForm
         m.Items.Add(new ToolStripMenuItem(Tr.T("optimize", l), null, async (_, _) => await QuickOptimizeAsync(l)) { Enabled = !_trayBusy, ToolTipText = Tr.T("optimizeTip", l) });
         m.Items.Add(new ToolStripMenuItem(Tr.T("freeRam", l), null, async (_, _) => await QuickFreeAsync(l)) { Enabled = !_trayBusy });
 
-        // resolución estirada: las que ofrece la pantalla a su frecuencia, más «volver a la normal»
+        // resolución: las normales y las estiradas que ofrece la pantalla a su frecuencia, más «volver a la normal»
         var res = new ToolStripMenuItem(Tr.T("stretch", l));
         try
         {
             var st = Display.Status();
-            foreach (var o in st.Options.Take(8))
+            var nat = st.Saved ?? st.Native;
+            // primero las normales (sin la tuya, que es «Volver a la normal») y luego las estiradas
+            var normals = nat is null ? [] : st.Options.Where(o => Display.SameShape(o, nat) && (o.Width != nat.Width || o.Height != nat.Height)).Take(4).ToList();
+            var stretched = st.Options.Except(normals).Where(o => nat is null || !Display.SameShape(o, nat)).Take(8).ToList();
+            void Add(DisplayMode o)
             {
                 var mode = o;
                 var on = st.Stretched && st.Current is { } cur && cur.Width == o.Width && cur.Height == o.Height;
                 res.DropDownItems.Add(new ToolStripMenuItem($"{o.Width} × {o.Height}  ·  {o.Hz} Hz", null, (_, _) => QuickStretch(mode, l)) { Checked = on, Enabled = !on });
             }
-            if (st.Options.Count == 0) res.DropDownItems.Add(new ToolStripMenuItem(Tr.T("noModes", l)) { Enabled = false });
+            normals.ForEach(Add);
+            if (normals.Count > 0 && stretched.Count > 0) res.DropDownItems.Add(new ToolStripSeparator());
+            stretched.ForEach(Add);
+            if (normals.Count + stretched.Count == 0) res.DropDownItems.Add(new ToolStripMenuItem(Tr.T("noModes", l)) { Enabled = false });
             res.DropDownItems.Add(new ToolStripSeparator());
             var back = st.Saved ?? st.Native;
             res.DropDownItems.Add(new ToolStripMenuItem(Tr.T("normal", l) + (back is null ? "" : $"  ({back.Width} × {back.Height})"), null, (_, _) => QuickRestoreDisplay(l)) { Enabled = st.Stretched });
@@ -310,7 +317,7 @@ static class Tr
         ["optimize"] = ["Optimizar ahora", "Optimize now", "Otimizar agora", "Optimiser maintenant", "Jetzt optimieren"],
         ["optimizeTip"] = ["Libera la RAM y pasa TRIM a los SSD. No borra archivos.", "Frees RAM and runs TRIM on SSDs. Deletes no files.", "Libera a RAM e faz TRIM nos SSD. Não apaga arquivos.", "Libère la RAM et lance TRIM sur les SSD. Ne supprime aucun fichier.", "Gibt RAM frei und führt TRIM auf SSDs aus. Löscht keine Dateien."],
         ["freeRam"] = ["Liberar memoria", "Free memory", "Liberar memória", "Libérer la mémoire", "Speicher freigeben"],
-        ["stretch"] = ["Resolución estirada", "Stretched resolution", "Resolução esticada", "Résolution étirée", "Gestreckte Auflösung"],
+        ["stretch"] = ["Resolución", "Resolution", "Resolução", "Résolution", "Auflösung"],
         ["noModes"] = ["La pantalla no ofrece ninguna", "Your display offers none", "A tela não oferece nenhuma", "L'écran n'en propose aucune", "Der Bildschirm bietet keine an"],
         ["normal"] = ["Volver a la normal", "Back to normal", "Voltar ao normal", "Revenir à la normale", "Zurück zur normalen"],
         ["undo"] = ["Deshacer último cambio…", "Undo last change…", "Desfazer última alteração…", "Annuler la dernière modification…", "Letzte Änderung rückgängig…"],

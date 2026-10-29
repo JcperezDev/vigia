@@ -109,14 +109,12 @@ public static class Memory
         var st = Status();
         if (st.LoadPct < s.MemAutoThreshold || DateTime.Now - _lastAuto < TimeSpan.FromMinutes(Math.Max(1, s.MemAutoIntervalMin))) return null;
         _lastAuto = DateTime.Now;
-        // jugando: sacar la memoria de los procesos obliga al juego a volver a leerla del disco y da tirones.
-        // Solo se suelta la caché en espera de baja prioridad, y solo si de verdad queda poca libre.
-        if (AutoStart.Busy())
-            return st.FreeGb < 1 && st.StandbyLowGb > 0.5
-                ? Free(new MemOptions(WorkingSets: false, Modified: false, Standby: true, StandbyLowOnly: true, FileCache: false, Combine: false), auto: true)
-                : null;
-        // la caché en espera ya cuenta como disponible: para bajar el % hay que recortar la memoria de los procesos
-        return Free(new MemOptions(WorkingSets: true, Modified: true, Standby: true, StandbyLowOnly: false, FileCache: true, Combine: false), auto: true);
+        // Nunca se vacía la memoria de los procesos en automático, juegues o no: todo lo que se saca vuelve del disco
+        // al momento, y con poca RAM o disco lento eso deja el PC congelado varios segundos cada vez.
+        // Solo se suelta la caché en espera de baja prioridad, y solo cuando de verdad queda poca libre.
+        return st.FreeGb < 2 && st.StandbyLowGb > 0.5
+            ? Free(new MemOptions(WorkingSets: false, Modified: false, Standby: true, StandbyLowOnly: true, FileCache: false, Combine: false), auto: true)
+            : null;
     }
 }
 

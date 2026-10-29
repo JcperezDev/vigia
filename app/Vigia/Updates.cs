@@ -71,10 +71,12 @@ public static class Updates
     const string PublicKey = "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE2sn60BucOhX4a3HZt59BBg3gWbZ77dyDNEdmP0/+cFAaUg7jSEjaywk5q54fPIZKzpuUtQlsS01dcTNdbv0muA==";
 
     /// <summary>Si falta Puente, lo baja de GitHub y comprueba la firma antes de dejarlo en su carpeta. Devuelve null si está listo.</summary>
-    public static async Task<string?> EnsurePuenteAsync(string? dest = null)
+    /// <param name="fresh">Para actualizar: se baja y se comprueba otra vez aunque ya exista, así nunca se abre un Puente
+    /// que alguien haya cambiado en su carpeta (es del usuario y Vigía corre como administrador).</param>
+    public static async Task<string?> EnsurePuenteAsync(string? dest = null, bool fresh = false)
     {
         dest ??= PuentePath;
-        if (File.Exists(dest)) return null;
+        if (!fresh && File.Exists(dest)) return null;
         var dir = Path.GetDirectoryName(dest)!;
         var tmp = Path.Combine(Path.GetTempPath(), $"vigia-puente-{Guid.NewGuid():N}.exe");
         try

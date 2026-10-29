@@ -108,6 +108,12 @@ static class Program
             Console.WriteLine($"{r.Ok} {r.Message} {string.Join("; ", r.Errors)}");
             return r.Ok ? 0 : 1;
         }
+        // Deshace ya los ajustes retirados que Vigía puso antes: Vigia.exe --undo-retired salida.json
+        if (args.Length >= 2 && args[0] == "--undo-retired")
+        {
+            File.WriteAllText(args[1], JsonSerializer.Serialize((object?)Tweaks.UndoRetired() ?? new { nothing = true }, new JsonSerializerOptions(Json) { WriteIndented = true }));
+            return 0;
+        }
         if (args.Length >= 2 && args[0] == "--simple-plan")   // solo lectura: qué haría el modo simple con las respuestas por defecto
         {
             var ans = args.Length >= 3 ? JsonSerializer.Deserialize<Simple.Answers>(File.ReadAllText(args[2]), Json)! : new Simple.Answers();
@@ -300,7 +306,9 @@ static class Program
         using var mutex = new Mutex(true, @"Local\Vigia.SingleInstance", out var first);
         if (!first)
         {
-            // ya está abierta (quizá escondida en la bandeja): pedirle que se muestre
+            // ya está abierta (quizá escondida en la bandeja): pedirle que se muestre.
+            // Si esta segunda copia viene del arranque con Windows (--tray), no: sacaría de un juego a pantalla completa.
+            if (args.Length >= 1 && args[0] == AutoStart.Arg) return 0;
             try { using var ev = EventWaitHandle.OpenExisting(MainForm.ShowEventName); ev.Set(); } catch { }
             return 0;
         }
@@ -353,8 +361,11 @@ sealed partial class MainForm : Form
     public MainForm(bool startHidden) : this()
     {
         _startHidden = startHidden;
-        if (startHidden) { WindowState = FormWindowState.Minimized; ShowInTaskbar = false; Opacity = 0; }
+        // Nada de «minimizada»: Windows la activa al mostrarla y eso saca del juego que esté al frente.
+        // Se crea invisible, fuera de la pantalla y sin activar; luego se esconde en la bandeja.
+        if (startHidden) { StartPosition = FormStartPosition.Manual; Location = new Point(-32000, -32000); ShowInTaskbar = false; Opacity = 0; }
     }
+    protected override bool ShowWithoutActivation => _startHidden && Opacity == 0;
 
     public MainForm()
     {
@@ -368,9 +379,11 @@ sealed partial class MainForm : Form
         {
             if (_snapPath is null) InitTray();   /* --bench mide con el icono puesto */
             await InitAsync();
+            if (_snapPath is null) _ = UndoRetiredAsync();
+            if (_snapPath is null) _ = PawnAsync();
             if (_startHidden)
             {
-                Hide(); ShowInTaskbar = true; Opacity = 1;
+                Hide(); ShowInTaskbar = true; Opacity = 1; CenterToScreen();
                 await SetRestingAsync(true);
                 _ = ReviewAfterLogonAsync();
             }
@@ -467,6 +480,36 @@ sealed partial class MainForm : Form
     [System.Runtime.InteropServices.DllImport("kernel32.dll")]
     static extern bool SetProcessWorkingSetSize(IntPtr proc, nint min, nint max);
 
+    /// <summary>
+    /// Los ajustes con riesgo ya no están en Vigía. A quien los tenía puestos se le devuelven a como estaban,
+    /// con copia de seguridad antes. Espera a que el PC esté tranquilo y nunca en mitad de un juego.
+    /// </summary>
+    /// <summary>Driver para los grados del procesador: si falta, se pone una vez, en silencio y sin juego abierto.</summary>
+    CancellationTokenSource? _dsGuard;
+
+    async Task PawnAsync()
+    {
+        try
+        {
+            if (Pawn.Installed()) return;
+            await Task.Delay(TimeSpan.FromSeconds(20));
+            while (AutoStart.Busy()) await Task.Delay(TimeSpan.FromMinutes(5));
+            if (await Task.Run(() => Pawn.InstallIfMissing(out _))) _tel.CpuDriverReady();
+        }
+        catch { }
+    }
+
+    async Task UndoRetiredAsync()
+    {
+        try
+        {
+            await Task.Delay(TimeSpan.FromSeconds(30));
+            while (AutoStart.Busy()) await Task.Delay(TimeSpan.FromMinutes(5));
+            await Task.Run(Tweaks.UndoRetired);
+        }
+        catch { }
+    }
+
     async Task BenchAsync()
     {
         await Task.Delay(10_000);                                   // que termine de arrancar
@@ -562,7 +605,7 @@ sealed partial class MainForm : Form
 
     protected override void WndProc(ref Message m)
     {
-        if (m.Msg == 0x00FF) Drift.Feed(m.LParam);   // WM_INPUT: solo llega mientras se miden los Hz del ratón
+        if (m.Msg == 0x00FF) Drift.Feed(m.WParam, m.LParam);   // WM_INPUT: solo llega mientras se miden los Hz del ratón
         base.WndProc(ref m);
     }
 
@@ -587,6 +630,9 @@ sealed partial class MainForm : Form
                     Send("healthScan", await Task.Run(() => Health.Scan(_tel)));
                     break;
                 case "suggest":
+                    // la revisión sola (al abrir) solo con Vigía delante y sin juego: hace pings, WMI y lee discos.
+                    // Si no, espera a la próxima vez que mires Vigía o a que pulses «Analizar».
+                    if ((bool?)msg["auto"] == true && (AutoStart.Busy() || Form.ActiveForm != this)) break;
                     // a la vez que el resto: unos segundos mirando el ratón y los sticks, sin pedirle nada al usuario
                     var sense = Task.Run(() => Drift.Sense(this, 3000));
                     var srep = await Task.Run(() => Suggestions.Run(_tel));
@@ -733,10 +779,27 @@ sealed partial class MainForm : Form
                 case "displayStretch":
                     var dw = (int)msg["w"]!; var dh = (int)msg["h"]!;
                     var dg = msg["games"]?.GetValue<bool>() ?? false;
-                    Send("displayDone", await Task.Run(() => Display.Stretch(dw, dh, dg)));
+                    var sdone = await Task.Run(() => Display.Stretch(dw, dh, dg));
+                    Send("displayDone", sdone);
                     Send("display", Display.Status());
+                    // red de seguridad aquí y no solo en la página: si la ventana está minimizada, WebView2 duerme
+                    // su cuenta atrás y la pantalla podría quedarse en negro sin volver
+                    _dsGuard?.Cancel(); _dsGuard = null;
+                    if (sdone.Ok && sdone.Pending)
+                    {
+                        var g = _dsGuard = new CancellationTokenSource();
+                        _ = Task.Delay(TimeSpan.FromSeconds(20), g.Token).ContinueWith(t =>
+                        {
+                            if (t.IsCanceled) return;
+                            BeginInvoke(() => { if (_dsGuard != g) return; _dsGuard = null; Send("displayDone", Display.Restore()); Send("display", Display.Status()); });
+                        }, TaskScheduler.Default);
+                    }
+                    break;
+                case "displayKeep":
+                    _dsGuard?.Cancel(); _dsGuard = null;
                     break;
                 case "displayRestore":
+                    _dsGuard?.Cancel(); _dsGuard = null;
                     Send("displayDone", Display.Restore());
                     Send("display", Display.Status());
                     break;
@@ -747,7 +810,7 @@ sealed partial class MainForm : Form
                     Send("update", await Updates.CheckAsync());
                     break;
                 case "updateRun":
-                    if (await Updates.EnsurePuenteAsync() is string perr) { Send("update", (await Updates.CheckAsync()) with { Error = perr }); break; }
+                    if (await Updates.EnsurePuenteAsync(fresh: true) is string perr) { Send("update", (await Updates.CheckAsync()) with { Error = perr }); break; }
                     if (Updates.StartPuente()) { _quitting = true; Close(); }   // salir de verdad, no a la bandeja
                     else Send("update", (await Updates.CheckAsync()) with { Error = "No pude abrir Puente." });
                     break;

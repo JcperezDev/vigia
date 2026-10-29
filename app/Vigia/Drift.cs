@@ -229,8 +229,14 @@ public static class Drift
         public readonly Dictionary<IntPtr, long[]> Dist = new();     // cuánto se movió en cada tramo (cuentas del sensor)
         public readonly System.Diagnostics.Stopwatch Clock = System.Diagnostics.Stopwatch.StartNew();
         public int Slots;
+        public int Front, Back;   // informes que Windows dio como «al frente» (RIM_INPUT) o «de fondo» (RIM_INPUTSINK)
         public RateCount(int slots) => Slots = slots;
-        public void Read(IntPtr h)
+        /// <summary>
+        /// Si la mayoría llegó «de fondo», Windows 11 los juntó en paquetes de ~8 ms (unos 125 por segundo) y
+        /// el número no dice nada del ratón: un ratón de 1000 Hz saldría a 125.
+        /// </summary>
+        public bool Throttled => Back > Front;
+        public void Read(IntPtr w, IntPtr h)
         {
             int hdr = 8 + 2 * IntPtr.Size, size = 0;
             GetRawInputData(h, RID_INPUT, IntPtr.Zero, ref size, hdr);
@@ -242,6 +248,7 @@ public static class Drift
                 var dev = Marshal.ReadIntPtr(buf, 8);
                 int dx = Marshal.ReadInt32(buf, hdr + 12), dy = Marshal.ReadInt32(buf, hdr + 16);
                 if (dev == IntPtr.Zero || (dx == 0 && dy == 0)) return;
+                if ((w.ToInt64() & 0xFF) == 1) Back++; else Front++;
                 if (!Buckets.TryGetValue(dev, out var b)) { Buckets[dev] = b = new int[Slots]; Dist[dev] = new long[Slots]; }
                 var i = (int)(Clock.ElapsedMilliseconds / 50);
                 if (i < Slots) { b[i]++; Dist[dev][i] += Math.Abs(dx) + Math.Abs(dy); }
@@ -257,17 +264,37 @@ public static class Drift
         public RateSink(RateCount c) { _c = c; CreateHandle(new CreateParams { Parent = new IntPtr(-3) }); }
         protected override void WndProc(ref Message m)
         {
-            if (m.Msg == WM_INPUT) _c.Read(m.LParam);
+            if (m.Msg == WM_INPUT) _c.Read(m.WParam, m.LParam);
             base.WndProc(ref m);
         }
     }
 
-    // Windows 11 (24H2 en adelante) solo pasa ~125 Hz del ratón a las ventanas que no están al frente.
-    // Por eso, con Vigía abierta, se mide en su propia ventana: si no, cualquier ratón saldría a 125 Hz.
+    // Windows 11 (24H2 en adelante) solo pasa ~125 Hz del ratón a los programas que no están al frente.
+    // Ojo: dentro de Vigía el foco lo tiene la página (WebView2), que es otro proceso, así que para Windows
+    // Vigía está «de fondo» aunque se vea delante. Por eso, mientras se mide, el foco pasa a la ventana de Vigía
+    // (sin traerla al frente: solo si ya lo está) y al terminar vuelve a la página.
     static volatile RateCount? _feed;
     /// <summary>La ventana de Vigía pasa aquí cada WM_INPUT mientras se mide.</summary>
-    public static void Feed(IntPtr lParam) => _feed?.Read(lParam);
+    public static void Feed(IntPtr wParam, IntPtr lParam) => _feed?.Read(wParam, lParam);
     [DllImport("user32.dll")] static extern IntPtr GetForegroundWindow();
+
+    /// <summary>Foco a la ventana de Vigía (no a la página) para que Windows mande el ratón sin recortar. Nunca roba el frente.</summary>
+    static Control? TakeFocus(Control host)
+    {
+        Control? page = null;
+        host.Invoke(() =>
+        {
+            if (GetForegroundWindow() != host.Handle) return;
+            foreach (Control c in host.Controls) if (c.ContainsFocus) page = c;
+            if (page is not null) host.Focus();
+        });
+        return page;
+    }
+    static void GiveFocusBack(Control host, Control? page)
+    {
+        if (page is null) return;
+        try { host.Invoke(() => { if (GetForegroundWindow() == host.Handle && host.ContainsFocus && !page.ContainsFocus) page.Focus(); }); } catch { }
+    }
 
     static readonly int[] Steps = [125, 250, 500, 1000, 2000, 4000, 8000];
     static int Snap(double hz) => hz < 90 ? (int)Math.Round(hz) : Steps.OrderBy(s => Math.Abs(Math.Log(hz / s))).First();
@@ -302,6 +329,7 @@ public static class Drift
         var reg = new[] { new RAWINPUTDEVICE { UsagePage = 1, Usage = 2, Flags = RIDEV_INPUTSINK, Target = target } };
         void Reg() => RegisterRawInputDevices(reg, 1, Marshal.SizeOf<RAWINPUTDEVICE>());
         if (host is not null) host.Invoke(Reg); else Reg();
+        var page = host is not null ? TakeFocus(host) : null;
         int front = 0, looks = 0;
         var xi = new List<int>();
         for (int i = 0; i < 4; i++) { try { if (XInputGetState(i, out _) == 0) xi.Add(i); } catch (DllNotFoundException) { break; } }
@@ -330,7 +358,7 @@ public static class Drift
         {
             timeEndPeriod(1);
             reg[0].Flags = RIDEV_REMOVE; reg[0].Target = IntPtr.Zero;
-            if (host is not null) { host.Invoke(Reg); _feed = null; } else Reg();
+            if (host is not null) { host.Invoke(Reg); _feed = null; GiveFocusBack(host, page); } else Reg();
         }
         var mice = count.Buckets.ToList();
         sink?.DestroyHandle();
@@ -342,6 +370,7 @@ public static class Drift
         {
             var raw = Rate(b); if (raw == 0) continue;
             var hz = Snap(raw); var name = MouseName(dev);
+            if (count.Throttled && hz <= 125) { items.Add(new("mouse", name, 0, "touched", "Windows no dejó medirlo a fondo.", "Haz clic en Vigía y vuelve a medir sin cambiar de ventana.")); continue; }
             if (away && hz <= 125) { items.Add(new("mouse", name, 0, "touched", "Cambiaste de ventana durante la medida.", "Vuelve a medir con Vigía al frente.")); continue; }
             items.Add(hz >= 900 ? new("mouse", name, hz, "ok", $"{hz} Hz: responde rápido.", null)
                 : hz >= 450 ? new("mouse", name, hz, "ok", $"{hz} Hz: bien.", "Si tu ratón llega a 1000 Hz, súbelo en su programa o con su botón.")
@@ -385,6 +414,7 @@ public static class Drift
         var reg = new[] { new RAWINPUTDEVICE { UsagePage = 1, Usage = 2, Flags = RIDEV_INPUTSINK, Target = target } };
         void Reg() => RegisterRawInputDevices(reg, 1, Marshal.SizeOf<RAWINPUTDEVICE>());
         host.Invoke(Reg);
+        var page = TakeFocus(host);
 
         var sticks = new List<Stick>();
         var xi = new List<int>();
@@ -439,11 +469,12 @@ public static class Drift
             reg[0].Flags = RIDEV_REMOVE; reg[0].Target = IntPtr.Zero;
             try { host.Invoke(Reg); } catch { }
             _feed = null;
+            GiveFocusBack(host, page);
         }
 
         var res = new List<Suggestion>();
-        // ratón: solo si Vigía estuvo al frente (si no, Windows lo recorta a ~125 Hz y el número no vale)
-        if (looks > 0 && front >= looks * 0.9)
+        // ratón: solo si Vigía estuvo al frente y Windows no recortó los informes (si no, sale 125 Hz con cualquier ratón)
+        if (looks > 0 && front >= looks * 0.9 && !count.Throttled)
             foreach (var (dev, b) in count.Buckets.ToList())
             {
                 var d = count.Dist[dev];

@@ -405,7 +405,7 @@
         <div class="ds-act">
           <select id="ds-mode" aria-label="Resolución"></select>
           <span class="ds-custom" id="ds-custom" hidden><input type="number" id="ds-w" min="640" step="2" aria-label="Ancho"> × <input type="number" id="ds-h" min="480" step="2" aria-label="Altura"></span>
-          <button class="btn primary" id="ds-apply" disabled>Estirar</button>
+          <button class="btn primary" id="ds-apply" disabled>Aplicar</button>
           <button class="btn" id="ds-restore" hidden>Volver a la normal</button>
         </div>
         <input type="checkbox" id="ds-games" checked hidden>
@@ -450,13 +450,13 @@
             <p class="st-notes" id="st-notes"></p>
             <button class="btn primary" id="st-run">Actualizar ahora</button>
           </div>
-          <label class="chk"><input type="checkbox" id="st-auto"><span>Buscar sola al abrir Vigía y cada 6 horas<small>Solo pregunta a GitHub si hay versión nueva; no baja nada sin que lo pidas.</small></span></label>
+          <label class="chk"><input type="checkbox" id="st-auto"><span>Buscar actualizaciones automáticamente</span></label>
         </div>
       </section>
       <section class="tw-group">
         <h2>Al iniciar Windows</h2>
         <div class="panel st-panel">
-          <label class="chk"><input type="checkbox" id="st-boot"><span>Abrir Vigía al iniciar Windows<small>Se queda escondida en la bandeja sin gastar casi nada, para que la liberación de memoria funcione sola. A los 2 minutos revisa una vez si hay programas nuevos que arrancan con Windows o si se deshizo algún ajuste, y te avisa sin abrir nada. Si estás jugando, espera.</small></span></label>
+          <label class="chk"><input type="checkbox" id="st-boot"><span>Abrir Vigía al iniciar Windows</span></label>
           <p class="result" id="st-boot-msg" aria-live="polite"></p>
         </div>
       </section>
@@ -464,7 +464,7 @@
         <h2>Idioma</h2>
         <div class="panel st-panel">
           <div class="st-line">
-            <div><strong>Idioma de Vigía</strong><p class="sub">«Automático» usa el idioma de Windows.</p></div>
+            <div><strong>Idioma de Vigía</strong></div>
             <select id="st-lang" class="st-select"><option value="auto">Automático</option></select>
           </div>
         </div>
