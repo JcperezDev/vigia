@@ -310,7 +310,7 @@ static class Tr
         ["optimize"] = ["Optimizar ahora", "Optimize now", "Otimizar agora", "Optimiser maintenant", "Jetzt optimieren"],
         ["optimizeTip"] = ["Libera la RAM y pasa TRIM a los SSD. No borra archivos.", "Frees RAM and runs TRIM on SSDs. Deletes no files.", "Libera a RAM e faz TRIM nos SSD. Não apaga arquivos.", "Libère la RAM et lance TRIM sur les SSD. Ne supprime aucun fichier.", "Gibt RAM frei und führt TRIM auf SSDs aus. Löscht keine Dateien."],
         ["freeRam"] = ["Liberar memoria", "Free memory", "Liberar memória", "Libérer la mémoire", "Speicher freigeben"],
-        ["stretch"] = ["Resolución estirada", "Stretched resolution", "Resolução esticada", "Résolution étirée", "Gestreckte Auflösung"],
+        ["stretch"] = ["Resolución", "Resolution", "Resolução", "Résolution", "Auflösung"],
         ["noModes"] = ["La pantalla no ofrece ninguna", "Your display offers none", "A tela não oferece nenhuma", "L'écran n'en propose aucune", "Der Bildschirm bietet keine an"],
         ["normal"] = ["Volver a la normal", "Back to normal", "Voltar ao normal", "Revenir à la normale", "Zurück zur normalen"],
         ["undo"] = ["Deshacer último cambio…", "Undo last change…", "Desfazer última alteração…", "Annuler la dernière modification…", "Letzte Änderung rückgängig…"],
