@@ -280,6 +280,7 @@ static class Program
         {
             var report = Cleanup.SelfTest() + Environment.NewLine + "--- ajustes" + Environment.NewLine + Tweaks.SelfTest()
                 + Environment.NewLine + "--- catálogo" + Environment.NewLine + Tweaks.CatalogSelfTest()
+                + Environment.NewLine + "--- mensajes de la interfaz" + Environment.NewLine + UiMessage.SelfTest()
                 + Environment.NewLine + "--- sugerencias" + Environment.NewLine + Suggestions.SelfTest()
                 + Environment.NewLine + "--- juegos" + Environment.NewLine + Games.SelfTest()
                 + Environment.NewLine + "--- fps" + Environment.NewLine + Fps.SelfTest()
@@ -407,8 +408,14 @@ sealed partial class MainForm : Form
         core.Settings.AreDevToolsEnabled = System.Diagnostics.Debugger.IsAttached;
         core.Settings.AreDefaultContextMenusEnabled = false;
         core.Settings.IsStatusBarEnabled = false;
+        // la interfaz no usa objetos nativos expuestos a JavaScript, ni atajos del navegador (F5, Ctrl+P…), ni autocompletar
+        core.Settings.AreHostObjectsAllowed = false;
+        core.Settings.AreBrowserAcceleratorKeysEnabled = System.Diagnostics.Debugger.IsAttached;
+        core.Settings.IsGeneralAutofillEnabled = false;
+        core.Settings.IsPasswordAutosaveEnabled = false;
         // Solo se navega a la UI local
-        core.NavigationStarting += (_, e) => { if (!e.Uri.StartsWith("https://app.vigia/")) e.Cancel = true; };
+        core.NavigationStarting += (_, e) => { if (!e.Uri.StartsWith(UiMessage.Origin, StringComparison.Ordinal)) e.Cancel = true; };
+        core.FrameNavigationStarting += (_, e) => { if (!e.Uri.StartsWith(UiMessage.Origin, StringComparison.Ordinal)) e.Cancel = true; };
         core.NewWindowRequested += (_, e) => e.Handled = true;
         core.WebMessageReceived += OnMessage;
         // en capturas no sale la bienvenida (salvo que se pida con --snap … welcome / tour-N)
@@ -617,7 +624,9 @@ sealed partial class MainForm : Form
     {
         try
         {
-            var msg = JsonNode.Parse(e.WebMessageAsJson)!;
+            // origen real del documento, tamaño y forma: lo de app.js no basta
+            var msg = UiMessage.Accept(e.Source, e.WebMessageAsJson, out var why);
+            if (msg is null) { UiMessage.Note($"mensaje de la interfaz rechazado ({why})"); return; }
             switch ((string?)msg["cmd"])
             {
                 case "cleanScan":
@@ -950,13 +959,17 @@ sealed partial class MainForm : Form
                     break;
                 case "openSource":
                     // la fuente de un ajuste: el frontend solo manda el id; la URL sale del catálogo, nunca del mensaje
-                    var srcId = msg["id"]?.GetValueKind() == System.Text.Json.JsonValueKind.String ? (string?)msg["id"] : null;
-                    var srcUrl = srcId is { Length: > 0 and <= 64 } ? Tweaks.SourceOf(srcId) : null;
+                    var srcId = UiMessage.Str(msg, "id", 64);
+                    var srcUrl = srcId is { Length: > 0 } ? Tweaks.SourceOf(srcId) : null;
                     if (srcUrl is null || !Support.OpenSource(srcUrl)) Send("error", "Ese enlace no está permitido.");
                     break;
                 case "openUrl":
                     var link = (string?)msg["url"] ?? "";
                     if (!Support.Open(link == "repo" ? Support.Repo : link)) Send("error", "Ese enlace no está permitido.");
+                    break;
+                default:
+                    // lista cerrada: lo que no está arriba no se hace
+                    UiMessage.Note($"comando desconocido de la interfaz: {(string?)msg["cmd"]}");
                     break;
             }
         }

@@ -230,6 +230,13 @@ static class Program
             File.Delete(tmp);
             return;
         }
+        // un Puente firmado pero más viejo tampoco entra: así nadie puede devolver uno con un fallo ya arreglado
+        if (IsDowngrade(FileVersion(me), FileVersion(tmp)))
+        {
+            Log($"Puente {FileVersion(tmp)} es más viejo que el instalado ({FileVersion(me)}); no se cambia");
+            File.Delete(tmp);
+            return;
+        }
         // Windows deja renombrar un .exe en uso: el viejo se borra la próxima vez.
         // Después hay que reiniciar desde el nuevo: este proceso carga sus piezas del .exe por su ruta, y en esa ruta
         // ya está otro archivo (ZipFile fallaba con FileNotFoundException).
@@ -260,7 +267,14 @@ static class Program
         var tmp = Path.Combine(Programs, "Vigia.cambio");
         if (Directory.Exists(tmp)) Directory.Delete(tmp, true);
         MoveDir(AppDir, tmp);
-        MoveDir(PrevDir, AppDir);
+        try { MoveDir(PrevDir, AppDir); }
+        catch
+        {
+            // no se pudo poner la anterior: la actual vuelve a su sitio y no se toca nada más
+            MoveDir(tmp, AppDir);
+            Ui.Lock(false);
+            throw;
+        }
         MoveDir(tmp, PrevDir);
         Shortcuts();
         Ui.Lock(false);
@@ -570,6 +584,9 @@ static class Program
     }
 
     static Version Norm(Version v) => new(v.Major, v.Minor, Math.Max(v.Build, 0));
+
+    /// <summary>¿Cambiar de <paramref name="cur"/> a <paramref name="next"/> sería volver atrás? Sin versión conocida, no.</summary>
+    internal static bool IsDowngrade(Version? cur, Version? next) => cur is not null && next is not null && next < cur;
 
     static int? WaitPid(string[] a)
     {
