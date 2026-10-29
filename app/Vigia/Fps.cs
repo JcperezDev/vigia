@@ -14,8 +14,12 @@ namespace Vigia;
 /// </summary>
 public static class Fps
 {
+    /// <summary>Una medición. Los campos del final son nuevos: en mediciones viejas de fps.json quedan en null.
+    /// Ojo: se cuentan llamadas Present (DXGI) del juego, no fotogramas que de verdad llegaron a la pantalla.</summary>
     public record Result(string Id, string At, string Game, string Exe, double Seconds, double Avg, double Low1, double Max,
-        int Frames, string Label, Dictionary<string, string> Setup);
+        int Frames, string Label, Dictionary<string, string> Setup,
+        double? Low01 = null, double? AvgMs = null, double? P95Ms = null, double? P99Ms = null, double? P999Ms = null,
+        int? Stutters = null, double? StutterMs = null, string Source = "present");
     public record WatchState(bool Active, string Phase, string? Game, int Done, int Target, string? Error);
 
     static readonly Guid DxgiProvider = new("CA11C036-0102-4A2D-A6AD-F03CFED5D3C9");
@@ -178,7 +182,7 @@ public static class Fps
         var st = Stats(ts, cutArr, done);
         if (st.Frames < 10) return null;
         return new Result($"{DateTime.Now:yyyyMMdd-HHmmss}", DateTime.Now.ToString("s"), game, exe, done, st.Avg, st.Low1, st.Max, st.Frames,
-            label, Setup(exe));
+            label, Setup(exe), st.Low01, st.AvgMs, st.P95Ms, st.P99Ms, st.P999Ms, st.Stutters, st.StutterMs);
     }
 
     /// <summary>Prueba: cuántos Present hace cada proceso durante unos segundos.</summary>
@@ -206,9 +210,22 @@ public static class Fps
         return lines.Count == 0 ? "sin presents" : string.Join(Environment.NewLine, lines);
     }
 
-    public record Numbers(int Frames, double Avg, double Low1, double Max);
+    /// <param name="Low01">0,1 % bajos; null con menos de 1000 intervalos (no hay muestras suficientes).</param>
+    /// <param name="P999Ms">Percentil 99,9 del frametime; null con menos de 1000 intervalos.</param>
+    /// <param name="Stutters">Tirones: intervalos de al menos el doble de la mediana y 4 ms más largos que ella.</param>
+    public record Numbers(int Frames, double Avg, double Low1, double Max,
+        double? Low01 = null, double AvgMs = 0, double P95Ms = 0, double P99Ms = 0, double? P999Ms = null, int Stutters = 0, double StutterMs = 0);
 
-    /// <summary>FPS medios, 1 % bajos (el FPS del 1 % de fotogramas más lentos) y el máximo de un segundo.</summary>
+    /// <summary>Percentil por rango más cercano sobre una lista ya ordenada de menor a mayor (p entre 0 y 1).</summary>
+    internal static double Percentile(IReadOnlyList<double> ascending, double p)
+    {
+        if (ascending.Count == 0) return 0;
+        var rank = (int)Math.Ceiling(p * ascending.Count - 1e-9);   // sin que el redondeo de p*n suba un puesto
+        return ascending[Math.Clamp(rank, 1, ascending.Count) - 1];
+    }
+
+    /// <summary>FPS medios, 1 % y 0,1 % bajos (el FPS medio del 1 % / 0,1 % de intervalos más lentos), el mejor segundo,
+    /// percentiles del frametime y tirones.</summary>
     public static Numbers Stats(double[] ts, int[] cuts, double seconds)
     {
         var cutSet = new HashSet<int>(cuts);
@@ -225,11 +242,18 @@ public static class Fps
         var sorted = ft.OrderByDescending(x => x).ToList();
         var n = Math.Max(1, ft.Count / 100);
         var low1 = 1000.0 / sorted.Take(n).Average();
+        double? low01 = ft.Count >= 1000 ? 1000.0 / sorted.Take(ft.Count / 1000).Average() : null;
+        var asc = Enumerable.Reverse(sorted).ToList();
+        var median = Percentile(asc, 0.5);
+        var stutter = ft.Where(d => d >= 2 * median && d >= median + 4).ToList();
         // máximo: el mejor segundo completo
         double max = 0, acc = 0; int cnt = 0;
         foreach (var d in ft) { acc += d; cnt++; if (acc >= 1000) { max = Math.Max(max, cnt / (acc / 1000.0)); acc = 0; cnt = 0; } }
         if (max == 0) max = avg;
-        return new(ft.Count + 1, Math.Round(avg, 1), Math.Round(low1, 1), Math.Round(max, 1));
+        return new(ft.Count + 1, Math.Round(avg, 1), Math.Round(low1, 1), Math.Round(max, 1),
+            low01 is { } l ? Math.Round(l, 1) : null, Math.Round(total / ft.Count, 2),
+            Math.Round(Percentile(asc, 0.95), 2), Math.Round(Percentile(asc, 0.99), 2),
+            ft.Count >= 1000 ? Math.Round(Percentile(asc, 0.999), 2) : null, stutter.Count, Math.Round(stutter.Sum(), 1));
     }
 
     /// <summary>Con qué se midió: cuántos ajustes de Vigía estaban puestos, resolución y el modo del juego si se sabe.</summary>
@@ -306,6 +330,17 @@ public static class Fps
         var t3 = Enumerable.Range(0, 500).Select(i => i * 4.0).Concat(Enumerable.Range(0, 500).Select(i => 7000 + i * 4.0)).ToArray();
         var c = Stats(t3, [500], 4);
         Check(Math.Abs(c.Avg - 250) < 0.5, $"corte ignorado -> media {c.Avg}");
+        // percentiles y tirones con los mismos 10 tirones de 20 ms entre 990 de 4 ms
+        Check(b.Stutters == 10 && Math.Abs(b.StutterMs - 200) < 0.01, $"tirones contados -> {b.Stutters} ({b.StutterMs} ms)");
+        Check(b.P95Ms == 4 && b.P99Ms == 4 && b.P999Ms == 20, $"percentiles -> P95 {b.P95Ms}, P99 {b.P99Ms}, P99.9 {b.P999Ms}");
+        Check(b.Low01 is { } l01 && Math.Abs(l01 - 50) < 0.5, $"0,1 % bajos -> {b.Low01}");
+        Check(Math.Abs(b.AvgMs - 4.16) < 0.01, $"frametime medio -> {b.AvgMs} ms");
+        // pocas muestras: 0,1 % y P99.9 no se inventan
+        var few = Stats(Enumerable.Range(0, 200).Select(i => i * 5.0).ToArray(), [], 1);
+        Check(few.Low01 is null && few.P999Ms is null && few.Stutters == 0, "con 199 intervalos: sin 0,1 % ni P99.9");
+        // percentil por rango más cercano
+        var asc = new List<double> { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 };
+        Check(Percentile(asc, 0.5) == 5 && Percentile(asc, 0.95) == 10 && Percentile(asc, 0.1) == 1 && Percentile([], 0.5) == 0, "percentil por rango");
         return string.Join(Environment.NewLine, o);
     }
 }

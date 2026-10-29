@@ -108,13 +108,28 @@ public static class Memory
         if (!s.MemAuto) return null;
         var st = Status();
         if (st.LoadPct < s.MemAutoThreshold || DateTime.Now - _lastAuto < TimeSpan.FromMinutes(Math.Max(1, s.MemAutoIntervalMin))) return null;
+        // con un juego abierto no se toca nada: soltar caché en plena partida obliga a leer de disco otra vez
+        if (AutoStart.Busy()) { AutoLog($"saltada: juego abierto (uso {st.LoadPct} %, libre {st.FreeGb:0.0} GB)"); _lastAuto = DateTime.Now; return null; }
         _lastAuto = DateTime.Now;
         // Nunca se vacía la memoria de los procesos en automático, juegues o no: todo lo que se saca vuelve del disco
         // al momento, y con poca RAM o disco lento eso deja el PC congelado varios segundos cada vez.
         // Solo se suelta la caché en espera de baja prioridad, y solo cuando de verdad queda poca libre.
-        return st.FreeGb < 2 && st.StandbyLowGb > 0.5
-            ? Free(new MemOptions(WorkingSets: false, Modified: false, Standby: true, StandbyLowOnly: true, FileCache: false, Combine: false), auto: true)
-            : null;
+        if (!(st.FreeGb < 2 && st.StandbyLowGb > 0.5)) return null;
+        var res = Free(new MemOptions(WorkingSets: false, Modified: false, Standby: true, StandbyLowOnly: true, FileCache: false, Combine: false), auto: true);
+        AutoLog($"liberada caché en espera de baja prioridad: uso {st.LoadPct} %, libre {st.FreeGb:0.0} GB -> {res.After.AvailGb:0.0} GB disponibles");
+        return res;
+    }
+
+    /// <summary>Cada intervención automática queda con su motivo y resultado en memoria.log (máx. ~256 KB).</summary>
+    static void AutoLog(string line)
+    {
+        try
+        {
+            var p = Path.Combine(Settings.Dir, "memoria.log");
+            if (File.Exists(p) && new FileInfo(p).Length > 256 * 1024) File.Delete(p);
+            File.AppendAllText(p, $"{DateTime.Now:yyyy-MM-dd HH:mm:ss} {line}{Environment.NewLine}");
+        }
+        catch { }
     }
 }
 

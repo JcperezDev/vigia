@@ -279,6 +279,7 @@ static class Program
         if (args.Length >= 2 && args[0] == "--selftest")
         {
             var report = Cleanup.SelfTest() + Environment.NewLine + "--- ajustes" + Environment.NewLine + Tweaks.SelfTest()
+                + Environment.NewLine + "--- catálogo" + Environment.NewLine + Tweaks.CatalogSelfTest()
                 + Environment.NewLine + "--- sugerencias" + Environment.NewLine + Suggestions.SelfTest()
                 + Environment.NewLine + "--- juegos" + Environment.NewLine + Games.SelfTest()
                 + Environment.NewLine + "--- fps" + Environment.NewLine + Fps.SelfTest()
@@ -946,6 +947,12 @@ sealed partial class MainForm : Form
                     break;
                 case "supportGet":
                     Send("support", await Support.GetAsync());
+                    break;
+                case "openSource":
+                    // la fuente de un ajuste: el frontend solo manda el id; la URL sale del catálogo, nunca del mensaje
+                    var srcId = msg["id"]?.GetValueKind() == System.Text.Json.JsonValueKind.String ? (string?)msg["id"] : null;
+                    var srcUrl = srcId is { Length: > 0 and <= 64 } ? Tweaks.SourceOf(srcId) : null;
+                    if (srcUrl is null || !Support.OpenSource(srcUrl)) Send("error", "Ese enlace no está permitido.");
                     break;
                 case "openUrl":
                     var link = (string?)msg["url"] ?? "";

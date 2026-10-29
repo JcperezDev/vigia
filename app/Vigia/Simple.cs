@@ -3,12 +3,14 @@ namespace Vigia;
 /// <summary>
 /// Modo simple: unas pocas preguntas y Vigía hace el resto con lo que ya tiene (ajustes, apps, limpieza, memoria).
 /// No trae ajustes propios: solo elige del catálogo, así cada cambio pasa por la misma copia de seguridad y se
-/// puede volver atrás desde «Volver a como estaba». Lo de riesgo medio solo entra si ya se probó en la VM.
+/// puede volver atrás desde «Volver a como estaba». Solo propone ajustes «recommended» u «optional» del catálogo:
+/// lo experimental (plan de energía al 100 %, MMCSS, prioridad del procesador, USB/PCIe sin ahorro…) queda en Ajustes,
+/// y nada de apps se quita si el usuario no la marca.
 /// </summary>
 public static class Simple
 {
     public record Answers(bool Games = true, bool Printer = true, bool Xbox = false, bool Search = true, bool Laptop = false,
-        bool Visual = true, bool Privacy = true, bool MemAuto = true, bool Clean = true, string[]? KeepApps = null,
+        bool Visual = true, bool Privacy = true, bool MemAuto = false, bool Clean = true, string[]? KeepApps = null,
         bool Wallpaper = false, string[]? Skip = null);
 
     public record Stage(string Id, string Title, List<string> Tweaks, List<string> Apps);
@@ -22,21 +24,22 @@ public static class Simple
 
     public static Plan Build(Answers a)
     {
-        var perf = new List<string> { "priority-separation", "browsers-bg", "widgets-off", "startup-delay", "end-task" };
-        // el plan primero: los dos de energía de después se guardan en el plan activo
-        if (!a.Laptop) perf.AddRange(["power-ultimate", "usb-suspend-off", "pcie-aspm-off", "hibernate-off"]);
-        // HAGS no va aquí: en algunas gráficas y drivers congela la imagen. Queda en Ajustes, para quien lo quiera.
-        if (a.Games) perf.AddRange(["mmcss-games", "gpu-high", "windowed-opt", "vrr-windowed", "game-mode", "mouse-raw", "accessibility-keys"]);
+        var perf = new List<string> { "browsers-bg", "widgets-off", "end-task" };
+        // Fuera del modo simple (quedan en Ajustes, a mano): plan de energía al 100 %, USB/PCIe sin ahorro, MMCSS,
+        // prioridad del procesador, GPU global, retraso de inicio (experimentales) e hibernación (es de almacenamiento).
+        // HAGS tampoco: en algunas gráficas y drivers congela la imagen.
+        if (a.Games) perf.AddRange(["windowed-opt", "vrr-windowed", "game-mode", "mouse-raw", "accessibility-keys"]);
         if (a.Games && !a.Xbox) perf.Add("game-dvr-off");
         if (a.Visual) perf.AddRange(["transparency-off", "animations-off"]);
 
         var priv = new List<string> { "suggestions-off", "background-apps" };
-        if (a.Privacy) priv.AddRange(["start-web-off", "recall-off", "telemetry-off", "telemetry-tasks", "activity-off", "ad-id-off", "firefox-telemetry", "wer-off"]);
+        if (a.Privacy) priv.AddRange(["start-web-off", "recall-off", "telemetry-off", "telemetry-tasks", "activity-off", "ad-id-off", "firefox-telemetry"]);
+        // los informes de errores no: sin ellos no hay forma de saber por qué se cerró algo
 
-        var svc = new List<string> { "services-unused", "smb1-off", "update-control" };
+        var svc = new List<string> { "smb1-off" };
         if (!a.Printer) svc.Add("print-off");
 
-        var net = new List<string> { "responsiveness", "p2p-updates-off" };
+        var net = new List<string> { "p2p-updates-off" };
 
         var keep = new HashSet<string>(a.KeepApps ?? [], StringComparer.OrdinalIgnoreCase);
         var apps = Debloat.List().Where(x => x.Installed && x.Blocked is null)
@@ -45,7 +48,9 @@ public static class Simple
 
         // solo lo que existe en el catálogo, no está bloqueado y aún no está puesto
         var view = Tweaks.List().ToDictionary(t => t.Id);
-        List<string> Ok(List<string> ids) => ids.Distinct().Where(id => view.TryGetValue(id, out var t) && t.Blocked is null && t.State is not ("applied" or "na")).ToList();
+        // y nunca nada experimental ni retirado, aunque alguien lo agregue a las listas de arriba por error
+        List<string> Ok(List<string> ids) => ids.Distinct().Where(id => view.TryGetValue(id, out var t) && t.Blocked is null
+            && t.Status is ("recommended" or "optional") && t.State is not ("applied" or "na")).ToList();
 
         var stages = new List<Stage>
         {

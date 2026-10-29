@@ -48,6 +48,18 @@ public static class Support
         Uri.TryCreate(url, UriKind.Absolute, out var u) && u.Scheme == Uri.UriSchemeHttps
         && Allowed.Contains(u.Host, StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>Fuentes oficiales de los ajustes (documentación de Microsoft y de los navegadores). Solo se usan con
+    /// URLs que vienen de tweaks.json, que va dentro de la instalación; el frontend nunca manda la dirección.</summary>
+    static readonly string[] SourceHosts = ["learn.microsoft.com", "devblogs.microsoft.com", "msrc.microsoft.com", "mozilla.github.io", "chromeenterprise.google"];
+    public static bool IsSourceAllowed(string url) => Uri.TryCreate(url, UriKind.Absolute, out var u) && u.Scheme == Uri.UriSchemeHttps
+        && SourceHosts.Contains(u.Host, StringComparer.OrdinalIgnoreCase) && string.IsNullOrEmpty(u.UserInfo) && u.IsDefaultPort;
+    public static bool OpenSource(string url)
+    {
+        if (!IsSourceAllowed(url)) return false;
+        Process.Start(new ProcessStartInfo(new Uri(url).AbsoluteUri) { UseShellExecute = true });
+        return true;
+    }
+
     public static bool Open(string url)
     {
         if (!IsAllowed(url)) return false;

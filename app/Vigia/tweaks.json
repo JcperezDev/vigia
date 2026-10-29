@@ -6,13 +6,14 @@
     "risk": "bajo",
     "reboot": false,
     "title": "Plan de energía de Vigía",
-    "detail": "Crea el plan «Vigía» y lo activa: enchufado, el procesador no baja de velocidad entre fotogramas. Gasta algo más en reposo. Tu plan de antes vuelve con «Deshacer».",
+    "detail": "Crea el plan «Vigía»: enchufado, el procesador no baja del 100 % aunque no haga nada. Más consumo y temperatura en reposo; el plan Equilibrado ya sube de velocidad al instante en la mayoría de PCs. Pruébalo midiendo antes y después. Tu plan de antes vuelve con «Deshacer».",
     "source": "",
     "ops": [
       {
         "special": "power-ultimate"
       }
-    ]
+    ],
+    "status": "experimental"
   },
   {
     "id": "mmcss-games",
@@ -20,8 +21,8 @@
     "risk": "bajo",
     "reboot": true,
     "title": "Prioridad alta para juegos",
-    "detail": "El programador multimedia de Windows da más CPU y GPU a los juegos (prioridad 6, GPU 8, categoría High).",
-    "source": "",
+    "detail": "Sube la prioridad de la tarea «Games» del programador multimedia de Windows. Solo afecta a los juegos que se registran en ese servicio (pocos lo hacen); en los demás no cambia nada. Microsoft indica que «GPU Priority» aún no se usa.",
+    "source": "https://learn.microsoft.com/en-us/windows/win32/procthread/multimedia-class-scheduler-service",
     "ops": [
       {
         "reg": "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Multimedia\\SystemProfile\\Tasks\\Games",
@@ -47,7 +48,8 @@
         "type": "string",
         "value": "High"
       }
-    ]
+    ],
+    "status": "experimental"
   },
   {
     "id": "responsiveness",
@@ -55,8 +57,8 @@
     "risk": "bajo",
     "reboot": true,
     "title": "Sin reserva de CPU para tareas de fondo",
-    "detail": "SystemResponsiveness 0 y sin límite de red para multimedia. Windows deja de apartar el 20 % de la CPU.",
-    "source": "",
+    "detail": "Retirado: según Microsoft, SystemResponsiveness por debajo de 10 se trata como 20 (el valor de siempre), así que ponerlo en 0 no cambia nada. Si Vigía lo aplicó antes, se deshace solo.",
+    "source": "https://learn.microsoft.com/en-us/windows/win32/procthread/multimedia-class-scheduler-service",
     "ops": [
       {
         "reg": "HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Multimedia\\SystemProfile",
@@ -70,7 +72,9 @@
         "type": "dword",
         "value": 0
       }
-    ]
+    ],
+    "status": "deprecated",
+    "retired": true
   },
   {
     "id": "priority-separation",
@@ -78,8 +82,8 @@
     "risk": "bajo",
     "reboot": false,
     "title": "Más tiempo de CPU para la ventana activa",
-    "detail": "Win32PrioritySeparation = 0x16. El juego en primer plano recibe turnos más largos que lo que corre detrás.",
-    "source": "",
+    "detail": "Cambia cómo reparte Windows el tiempo de procesador entre la ventana activa y el resto. No hay mediciones públicas que muestren mejora en juegos; compáralo midiendo FPS antes y después.",
+    "source": "https://learn.microsoft.com/en-us/windows/win32/procthread/scheduling-priorities",
     "ops": [
       {
         "reg": "HKLM\\SYSTEM\\CurrentControlSet\\Control\\PriorityControl",
@@ -87,7 +91,8 @@
         "type": "dword",
         "value": 22
       }
-    ]
+    ],
+    "status": "experimental"
   },
   {
     "id": "svchost-split",
@@ -95,8 +100,8 @@
     "risk": "bajo",
     "reboot": true,
     "title": "Agrupar los servicios de Windows",
-    "detail": "Ajusta SvcHostSplitThresholdInKB a tu RAM. Menos procesos svchost.exe y algo menos de memoria usada.",
-    "source": "",
+    "detail": "Retirado: agrupa servicios en menos procesos para que la RAM parezca más baja, pero Microsoft los separa a propósito para que un fallo no tumbe a los demás. Si Vigía lo aplicó antes, se deshace solo.",
+    "source": "https://learn.microsoft.com/en-us/windows/application-management/svchost-service-refactoring",
     "ops": [
       {
         "reg": "HKLM\\SYSTEM\\CurrentControlSet\\Control",
@@ -104,21 +109,24 @@
         "type": "dword",
         "value": "$ramKB"
       }
-    ]
+    ],
+    "status": "deprecated",
+    "retired": true
   },
   {
     "id": "hibernate-off",
-    "group": "Memoria",
+    "group": "Almacenamiento",
     "risk": "bajo",
     "reboot": false,
     "title": "Apagar la hibernación",
-    "detail": "Borra hiberfil.sys (ocupa casi lo mismo que tu RAM en C:). También desactiva el inicio rápido.",
-    "source": "",
+    "detail": "Borra el archivo de hibernación (hiberfil.sys) y libera ese espacio en C:. A cambio no puedes hibernar y se apaga el inicio rápido de Windows, así que el arranque en frío puede tardar un poco más.",
+    "source": "https://learn.microsoft.com/en-us/troubleshoot/windows-client/setup-upgrade-and-drivers/disable-and-re-enable-hibernation",
     "ops": [
       {
         "special": "hibernate-off"
       }
-    ]
+    ],
+    "status": "optional"
   },
   {
     "id": "game-dvr-off",
@@ -147,7 +155,8 @@
         "type": "dword",
         "value": 0
       }
-    ]
+    ],
+    "status": "optional"
   },
   {
     "id": "background-apps",
@@ -170,7 +179,8 @@
         "type": "dword",
         "value": 0
       }
-    ]
+    ],
+    "status": "optional"
   },
   {
     "id": "transparency-off",
@@ -187,7 +197,8 @@
         "type": "dword",
         "value": 0
       }
-    ]
+    ],
+    "status": "optional"
   },
   {
     "id": "mouse-raw",
@@ -195,8 +206,8 @@
     "risk": "bajo",
     "reboot": false,
     "title": "Ratón sin aceleración",
-    "detail": "Quita «Mejorar la precisión del puntero» y aplica la curva 1:1. El movimiento depende solo de la distancia, no de la velocidad.",
-    "source": "",
+    "detail": "Quita «Mejorar la precisión del puntero» (la aceleración del ratón de Windows): la misma distancia de mano mueve siempre lo mismo. Los juegos que leen el ratón con Raw Input ya la ignoran; esto cambia el escritorio y los juegos que no lo usan.",
+    "source": "https://learn.microsoft.com/en-us/windows/win32/dxtecharts/taking-advantage-of-high-dpi-mouse-movement",
     "ops": [
       {
         "reg": "HKCU\\Control Panel\\Mouse",
@@ -232,7 +243,8 @@
         "special": "mouse-refresh",
         "post": true
       }
-    ]
+    ],
+    "status": "optional"
   },
   {
     "id": "accessibility-keys",
@@ -267,7 +279,8 @@
         "type": "string",
         "value": "0"
       }
-    ]
+    ],
+    "status": "optional"
   },
   {
     "id": "input-queue",
@@ -291,7 +304,8 @@
         "type": "dword",
         "value": 20
       }
-    ]
+    ],
+    "status": "deprecated"
   },
   {
     "id": "shutdown-fast",
@@ -334,7 +348,8 @@
         "type": "string",
         "value": "2000"
       }
-    ]
+    ],
+    "status": "deprecated"
   },
   {
     "id": "end-task",
@@ -351,7 +366,8 @@
         "type": "dword",
         "value": 1
       }
-    ]
+    ],
+    "status": "optional"
   },
   {
     "id": "suggestions-off",
@@ -410,7 +426,8 @@
         "type": "dword",
         "value": 1
       }
-    ]
+    ],
+    "status": "optional"
   },
   {
     "id": "telemetry-off",
@@ -418,8 +435,8 @@
     "risk": "bajo",
     "reboot": true,
     "title": "Telemetría de Windows al mínimo",
-    "detail": "Para el servicio de seguimiento (DiagTrack) y el envío de datos de uso y diagnóstico a Microsoft.",
-    "source": "",
+    "detail": "Privacidad, no rendimiento: pide a Windows enviar el mínimo de datos de diagnóstico y apaga el servicio que los envía. En Home y Pro Windows sigue enviando los datos obligatorios; solo Enterprise y Education llegan a cero.",
+    "source": "https://learn.microsoft.com/en-us/windows/privacy/configure-windows-diagnostic-data-in-your-organization",
     "ops": [
       {
         "reg": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\DataCollection",
@@ -435,7 +452,8 @@
         "svc": "dmwappushservice",
         "start": 4
       }
-    ]
+    ],
+    "status": "optional"
   },
   {
     "id": "telemetry-tasks",
@@ -470,7 +488,8 @@
         "task": "\\Microsoft\\Windows\\Windows Error Reporting\\QueueReporting",
         "enabled": false
       }
-    ]
+    ],
+    "status": "optional"
   },
   {
     "id": "activity-off",
@@ -479,7 +498,7 @@
     "reboot": false,
     "title": "Sin historial de actividad ni ubicación",
     "detail": "Windows deja de guardar qué abres y deja de dar tu ubicación a las apps.",
-    "source": "",
+    "source": "https://learn.microsoft.com/en-us/windows/client-management/mdm/policy-csp-privacy",
     "ops": [
       {
         "reg": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\System",
@@ -509,7 +528,8 @@
         "svc": "lfsvc",
         "start": 4
       }
-    ]
+    ],
+    "status": "optional"
   },
   {
     "id": "services-unused",
@@ -517,7 +537,7 @@
     "risk": "bajo",
     "reboot": true,
     "title": "Servicios que casi nadie usa",
-    "detail": "Fax, registro remoto, mapas sin conexión, monitor de rendimiento gráfico, informe de errores y otros cinco.",
+    "detail": "Retirado: apagaba diez servicios de una vez, entre ellos los de informes de errores y compatibilidad que sirven para diagnosticar. Los servicios en «Manual» no gastan nada mientras no se usan. Si Vigía lo aplicó antes, se deshace solo.",
     "source": "",
     "ops": [
       {
@@ -560,7 +580,9 @@
         "svc": "TrkWks",
         "start": 4
       }
-    ]
+    ],
+    "status": "deprecated",
+    "retired": true
   },
   {
     "id": "print-off",
@@ -569,13 +591,14 @@
     "reboot": true,
     "title": "Apagar la impresión",
     "detail": "Para la cola de impresión si no tienes impresora. También deja de funcionar «Imprimir a PDF». Cierra la puerta a fallos tipo PrintNightmare.",
-    "source": "",
+    "source": "https://msrc.microsoft.com/update-guide/vulnerability/CVE-2021-34527",
     "ops": [
       {
         "svc": "Spooler",
         "start": 4
       }
-    ]
+    ],
+    "status": "optional"
   },
   {
     "id": "services-xbox",
@@ -600,7 +623,8 @@
         "svc": "XboxNetApiSvc",
         "start": 4
       }
-    ]
+    ],
+    "status": "deprecated"
   },
   {
     "id": "search-off",
@@ -617,7 +641,8 @@
         "svc": "WSearch",
         "start": 4
       }
-    ]
+    ],
+    "status": "deprecated"
   },
   {
     "id": "update-control",
@@ -626,7 +651,7 @@
     "reboot": false,
     "title": "Windows Update sin sorpresas",
     "detail": "No reinicia solo con la sesión abierta y no reemplaza tu driver de NVIDIA. Las actualizaciones de seguridad siguen llegando.",
-    "source": "",
+    "source": "https://learn.microsoft.com/en-us/windows/deployment/update/waas-wu-settings",
     "ops": [
       {
         "reg": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsUpdate\\AU",
@@ -640,7 +665,8 @@
         "type": "dword",
         "value": 1
       }
-    ]
+    ],
+    "status": "optional"
   },
   {
     "id": "gpu-high",
@@ -648,7 +674,7 @@
     "risk": "bajo",
     "reboot": false,
     "title": "Juegos en la tarjeta gráfica potente",
-    "detail": "Windows manda los juegos a la NVIDIA y no a los gráficos del Ryzen. Solo cambia esa opción y deja las demás de gráficos como estaban.",
+    "detail": "Pide a Windows la GPU de alto rendimiento para todos los programas. Solo cambia algo en equipos con dos GPU (portátiles con gráfica integrada y dedicada); en un PC con una sola GPU no hace nada. Mejor elegir la GPU por juego en Configuración de Windows > Gráficos.",
     "source": "",
     "ops": [
       {
@@ -657,7 +683,8 @@
         "kv": "GpuPreference",
         "value": "2"
       }
-    ]
+    ],
+    "status": "experimental"
   },
   {
     "id": "windowed-opt",
@@ -674,7 +701,8 @@
         "kv": "SwapEffectUpgradeEnable",
         "value": "1"
       }
-    ]
+    ],
+    "status": "optional"
   },
   {
     "id": "hags",
@@ -683,7 +711,7 @@
     "reboot": true,
     "title": "Programación de GPU acelerada por hardware",
     "detail": "La tarjeta gráfica ordena su propia memoria y Windows trabaja menos por fotograma. Necesario para generación de fotogramas de DLSS.",
-    "source": "",
+    "source": "https://devblogs.microsoft.com/directx/hardware-accelerated-gpu-scheduling/",
     "ops": [
       {
         "reg": "HKLM\\SYSTEM\\CurrentControlSet\\Control\\GraphicsDrivers",
@@ -691,7 +719,8 @@
         "type": "dword",
         "value": 2
       }
-    ]
+    ],
+    "status": "optional"
   },
   {
     "id": "game-mode",
@@ -714,7 +743,8 @@
         "type": "dword",
         "value": 1
       }
-    ]
+    ],
+    "status": "recommended"
   },
   {
     "id": "animations-off",
@@ -749,7 +779,8 @@
         "type": "string",
         "value": "2"
       }
-    ]
+    ],
+    "status": "optional"
   },
   {
     "id": "startup-delay",
@@ -757,7 +788,7 @@
     "risk": "bajo",
     "reboot": true,
     "title": "Programas de inicio sin espera",
-    "detail": "Windows espera unos segundos antes de abrir lo que arranca contigo. Esto quita esa espera.",
+    "detail": "Quita la espera que hace Windows antes de abrir los programas de inicio. Son valores no documentados por Microsoft: el escritorio puede tardar más en responder si muchos programas arrancan a la vez.",
     "source": "",
     "ops": [
       {
@@ -772,7 +803,8 @@
         "type": "dword",
         "value": 0
       }
-    ]
+    ],
+    "status": "experimental"
   },
   {
     "id": "boot-info",
@@ -781,7 +813,7 @@
     "reboot": false,
     "title": "Ver qué hace Windows al encender y apagar",
     "detail": "En vez de «Espere», Windows dice qué está cargando. Sirve para ver dónde se traba.",
-    "source": "",
+    "source": "https://learn.microsoft.com/en-us/troubleshoot/windows-server/performance/enable-verbose-startup-shutdown-logon-logoff-status-messages",
     "ops": [
       {
         "reg": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System",
@@ -789,7 +821,8 @@
         "type": "dword",
         "value": 1
       }
-    ]
+    ],
+    "status": "optional"
   },
   {
     "id": "smb1-off",
@@ -798,7 +831,7 @@
     "reboot": true,
     "title": "Apagar el compartir archivos antiguo (SMB1)",
     "detail": "Protocolo de los 90 que usó WannaCry. Solo lo necesitan NAS o impresoras muy viejas.",
-    "source": "",
+    "source": "https://learn.microsoft.com/en-us/windows-server/storage/file-server/troubleshoot/detect-enable-and-disable-smbv1-v2-v3",
     "ops": [
       {
         "reg": "HKLM\\SYSTEM\\CurrentControlSet\\Services\\LanmanServer\\Parameters",
@@ -806,7 +839,8 @@
         "type": "dword",
         "value": 0
       }
-    ]
+    ],
+    "status": "recommended"
   },
   {
     "id": "browsers-bg",
@@ -815,7 +849,7 @@
     "reboot": false,
     "title": "Chrome y Edge se cierran de verdad",
     "detail": "Al cerrar la ventana no se quedan en memoria ni arrancan con Windows. Chrome mostrará «Gestionado por tu organización»: es normal.",
-    "source": "",
+    "source": "https://learn.microsoft.com/en-us/deployedge/microsoft-edge-policies",
     "ops": [
       {
         "reg": "HKLM\\SOFTWARE\\Policies\\Google\\Chrome",
@@ -835,7 +869,8 @@
         "type": "dword",
         "value": 0
       }
-    ]
+    ],
+    "status": "optional"
   },
   {
     "id": "ad-id-off",
@@ -844,7 +879,7 @@
     "reboot": false,
     "title": "Sin identificador de anuncios",
     "detail": "Las apps dejan de compartir un número tuyo para mostrarte anuncios.",
-    "source": "",
+    "source": "https://learn.microsoft.com/en-us/windows/client-management/mdm/policy-csp-privacy",
     "ops": [
       {
         "reg": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\AdvertisingInfo",
@@ -858,7 +893,8 @@
         "type": "dword",
         "value": 1
       }
-    ]
+    ],
+    "status": "optional"
   },
   {
     "id": "firefox-telemetry",
@@ -867,7 +903,7 @@
     "reboot": false,
     "title": "Firefox sin enviar datos de uso",
     "detail": "Apaga la telemetría y el agente que revisa cuál es tu navegador predeterminado.",
-    "source": "",
+    "source": "https://mozilla.github.io/policy-templates/",
     "ops": [
       {
         "reg": "HKLM\\SOFTWARE\\Policies\\Mozilla\\Firefox",
@@ -881,7 +917,8 @@
         "type": "dword",
         "value": 1
       }
-    ]
+    ],
+    "status": "optional"
   },
   {
     "id": "wer-off",
@@ -889,8 +926,8 @@
     "risk": "bajo",
     "reboot": false,
     "title": "No enviar informes de errores a Microsoft",
-    "detail": "Cuando un programa se cierra solo, Windows no prepara ni sube el informe. El Diagnóstico de Vigía sigue viendo los cierres.",
-    "source": "",
+    "detail": "Cuando un programa se cierra solo, Windows no prepara ni sube el informe. El Diagnóstico de Vigía sigue viendo los cierres. Ojo: sin informes, Vigía y Windows tienen menos datos para explicar por qué se cerró un programa.",
+    "source": "https://learn.microsoft.com/en-us/windows/win32/wer/wer-settings",
     "ops": [
       {
         "reg": "HKLM\\SOFTWARE\\Microsoft\\Windows\\Windows Error Reporting",
@@ -898,7 +935,8 @@
         "type": "dword",
         "value": 1
       }
-    ]
+    ],
+    "status": "optional"
   },
   {
     "id": "p2p-updates-off",
@@ -907,7 +945,7 @@
     "reboot": false,
     "title": "Actualizaciones sin compartir tu internet",
     "detail": "Windows baja las actualizaciones solo de Microsoft y no usa tu conexión para mandarlas a otros PCs.",
-    "source": "",
+    "source": "https://learn.microsoft.com/en-us/windows/deployment/do/waas-delivery-optimization-reference",
     "ops": [
       {
         "reg": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\DeliveryOptimization",
@@ -915,7 +953,8 @@
         "type": "dword",
         "value": 0
       }
-    ]
+    ],
+    "status": "optional"
   },
   {
     "id": "usb-suspend-off",
@@ -923,14 +962,15 @@
     "risk": "bajo",
     "reboot": false,
     "title": "USB sin suspensión",
-    "detail": "Windows deja de dormir los puertos USB para ahorrar. Se acaban los cortes de ratón, teclado o cascos que se desconectan un segundo. Solo enchufado.",
-    "source": "",
+    "detail": "Windows deja de dormir los puertos USB que no se usan. Solo sirve si el ratón, el teclado o los cascos se desconectan un segundo o tardan en responder; si no te pasa, no cambia nada y gasta un poco más. Solo enchufado.",
+    "source": "https://learn.microsoft.com/en-us/windows-hardware/drivers/usbcon/usb-selective-suspend",
     "ops": [
       {
         "power": "2a737441-1930-4402-8d77-b2bebba308a3/48e6b7a6-50f5-4782-a5d4-53bb8f07e226",
         "ac": 0
       }
-    ]
+    ],
+    "status": "experimental"
   },
   {
     "id": "pcie-aspm-off",
@@ -938,14 +978,15 @@
     "risk": "bajo",
     "reboot": false,
     "title": "Tarjeta gráfica y disco sin ahorro de enlace",
-    "detail": "Windows deja de dormir la conexión PCI Express de la gráfica y el NVMe entre usos. Quita pequeños tirones al despertar. Solo enchufado.",
-    "source": "",
+    "detail": "Windows deja de poner en ahorro la conexión PCI Express (gráfica, NVMe) entre usos. Solo sirve si un dispositivo PCIe falla o da tirones al despertar; si no, gasta más energía en reposo sin ganar nada. Solo enchufado.",
+    "source": "https://learn.microsoft.com/en-us/windows-hardware/customize/power-settings/pci-express-settings-link-state-power-management",
     "ops": [
       {
         "power": "501a4d13-42af-4429-9fd1-a8218c268e20/ee12f906-d277-404b-b6da-e5fa1a576df5",
         "ac": 0
       }
-    ]
+    ],
+    "status": "experimental"
   },
   {
     "id": "vrr-windowed",
@@ -954,7 +995,7 @@
     "reboot": false,
     "title": "G-Sync/FreeSync en juegos en ventana",
     "detail": "La frecuencia variable del monitor también funciona en juegos sin bordes que no la piden. Es la opción de Windows en Pantalla > Gráficos.",
-    "source": "",
+    "source": "https://devblogs.microsoft.com/directx/os-variable-refresh-rate/",
     "ops": [
       {
         "reg": "HKCU\\Software\\Microsoft\\DirectX\\UserGpuPreferences",
@@ -962,7 +1003,8 @@
         "kv": "VRROptimizeEnable",
         "value": "1"
       }
-    ]
+    ],
+    "status": "optional"
   },
   {
     "id": "widgets-off",
@@ -971,7 +1013,7 @@
     "reboot": false,
     "title": "Sin Widgets",
     "detail": "Quita el panel de noticias y el tiempo de la barra de tareas y los procesos que deja abiertos por detrás.",
-    "source": "",
+    "source": "https://learn.microsoft.com/en-us/windows/client-management/mdm/policy-csp-newsandinterests",
     "ops": [
       {
         "reg": "HKLM\\SOFTWARE\\Policies\\Microsoft\\Dsh",
@@ -979,7 +1021,8 @@
         "type": "dword",
         "value": 0
       }
-    ]
+    ],
+    "status": "optional"
   },
   {
     "id": "start-web-off",
@@ -988,7 +1031,7 @@
     "reboot": false,
     "title": "Inicio busca solo en tu PC",
     "detail": "Lo que escribes en el menú Inicio no se manda a Bing y los resultados salen antes.",
-    "source": "",
+    "source": "https://learn.microsoft.com/en-us/windows/client-management/mdm/policy-csp-search",
     "ops": [
       {
         "reg": "HKCU\\Software\\Policies\\Microsoft\\Windows\\Explorer",
@@ -996,7 +1039,8 @@
         "type": "dword",
         "value": 1
       }
-    ]
+    ],
+    "status": "optional"
   },
   {
     "id": "recall-off",
@@ -1005,7 +1049,7 @@
     "reboot": false,
     "title": "Sin capturas de Recall",
     "detail": "Windows no guarda capturas de lo que haces en pantalla. Solo cuenta en PCs que traen Recall.",
-    "source": "",
+    "source": "https://learn.microsoft.com/en-us/windows/client-management/manage-recall",
     "ops": [
       {
         "reg": "HKCU\\Software\\Policies\\Microsoft\\Windows\\WindowsAI",
@@ -1013,6 +1057,7 @@
         "type": "dword",
         "value": 1
       }
-    ]
+    ],
+    "status": "optional"
   }
 ]

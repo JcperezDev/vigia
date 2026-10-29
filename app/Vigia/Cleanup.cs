@@ -2,7 +2,9 @@ using System.Runtime.InteropServices;
 
 namespace Vigia;
 
-public sealed record CleanTarget(string Id, string Name, string Path, long Bytes, int Files);
+/// <param name="Care">«safe»: temporales que nadie usa; «care»: se puede borrar pero tiene un costo (shaders que se
+/// recompilan, informes que sirven para diagnosticar, la Papelera). Lo «care» nunca va marcado ni lo borra el modo simple.</param>
+public sealed record CleanTarget(string Id, string Name, string Path, long Bytes, int Files, string Care = "safe");
 public sealed record CleanResult(long FreedBytes, int Deleted, int Skipped);
 
 /// <summary>
@@ -13,6 +15,11 @@ public sealed record CleanResult(long FreedBytes, int Deleted, int Skipped);
 public static class Cleanup
 {
     static readonly TimeSpan MinAge = TimeSpan.FromHours(24);
+
+    /// <summary>Lo que se puede borrar pero tiene un costo: los shaders se recompilan (tirones la primera partida),
+    /// los volcados e informes sirven para saber por qué se cerró algo. Ni se marca solo ni lo borra el modo simple.</summary>
+    static readonly HashSet<string> CareIds = ["d3d_cache", "crash_dumps", "wer", RecycleId];
+    public static string CareOf(string id) => CareIds.Contains(id) ? "care" : "safe";
 
     static IEnumerable<(string id, string name, string path)> Roots()
     {
@@ -65,10 +72,10 @@ public static class Cleanup
         {
             long b = 0; int n = 0;
             foreach (var f in Files(r.path)) { try { b += f.Length; n++; } catch { } }
-            return new CleanTarget(r.id, r.name, r.path, b, n);
+            return new CleanTarget(r.id, r.name, r.path, b, n, CareOf(r.id));
         }).ToList();
         var (rb, ri) = Recycle();
-        list.Insert(0, new CleanTarget(RecycleId, "Papelera de reciclaje", "Todas las unidades", rb, (int)Math.Min(ri, int.MaxValue)));
+        list.Insert(0, new CleanTarget(RecycleId, "Papelera de reciclaje", "Todas las unidades", rb, (int)Math.Min(ri, int.MaxValue), "care"));
         var left = 0;
         try { left = StartupLeft().Count; } catch { }
         list.Add(new CleanTarget(StartupId, "Restos de programas desinstalados", "Inicio de Windows", 0, left));
@@ -79,8 +86,9 @@ public static class Cleanup
     const string StartupId = "startup_left";
     static List<StartItem> StartupLeft() => Startup.List().Where(x => x.Missing && x.Group == "Programas").ToList();
 
-    /// <summary>Temporales, sin la Papelera: lo que borra el modo simple («¿Borrar archivos temporales?»).</summary>
-    public static IEnumerable<string> TempIds => Roots().Select(r => r.id);
+    /// <summary>Solo los temporales seguros: lo que borra el modo simple («¿Borrar archivos temporales?»).
+    /// Ni la Papelera, ni la caché de shaders, ni volcados o informes de errores (sirven para diagnosticar).</summary>
+    public static IEnumerable<string> TempIds => Roots().Select(r => r.id).Where(id => !CareIds.Contains(id));
 
     public static CleanResult Run(IEnumerable<string> ids)
     {
@@ -143,6 +151,9 @@ public static class Cleanup
             ("junction creada", Directory.Exists(link)),
             ("destino del junction intacto", File.Exists(Path.Combine(outside, "protegido.txt"))),
             ("conteo = 2 borrados / 2000 bytes", r.Deleted == 2 && r.FreedBytes == 2000),
+            // el modo simple usa TempIds: ni shaders, ni volcados, ni informes de errores, ni la Papelera
+            ("modo simple sin cachés de shaders, volcados, informes ni Papelera",
+                !TempIds.Any(id => id is "d3d_cache" or "crash_dumps" or "wer" or RecycleId) && CareOf("d3d_cache") == "care" && CareOf("user_temp") == "safe"),
         };
         try { Directory.Delete(link); } catch { }
         try { Directory.Delete(root, true); Directory.Delete(outside, true); } catch { }

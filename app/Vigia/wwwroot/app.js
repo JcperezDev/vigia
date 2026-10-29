@@ -164,6 +164,13 @@
   // ---------- limpieza ----------
   let targets = [];
   let lastRun = null;
+  // por qué lo «con precaución» no se marca solo
+  const CARE_WHY = {
+    recycle: 'Con precaución: lo borrado de la Papelera no se recupera',
+    d3d_cache: 'Con precaución: los juegos vuelven a compilar los shaders y la primera partida puede dar tirones',
+    crash_dumps: 'Con precaución: sirven para saber por qué se cerró un programa',
+    wer: 'Con precaución: sirven para saber por qué falló Windows o un programa',
+  };
   function renderTargets() {
     const ul = $('targets');
     if (!targets.length) return;
@@ -172,10 +179,12 @@
       li.innerHTML = `<label><input type="checkbox"><span><span class="tname"></span><span class="path"></span></span><span class="size"></span></label>`;
       const cb = li.querySelector('input');
       const has = t.id === 'startup_left' ? t.files > 0 : t.bytes > 0;
-      cb.checked = has && t.id !== 'recycle'; cb.disabled = !has; cb.dataset.id = t.id;
+      // lo «con precaución» (Papelera, shaders, volcados, informes de errores) no va marcado: lo decide cada uno
+      cb.checked = has && t.care !== 'care'; cb.disabled = !has; cb.dataset.id = t.id;
       cb.addEventListener('change', updateTotal);
       li.querySelector('.tname').textContent = t.name;
-      li.querySelector('.path').textContent = t.id === 'startup_left' ? `${t.path} · ${t.files} entradas` : `${t.path} · ${t.files} archivos`;
+      li.querySelector('.path').textContent = (t.id === 'startup_left' ? `${t.path} · ${t.files} entradas` : `${t.path} · ${t.files} archivos`)
+        + (t.care === 'care' ? ` · ${CARE_WHY[t.id] || 'Con precaución'}` : '');
       li.querySelector('.size').textContent = t.id === 'startup_left' ? '' : gb(t.bytes);
       return li;
     }));
@@ -505,6 +514,14 @@
         body.append(el('strong', null, t.title), el('p', null, t.detail));
         const src = el('p', 'src');
         if (t.risk !== 'bajo') src.append(el('span', `risk-${t.risk}`, `riesgo ${t.risk}`));
+        // estado de la revisión: lo experimental se aplica solo a mano y conviene medir antes y después
+        if (STATUS[t.status]) { if (src.childNodes.length) src.append(' · '); src.append(el('span', `st-${t.status}`, STATUS[t.status])); }
+        if (t.source) {
+          if (src.childNodes.length) src.append(' · ');
+          const a = el('a', 'tw-src', 'Fuente oficial'); a.href = '#';
+          a.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); send({ cmd: 'openSource', id: t.id }); });
+          src.append(a);
+        }
         if (t.reboot) { if (src.childNodes.length) src.append(' · '); src.append(el('span', null, 'pide reiniciar')); }
         if (src.childNodes.length) body.append(src);
         if (t.blocked) body.append(el('p', 'src why', t.blocked));
@@ -519,14 +536,17 @@
     $('tw-sub').textContent = `${applied} de ${tweaks.length} ya están aplicados en este PC.`;
     twButtons(); twAllCard();
   }
-  // «Aplicar todo»: los de riesgo bajo que faltan. Fuera la impresión (rompe imprimir) y, en laptop, lo que gasta batería.
+  const STATUS = { recommended: 'recomendado', experimental: 'experimental: mide antes y después' };
+  // «Aplicar todo»: los recomendados y opcionales de riesgo bajo que faltan; nunca lo experimental.
+  // Fuera la impresión (rompe imprimir), la hibernación (decide cada uno) y, en laptop, lo que gasta batería.
   let twLaptop = false;
-  const twAll = () => tweaks.filter((t) => t.risk === 'bajo' && !t.blocked && t.state !== 'applied' && t.state !== 'na'
-    && !['print-off', 'boot-info', 'hags'].includes(t.id) && !(twLaptop && ['power-ultimate', 'hibernate-off', 'usb-suspend-off', 'pcie-aspm-off'].includes(t.id)));
+  const twEasy = (t) => t.risk === 'bajo' && (t.status === 'recommended' || t.status === 'optional');
+  const twAll = () => tweaks.filter((t) => twEasy(t) && !t.blocked && t.state !== 'applied' && t.state !== 'na'
+    && !['print-off', 'boot-info', 'hags', 'hibernate-off', 'wer-off', 'update-control'].includes(t.id));
   function twAllCard() {
     const n = twAll().length;
-    // los de riesgo medio no entran en «Aplicar todo»: si quedan, se dice dónde están
-    const rest = tweaks.filter((t) => t.risk !== 'bajo' && !t.blocked && t.state !== 'applied' && t.state !== 'na').length;
+    // lo experimental o de riesgo no entra en «Aplicar todo»: si queda, se dice dónde está
+    const rest = tweaks.filter((t) => !twEasy(t) && !t.blocked && t.state !== 'applied' && t.state !== 'na').length;
     $('tw-all-t').textContent = n ? plural(n, 'ajuste por aplicar', 'ajustes por aplicar') : rest ? 'Lo seguro ya está aplicado' : 'Todo aplicado';
     $('tw-all-p').textContent = n ? 'Con copia: se puede deshacer.'
       : rest === 1 ? 'Queda 1 que depende de lo que uses. Está en «Elegir uno por uno».'
@@ -899,6 +919,8 @@
       box.append(el('p', 'src', `1 % bajos: ${dl >= 0 ? '+' : '−'}${fpsFmt(Math.abs(dl))} FPS. Es lo que notas como tirones; importa tanto como la media.`));
       const bm = base.setup?.modo, lm = last.setup?.modo;
       if (bm && lm && bm !== lm) box.append(el('p', 'src', `Cambió el modo del juego (${bm} → ${lm}): parte de la diferencia viene de ahí, no solo de optimizar Windows.`));
+      const br = base.setup?.pantalla, lr = last.setup?.pantalla;
+      if (br && lr && br !== lr) box.append(el('p', 'src', `Las dos mediciones no son comparables: cambió la pantalla (${br} → ${lr}).`));
       if (Math.abs(pct) < 3) box.append(el('p', 'src', 'Menos de un 3 % de diferencia entra en lo normal entre una partida y otra: para estar seguro, mide otra vez.'));
       return box;
     }));
@@ -908,6 +930,8 @@
       const d = new Date(r.at);
       body.append(el('strong', null, `${r.game} · ${fpsFmt(r.avg)} FPS`),
         el('p', null, `1 % bajos ${fpsFmt(r.low1)} · máximo ${fpsFmt(r.max)} · ${Math.round(r.seconds / 60 * 10) / 10} min medidos`),
+        // mediciones nuevas: frametimes y tirones (las viejas no los tienen y no se inventan)
+        ...(r.p99Ms != null ? [el('p', 'src', `0,1 % bajos ${r.low01 != null ? fpsFmt(r.low01) : 'sin muestras suficientes'} · frametime P99 ${r.p99Ms} ms · ${plural(r.stutters || 0, 'tirón', 'tirones')}`)] : []),
         el('p', 'src', `${d.toLocaleDateString(window.vigiaI18n.locale(), { day: 'numeric', month: 'short' })}, ${d.toLocaleTimeString(window.vigiaI18n.locale(), { hour: '2-digit', minute: '2-digit' })} · ${gmSetup(r.setup || {})}`));
       const acts = el('div', 'gm-acts');
       const isBase = (gmBase(r.game) || fps.history.find((x) => x.game === r.game)?.id) === r.id;
@@ -1097,12 +1121,12 @@
   const SM_Q = [
     { k: 'games', q: '¿Juegas en esta PC?', h: 'Prioridad para juegos, GPU potente, modo juego y ratón sin aceleración.', def: true },
     { k: 'printer', q: '¿Usas impresora o «Imprimir a PDF»?', h: 'Si dices que no, se apaga la cola de impresión.', def: true },
-    { k: 'xbox', q: '¿Usas Xbox, Game Pass o la barra Win+G?', h: 'Si no, se quitan las apps de Xbox y la grabación de fondo.', def: false },
-    { k: 'laptop', q: '¿Es una laptop que usas con batería?', h: 'Si es laptop, no se pone el plan de energía de Vigía ni se apaga la hibernación.', def: false },
+    { k: 'xbox', q: '¿Usas Xbox, Game Pass o la barra Win+G?', h: 'Si no, se quitan las apps de Xbox y la grabación de fondo.', def: true },
+    { k: 'laptop', q: '¿Es una laptop que usas con batería?', h: 'Si es laptop, Vigía no toca nada que gaste más batería.', def: false },
     { k: 'visual', q: '¿Quitar transparencias y animaciones?', h: 'Windows se ve más simple y responde más rápido.', def: true },
     { k: 'privacy', q: '¿Apagar telemetría y anuncios de Windows?', h: 'Menos datos a Microsoft y nada de apps sugeridas.', def: true },
     { k: 'clean', q: '¿Borrar archivos temporales?', h: 'Solo temporales de más de 24 horas. Lo que esté en uso se salta.', def: true },
-    { k: 'memAuto', q: '¿Liberar la memoria sola al llegar al 60 %?', h: 'Vigía la libera sin que hagas nada.', def: true },
+    { k: 'memAuto', q: '¿Liberar la memoria sola cuando quede muy poca?', h: 'Solo si queda menos de 2 GB libre y nunca con un juego abierto. La RAM libre no da FPS por sí sola.', def: false },
     { k: 'wallpaper', q: '¿Poner el fondo de VigíaOS en tu escritorio?', h: 'Si dices que no, tu fondo de pantalla se queda como está.', def: false },
   ];
   const smAns = Object.fromEntries(SM_Q.map((x) => [x.k, x.def]));
@@ -1134,7 +1158,8 @@
     const box = $('sm-applist'); box.textContent = '';
     $('view-simple').querySelector('.sm-apps').hidden = !list.length;   // sin apps de más: ni se muestra
     if (!list.length) { smAskPlan(); return; }
-    if (!smAppsDrawn) { list.filter((a) => a.risk !== 'bajo').forEach((a) => smKeep.add(a.id)); smAppsDrawn = true; }
+    // ninguna app se quita si no la marcas tú
+    if (!smAppsDrawn) { list.forEach((a) => smKeep.add(a.id)); smAppsDrawn = true; }
     for (const a of list) {
       const l = document.createElement('label'); l.className = 'chk';
       const c = document.createElement('input'); c.type = 'checkbox'; c.checked = smKeep.has(a.id);

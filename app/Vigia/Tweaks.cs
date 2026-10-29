@@ -9,7 +9,7 @@ using Microsoft.Win32;
 namespace Vigia;
 
 public record TweakView(string Id, string Group, string Title, string Detail, string Risk, string Source, bool Reboot,
-    bool Tested, string State, bool HasBackup, string? Blocked);
+    bool Tested, string State, bool HasBackup, string? Blocked, string Status = "optional");
 public record TweakResult(string Id, bool Ok, string State, string? Error);
 public record TweakBatch(bool Ok, string? RestorePoint, TweakResult[] Results, bool NeedsReboot);
 
@@ -27,10 +27,18 @@ public static class Tweaks
     public static bool Lab => Environment.GetEnvironmentVariable("VIGIA_LAB") == "1" || File.Exists(Path.Combine(Settings.Dir, "lab.flag"));
 
     // ---------- catálogo ----------
-    sealed record Def(string Id, string Group, string Title, string Detail, string Risk, string Source, bool Reboot, bool Tested, JsonArray Ops, bool Retired = false);
+    sealed record Def(string Id, string Group, string Title, string Detail, string Risk, string Source, bool Reboot, bool Tested, JsonArray Ops, bool Retired = false, string Status = "optional");
+    /// <summary>Estados de la revisión del catálogo. «experimental» solo se aplica a mano desde Ajustes; nunca en el modo simple.</summary>
+    internal static readonly string[] Statuses = ["recommended", "optional", "experimental", "deprecated", "unsupported"];
 
     static List<Def>? _all;
     internal static Func<List<JsonObject>>? CatalogOverride;   // para --selftest
+
+    /// <summary>La fuente oficial de un ajuste activo o retirado (o null si no tiene).</summary>
+    public static string? SourceOf(string id) { try { return All().FirstOrDefault(d => d.Id == id)?.Source is { Length: > 0 } s ? s : null; } catch { return null; } }
+
+    /// <summary>Estado de revisión de un ajuste (recommended, optional, experimental…); null si no existe.</summary>
+    public static string? StatusOf(string id) { try { return All().FirstOrDefault(d => d.Id == id)?.Status; } catch { return null; } }
 
     /// <summary>El título de un ajuste, como sale en Ajustes.</summary>
     public static string? TitleOf(string id) { try { return All().FirstOrDefault(d => d.Id == id)?.Title; } catch { return null; } }
@@ -49,7 +57,7 @@ public static class Tweaks
 
     static Def ToDef(JsonObject o) => new((string)o["id"]!, (string)o["group"]!, (string)o["title"]!, (string)o["detail"]!,
         (string?)o["risk"] ?? "bajo", (string?)o["source"] ?? "", (bool?)o["reboot"] ?? false, (bool?)o["tested"] ?? false, o["ops"]!.AsArray(),
-        (bool?)o["retired"] ?? false);
+        (bool?)o["retired"] ?? false, (string?)o["status"] ?? "optional");
 
     /// <summary>
     /// Deshace los ajustes retirados que Vigía aplicó antes (solo esos: los que tienen copia del valor original).
@@ -71,7 +79,7 @@ public static class Tweaks
         {
             var bk = LoadBackup();
             return Catalog().Select(d => new TweakView(d.Id, d.Group, d.Title, d.Detail, d.Risk, d.Source, d.Reboot, d.Tested,
-                StateOf(d), bk.ContainsKey(d.Id), BlockedReason(d))).ToList();
+                StateOf(d), bk.ContainsKey(d.Id), BlockedReason(d), d.Status)).ToList();
         }
     }
 
@@ -619,6 +627,25 @@ public static class Tweaks
     }
 
     // ---------- autoprueba ----------
+    /// <summary>Revisa el catálogo de verdad: estados válidos, retirados en «deprecated», fuentes oficiales con HTTPS y
+    /// que el modo simple no proponga nada experimental ni retirado.</summary>
+    public static string CatalogSelfTest()
+    {
+        var log = new List<string>();
+        void Check(bool ok, string what) => log.Add($"{(ok ? "OK  " : "FAIL")} {what}");
+        var all = All().ToList();
+        Check(all.Count > 0 && all.Select(d => d.Id).Distinct().Count() == all.Count, $"catálogo: {all.Count} ajustes sin ids repetidos");
+        Check(all.All(d => Statuses.Contains(d.Status)), "todos con un estado válido");
+        Check(all.Where(d => d.Retired).All(d => d.Status == "deprecated"), $"retirados en «deprecated» ({all.Count(d => d.Retired)})");
+        Check(all.All(d => d.Source.Length == 0 || Support.IsSourceAllowed(d.Source)), $"fuentes oficiales con HTTPS ({all.Count(d => d.Source.Length > 0)})");
+        var plan = Simple.Build(new Simple.Answers(Games: true, Laptop: false, Privacy: true)).Stages.SelectMany(s => s.Tweaks).ToList();
+        var bad = plan.Where(id => all.FirstOrDefault(d => d.Id == id) is not { Retired: false, Status: "recommended" or "optional" }).ToList();
+        Check(bad.Count == 0, $"modo simple sin experimentales ni retirados ({plan.Count} propuestos{(bad.Count > 0 ? ": " + string.Join(", ", bad) : "")})");
+        foreach (var id in (string[])["responsiveness", "services-unused", "svchost-split", "power-ultimate", "wer-off", "hibernate-off", "mmcss-games", "update-control"])
+            Check(!plan.Contains(id), $"modo simple no propone {id}");
+        return string.Join(Environment.NewLine, log);
+    }
+
     /// <summary>Prueba el motor sobre HKCU\Software\Vigia\SelfTest: crea, cambia y borra valores y comprueba que Revertir deja todo igual.</summary>
     public static string SelfTest()
     {

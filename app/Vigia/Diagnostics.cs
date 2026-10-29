@@ -173,7 +173,7 @@ public static partial class Diagnostics
         var phys = Wmi(@"root\cimv2", "SELECT Index, Model FROM Win32_DiskDrive")
             .Where(o => !((o["Model"] as string ?? "").Contains("Virtual", StringComparison.OrdinalIgnoreCase)))
             .Select(o => Convert.ToInt32(o["Index"])).ToHashSet();
-        bool OnRealDisk(string msg)
+        bool OnRealDisk(string? msg)
         {
             var m = System.Text.RegularExpressions.Regex.Match(msg ?? "", @"Harddisk(\d+)");
             return !m.Success || phys.Count == 0 || phys.Contains(int.Parse(m.Groups[1].Value));
