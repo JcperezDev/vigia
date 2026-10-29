@@ -42,8 +42,6 @@ public static class Elevation
         catch { return false; }
     }
 
-    /// <summary>Para las pruebas desde la carpeta del repositorio (que no está protegida). Nunca se usa en el ayudante.</summary>
-    internal static bool DevOverride => !InBroker && Environment.GetEnvironmentVariable("VIGIA_DEV") == "1";
 
     internal static readonly Regex PipeRx = new(@"^Vigia\.[0-9a-f]{32}$", RegexOptions.CultureInvariant);
 
@@ -211,6 +209,13 @@ public static class Elevation
         public const string NoConsent = "Para esto Vigía necesita permiso de administrador y no se dio. No cambié nada.";
 
         /// <summary>Abre el ayudante si no está abierto (sale el aviso de UAC). Lanza <see cref="Denied"/> con un texto para el usuario.</summary>
+        /// <summary>Por qué no se puede abrir el ayudante desde aquí (null = se puede). Sin excepciones ni variables
+        /// de entorno: un .exe en una carpeta que tu usuario puede cambiar nunca se abre con permisos, ni para probar
+        /// (el ayudante lo volvería a rechazar, pero ya habría corrido elevado).</summary>
+        internal static string? StartRefusal(string? dir = null) =>
+            InstallTrust.Problem(dir ?? AppContext.BaseDirectory) is null ? null
+            : "Vigía no está en una carpeta protegida, así que no pide permisos de administrador desde ahí. Instálala con Puente (Archivos de programa) y vuelve a intentarlo.";
+
         public static async Task<Broker> EnsureAsync()
         {
             if (_current is { _dead: false } c) return c;
@@ -227,8 +232,7 @@ public static class Elevation
         static async Task<Broker> StartAsync()
         {
             var me = Environment.ProcessPath ?? throw new Denied("No sé desde dónde corre Vigía.");
-            if (!DevOverride && InstallTrust.Problem(AppContext.BaseDirectory) is { } why)
-                throw new Denied("Vigía no está en una carpeta protegida, así que no pide permisos de administrador desde ahí. Instálala con Puente (Archivos de programa) y vuelve a intentarlo.");
+            if (StartRefusal() is { } no) throw new Denied(no);
             var name = "Vigia." + Guid.NewGuid().ToString("N");
             using var self = WindowsIdentity.GetCurrent();
             var ps = new PipeSecurity();
@@ -440,6 +444,14 @@ public static class InstallTrust
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException) { log.Add("OK   enlace simbólico: sin permiso para crearlo aquí (se prueba en la VM)"); }
         finally { try { Directory.Delete(tmp, true); } catch { } }
+        // ninguna variable de entorno abre el ayudante desde una carpeta sin proteger (antes VIGIA_DEV=1 lo intentaba)
+        var oldDev = Environment.GetEnvironmentVariable("VIGIA_DEV");
+        try
+        {
+            Environment.SetEnvironmentVariable("VIGIA_DEV", "1");
+            Check(Elevation.Broker.StartRefusal(Path.GetTempPath()) is not null, "VIGIA_DEV=1 no abre el ayudante desde una carpeta sin proteger");
+        }
+        finally { Environment.SetEnvironmentVariable("VIGIA_DEV", oldDev); }
         Check(Elevation.PipeRx.IsMatch("Vigia." + new string('a', 32)) && !Elevation.PipeRx.IsMatch("Vigia.x") && !Elevation.PipeRx.IsMatch("..\\Vigia." + new string('a', 32)),
             "nombre de la tubería: solo Vigia.<32 hex>");
         return string.Join(Environment.NewLine, log);

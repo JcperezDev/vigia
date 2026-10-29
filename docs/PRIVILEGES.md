@@ -26,7 +26,7 @@ mientras hace falta y solo habla con la ventana que lo abrió. Vigía no necesit
 - Mensajes: solo nombres de `AdminOps.Names`. Cada parámetro se valida **otra vez dentro del ayudante**: ids con forma fija
   (`IdRx`, `CleanRx`), letras de unidad, rutas `.iso` locales fuera de carpetas del sistema (`PathGuard`), números en rango.
   Ningún mensaje lleva rutas de programas, claves de registro, texto de PowerShell, CMD ni líneas de órdenes.
-- `VIGIA_DATA`, `VIGIA_FORTNITE_INI` y `VIGIA_DEV` se ignoran dentro del ayudante.
+- `VIGIA_DATA` y `VIGIA_FORTNITE_INI` se ignoran dentro del ayudante. No hay variable ni opción que abra el ayudante desde una carpeta sin proteger (selftest: «VIGIA_DEV=1 no abre el ayudante…»).
 
 ## Clasificación de operaciones
 

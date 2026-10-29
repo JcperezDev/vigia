@@ -1,5 +1,5 @@
 # SOLO DESARROLLO. Publica Vigia en %LOCALAPPDATA%\Programs\Vigia (carpeta de tu usuario, sin proteger) y crea accesos.
-# Una Vigía ahí no pide permisos de administrador (Elevation.cs exige carpeta protegida; VIGIA_DEV=1 lo salta para pruebas).
+# Una Vigía ahí no pide permisos de administrador (Elevation.cs exige carpeta protegida; no hay forma de saltarlo).
 # La instalación de verdad la hace Puente en %ProgramFiles%\Vigia (ver docs/INSTALL.md).
 param([switch]$Dev)
 $ErrorActionPreference = 'Stop'

@@ -397,6 +397,14 @@ sealed partial class MainForm : Form
     public MainForm(string? snapPath = null, string? snapView = null, string? benchPath = null) : this()
     {
         _snapPath = snapPath; _snapView = snapView; _benchPath = benchPath;
+        // Las capturas no deben salir en tu escritorio (puedes estar jugando): ventana fuera de toda pantalla,
+        // sin activarse y sin botón en la barra de tareas. WebView2 sigue dibujando (ver InitAsync).
+        if (snapPath is not null)
+        {
+            StartPosition = FormStartPosition.Manual; ShowInTaskbar = false;
+            var vs = SystemInformation.VirtualScreen;
+            Location = new Point(vs.Right + 200, vs.Bottom + 200);
+        }
     }
 
     // Al iniciar Windows (tarea oculta): directa a la bandeja, sin que la ventana llegue a verse ni salga en la barra de tareas.
@@ -408,7 +416,7 @@ sealed partial class MainForm : Form
         // Se crea invisible, fuera de la pantalla y sin activar; luego se esconde en la bandeja.
         if (startHidden) { StartPosition = FormStartPosition.Manual; Location = new Point(-32000, -32000); ShowInTaskbar = false; Opacity = 0; }
     }
-    protected override bool ShowWithoutActivation => _startHidden && Opacity == 0;
+    protected override bool ShowWithoutActivation => (_startHidden && Opacity == 0) || _snapPath is not null;
 
     public MainForm()
     {
@@ -441,7 +449,10 @@ sealed partial class MainForm : Form
     {
         // --snap usa su propio perfil: si Vigía ya está abierta, compartir la carpeta bloquea WebView2
         var data = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Vigia", _snapPath is null ? "WebView2" : "WebView2-snap");
-        var env = await CoreWebView2Environment.CreateAsync(null, data);
+        // fuera de pantalla Chromium da la ventana por tapada y deja de dibujar: en capturas se le pide que no lo haga
+        var opts = _snapPath is null ? null : new CoreWebView2EnvironmentOptions(
+            "--disable-features=CalculateNativeWinOcclusion --disable-backgrounding-occluded-windows --disable-renderer-backgrounding");
+        var env = await CoreWebView2Environment.CreateAsync(null, data, opts);
         await _web.EnsureCoreWebView2Async(env);
         var core = _web.CoreWebView2;
         var ui = Path.Combine(AppContext.BaseDirectory, "wwwroot");

@@ -3,7 +3,7 @@
 Actualizado 2026-10-29, rama `debloat-v2` (sin push ni merge). Una línea por requisito.
 Estados: ✅ hecho y probado · 🟡 hecho, falta validación física/VM · ⛔ bloqueado (decisión tuya) · ⬜ pendiente.
 
-Pruebas de referencia ahora: selftest **299/0** · UI de Apps **44/0** · traducciones **0 errores** · Puente **57/0** ·
+Pruebas de referencia ahora: selftest **300/0** · UI de Apps **44/0** · traducciones **0 errores** · Puente **57/0** ·
 `release.sh` **25/0**.
 
 ## Prompt 1 — auditoría de ajustes, rendimiento y seguridad (hasta 0.20.17)
@@ -18,7 +18,7 @@ Pruebas de referencia ahora: selftest **299/0** · UI de Apps **44/0** · traduc
 | Frametimes (ETW DxgKrnl/D3D9) | 🟡 | falta validar en juegos reales y en GPU AMD/Intel |
 | ReBAR por el método del fabricante | 🟡 | sin cambio; validación física |
 | Extracción segura de ZIP, firma ECDSA | ✅ | `SafeExtract`, `--zip-test` |
-| QA visual de Ajustes (`--snap`) en/es | ⬜ | falla con «stdin is not a tty» |
+| QA visual de Ajustes (`--snap`) en/es | ✅ | captura fuera de pantalla, sin ventana ni foco; en/es sin desbordes |
 
 ## Prompt 2 — segunda auditoría (Toolbox, Startup, memoria, Ayuda)
 
@@ -76,9 +76,7 @@ Pruebas de referencia ahora: selftest **299/0** · UI de Apps **44/0** · traduc
 
 ## Lo siguiente que se puede hacer sin autorización
 
-1. Arreglar el `--snap` de QA de Ajustes («stdin is not a tty»).
-2. Prueba automática del bypass `VIGIA_DEV` (que en Release no salte la carpeta protegida).
-3. Perfiles de juegos y claves de privacidad nuevas (proponer lista antes de implementar).
+1. Perfiles de juegos y claves de privacidad nuevas (proponer lista antes de implementar).
 
 ## Lo que necesita VM o tu decisión
 

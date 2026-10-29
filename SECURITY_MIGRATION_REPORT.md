@@ -153,7 +153,7 @@ firmado (formato viejo) no la instala Puente 2.0 [probado]. **[VM]** la actualiz
 
 | Prueba | Resultado | Baseline | Diferencia |
 |---|---|---|---|
-| `Vigia.exe --selftest` (carpeta aislada) | **299 OK / 0 FAIL** | 230 | +69 nuevas: permisos, ayudante, copias, enlaces, firma de Puente, limpieza sin permisos |
+| `Vigia.exe --selftest` (carpeta aislada) | **300 OK / 0 FAIL** | 230 | +70 nuevas: permisos, ayudante, copias, enlaces, firma de Puente, limpieza sin permisos |
 | UI de Apps (`tools/ui-apps-test.js`, Chrome headless, WebView simulado) | **44 / 0** | 44 | igual |
 | Traducciones (`tools/i18n-check.js`) | **0 errores** (2868 claves × en/pt/fr/de) | 0 | igual |
 | Puente (`tools/puente-test.js`, `%TEMP%`, usuario simulado con SAFER) | **57 / 0** | — | nueva |
@@ -168,10 +168,10 @@ desinstalaciones de Apps, migración real, cortes de luz reales, antivirus bloqu
 1. Clave de firma legible por `CodexSandboxUsers` y sin cifrar (sección 11).
 2. Todo lo marcado **[VM]**: el aviso de UAC, una sola vez por sesión, y el ayudante con otra cuenta (si UAC se aprueba con
    otra cuenta, el ayudante no arranca: previsto, pero hay que ver que el mensaje se entiende).
-3. `tools/install.ps1 -Dev` / `VIGIA_DEV=1` saltan el requisito de carpeta protegida (solo desarrollo; el bypass no tiene prueba).
+3. `tools/install.ps1 -Dev` publica en `%LOCALAPPDATA%\Programs\Vigia` (la carpeta de tu instalación actual): solo para un PC de pruebas. El atajo `VIGIA_DEV` se quitó; ninguna variable abre el ayudante desde una carpeta sin proteger [probado].
 4. La carpeta `\Vigia\` del Programador de tareas puede quedar vacía tras borrar la tarea vieja (inofensivo).
 5. Restos `vigia-selftest-*` de una corrida de hoy a las 02:44 en `%TEMP%` (las corridas actuales limpian); no los borré.
-6. QA visual de Ajustes (`--snap`) sin resultado: «stdin is not a tty».
+6. (Resuelto) las capturas de QA ya no abren ventana en tu escritorio.
 
 ## 17. Operaciones que requieren tu autorización
 
