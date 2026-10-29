@@ -98,6 +98,15 @@ Las pruebas de aplicar/restaurar usan una clave de prueba en `HKCU\Software\Vigi
 dispositivos, búsqueda en la nube y sincronización. Se comprobó con `reg query`: esas directivas ya existían en el registro con
 justo esos valores (0, 0, 0, 2/1), puestas antes de esta sesión. La detección coincide con el registro.
 
+**Traducción del aviso (revisado otra vez, build actual):** la captura de Ajustes en inglés y alemán ya muestra «What changes: …» y
+«Was sich ändert: …» en los seis (`--snap tweaks-all@en|de`, 0 apariciones de «Lo que cambia»). La captura vieja en español era
+anterior a las traducciones de `9f83671`. `UNIT_TESTED` (interfaz real, sin Windows de prueba).
+
+**Estado «Aplicado» frente al registro (2.ª comprobación, solo lectura):** `AllowInputPersonalization=0`, `AllowCrossDeviceClipboard=0`,
+`AllowCloudSearch=0`, `DisableSettingSync=2` + `DisableSettingSyncUserOverride=1` existen → la tarjeta dice «Applied»;
+`AllowClipboardHistory` y `DisableTailoredExperiencesWithDiagnosticData` no existen → «Not applied». Coincide uno a uno. El valor
+de `DisableSettingSync` en `tweaks.json` (2 y UserOverride 1) es el mismo que documenta Microsoft: discrepancia cerrada.
+
 ## Qué no está probado
 
 - Efecto real en Windows (que Win+V quede vacío, que la búsqueda deje de mostrar OneDrive, etc.): `VM_TESTED` pendiente.

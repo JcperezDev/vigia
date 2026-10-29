@@ -99,3 +99,13 @@ Validación en VM (`docs/INSTALL.md`), clave de firma, migración real, publicac
 - `3e55d0f`: PawnIO lo prepara Puente al instalar/actualizar/Reparar (nunca Monitor, nunca con juego abierto).
 - `054c1be`: servicio de solo lectura «Sensores de Vigía»; sin permisos, Vigía lee los grados desde el servicio. Probado con publicador de prueba y token de usuario básico (77,25 °C en Ryzen 9 9900X). Servicio real sin registrar en este PC: pendiente VM y el Ryzen del amigo.
 - Selftest 329/0, Puente 74/0, release 31/0, traducciones 0 errores. Detalle: `CPU_SENSOR_INTEGRATION_REPORT.md`.
+
+## Fase 7 BIOS/UEFI — comparación offline (29 de octubre)
+
+| Tarea | Estado | Archivos | Prueba | Resultado | Riesgo / siguiente |
+|---|---|---|---|---|---|
+| Comparar BIOS con la última lectura (versión; RAM, ReBAR, UEFI, Secure Boot, TPM que pasan de bien a mal) | `UNIT_TESTED` + captura real | `app/Vigia/BiosWatch.cs`, `Bios.cs`, `Program.cs`, `tools/i18n-add-bios.js`, i18n | selftest st71 «BIOS: comparación» 10/10; `--snap bios@es/en` con foto anterior de prueba en carpeta de datos aparte | avisa «La BIOS cambió» y «Memoria RAM: estaba bien y ahora no»; foto rota o manipulada = se ignora | traducción en pantalla pendiente de recompilar (textos añadidos, `i18n-check` 0 errores) |
+| Exclusión de escritura de firmware en la build | verificado (búsqueda en fuente y DLL) | — | grep fuente + binarios | 0 APIs de escritura, 0 drivers AMI | — |
+| Privacidad: aviso traducido y «Aplicado» frente al registro | `UNIT_TESTED` | `PRIVACY_TWEAK_REVIEW.md` | `--snap tweaks-all@en/de`, lectura del registro | coincide 1 a 1 | efecto real: VM |
+
+Dato real de solo lectura de este PC: la RAM va a 5600 MT/s siendo de 6000 → EXPO apagado (no se cambió nada).

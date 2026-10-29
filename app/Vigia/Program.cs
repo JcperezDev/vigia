@@ -335,7 +335,8 @@ static class Program
                 + Environment.NewLine + "--- inicio con Windows" + Environment.NewLine + AutoStart.SelfTest()
                 + Environment.NewLine + "--- copias (restauración)" + Environment.NewLine + BackupGuard.SelfTest()
                 + Environment.NewLine + "--- comandos de laboratorio (solo en VM)" + Environment.NewLine + LabGuard.SelfTest()
-                + Environment.NewLine + "--- sensores de Vigía (servicio de solo lectura)" + Environment.NewLine + SensorHost.SelfTest();
+                + Environment.NewLine + "--- sensores de Vigía (servicio de solo lectura)" + Environment.NewLine + SensorHost.SelfTest()
+                + Environment.NewLine + "--- BIOS: comparación con la última vez (solo lectura)" + Environment.NewLine + BiosWatch.SelfTest();
             try { Directory.Delete(testKeys, true); } catch { }
             BackupGuard.KeyDirOverride = null;
             File.WriteAllText(args[1], report);

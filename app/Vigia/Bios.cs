@@ -53,6 +53,7 @@ public static class Bios
                 ? new("bios-age", "warn", "Versión de la BIOS", $"Tienes la {ver}, de hace {Months(a)}. Las versiones nuevas suelen traer arreglos de estabilidad para la RAM y el procesador.",
                       $"Actualizarla lo haces tú: descárgala solo de la web de {Brand(vendor, maker)}, cópiala a un USB en FAT32 y usa {Flash(vendor)} desde la BIOS. No apagues el PC mientras se instala.", null, null)
                 : new("bios-age", "ok", "Versión de la BIOS", $"Tienes la {ver}, de hace {Months(a)}. Está reciente.", null, null, null));
+        list.InsertRange(0, BiosWatch.Note(fw, list));   // qué cambió desde la última vez (solo lectura)
         return new(fw, list);
     }
 
