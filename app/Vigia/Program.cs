@@ -300,7 +300,9 @@ static class Program
         using var mutex = new Mutex(true, @"Local\Vigia.SingleInstance", out var first);
         if (!first)
         {
-            // ya está abierta (quizá escondida en la bandeja): pedirle que se muestre
+            // ya está abierta (quizá escondida en la bandeja): pedirle que se muestre.
+            // Si esta segunda copia viene del arranque con Windows (--tray), no: sacaría de un juego a pantalla completa.
+            if (args.Length >= 1 && args[0] == AutoStart.Arg) return 0;
             try { using var ev = EventWaitHandle.OpenExisting(MainForm.ShowEventName); ev.Set(); } catch { }
             return 0;
         }
@@ -353,8 +355,11 @@ sealed partial class MainForm : Form
     public MainForm(bool startHidden) : this()
     {
         _startHidden = startHidden;
-        if (startHidden) { WindowState = FormWindowState.Minimized; ShowInTaskbar = false; Opacity = 0; }
+        // Nada de «minimizada»: Windows la activa al mostrarla y eso saca del juego que esté al frente.
+        // Se crea invisible, fuera de la pantalla y sin activar; luego se esconde en la bandeja.
+        if (startHidden) { StartPosition = FormStartPosition.Manual; Location = new Point(-32000, -32000); ShowInTaskbar = false; Opacity = 0; }
     }
+    protected override bool ShowWithoutActivation => _startHidden && Opacity == 0;
 
     public MainForm()
     {
@@ -370,7 +375,7 @@ sealed partial class MainForm : Form
             await InitAsync();
             if (_startHidden)
             {
-                Hide(); ShowInTaskbar = true; Opacity = 1;
+                Hide(); ShowInTaskbar = true; Opacity = 1; CenterToScreen();
                 await SetRestingAsync(true);
                 _ = ReviewAfterLogonAsync();
             }
@@ -562,7 +567,7 @@ sealed partial class MainForm : Form
 
     protected override void WndProc(ref Message m)
     {
-        if (m.Msg == 0x00FF) Drift.Feed(m.LParam);   // WM_INPUT: solo llega mientras se miden los Hz del ratón
+        if (m.Msg == 0x00FF) Drift.Feed(m.WParam, m.LParam);   // WM_INPUT: solo llega mientras se miden los Hz del ratón
         base.WndProc(ref m);
     }
 
