@@ -807,9 +807,6 @@
         const title = el('strong', null, s.name);
         body.append(title, el('p', null, [s.publisher, s.where].filter(Boolean).join(' · ')), Object.assign(el('p', 'src cmd', s.command), { title: s.command }));
         const gone = s.missing && g === 'Programas';   // ya se desinstaló: solo queda la entrada
-        if (gone) body.append(el('p', 'src why', 'Ya no está instalado. Quitar borra esta entrada que quedó (con copia).'));
-        else if (s.missing) body.append(el('p', 'src why', 'El programa ya no está en el disco: es seguro apagarlo.'));
-        if (s.warning && !gone) body.append(el('p', 'src why', s.warning));
         const b = gone ? el('button', 'btn primary', 'Quitar') : el('button', `btn${s.enabled ? '' : ' primary'}`, s.enabled ? 'Apagar' : 'Encender');
         b.addEventListener('click', () => {
           if (gone) { busyBtn(b, true, 'Quitando…'); send({ cmd: 'startupRemove', id: s.id }); return; }
@@ -822,7 +819,7 @@
       return sec;
     }));
   }
-  $('su-reload').addEventListener('click', () => { busyBtn($('su-reload'), true, 'Leyendo…'); send({ cmd: 'startupList' }); });
+  $('su-reload').addEventListener('click', () => { busyBtn($('su-reload'), true, 'Analizando…'); send({ cmd: 'startupList' }); });
   // apagar todos los programas de una vez (Vigía y lo crítico se quedan); dos pasos
   let suArmed = 0;
   function suDisarm() { if (suArmed) clearTimeout(suArmed); suArmed = 0; const b = $('su-all'); b.textContent = 'Apagar todos los programas'; b.classList.remove('primary'); }
