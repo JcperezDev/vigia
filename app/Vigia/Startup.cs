@@ -360,6 +360,14 @@ public static class Startup
         catch { return null; }
     }
 
+    /// <summary>¿Existe ese servicio? (nombre ya validado: sin barras ni comillas).</summary>
+    internal static bool ServiceExists(string name)
+    {
+        if (name.Length is 0 or > 256 || name.IndexOfAny(['"', '\\', '/']) >= 0 || name.Any(char.IsControl)) return false;
+        try { using var k = Registry.LocalMachine.OpenSubKey(@"SYSTEM\CurrentControlSet\Services\" + name); return k is not null; }
+        catch { return false; }
+    }
+
     internal static bool? TaskEnabled(string path) => FindTask(path) is { } t ? (bool)t.Enabled : null;
 
     internal static void SetTask(string path, bool on)

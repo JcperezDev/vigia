@@ -65,6 +65,13 @@ public static class Tweaks
     /// Deshace los ajustes retirados que Vigía aplicó antes (solo esos: los que tienen copia del valor original).
     /// Hace copia de seguridad antes, como cualquier «Revertir». Si no hay nada que deshacer, no toca nada.
     /// </summary>
+    /// <summary>¿Hay ajustes retirados que deshacer? (solo lectura: mira la copia de valores originales).</summary>
+    public static bool RetiredPending()
+    {
+        try { lock (Gate) { var bk = LoadBackup(); return All().Any(d => d.Retired && bk.ContainsKey(d.Id)); } }
+        catch { return false; }
+    }
+
     public static TweakBatch? UndoRetired()
     {
         string[] ids;
@@ -511,6 +518,53 @@ public static class Tweaks
     {
         var (root, sub) = Split(path);
         using (root) using (var k = root.OpenSubKey(sub, true)) k?.DeleteValue(name, false);
+    }
+
+    /// <summary>¿Un valor guardado tiene forma válida? (tipo conocido y valor que se puede escribir tal cual).</summary>
+    internal static bool ValidSnap(JsonNode? n)
+    {
+        if (n is not JsonObject s || s["existed"] is not JsonValue ev || !ev.TryGetValue<bool>(out var existed)) return false;
+        if (!existed) return true;
+        if ((string?)s["type"] is not { } type || (string?)s["value"] is not { } val || val.Length > 32_768) return false;
+        return type switch
+        {
+            "dword" => uint.TryParse(val, out _) || int.TryParse(val, out _),
+            "qword" => long.TryParse(val, out _),
+            "binary" => val.Length % 2 == 0 && val.All(Uri.IsHexDigit),
+            "string" or "ExpandString" => !val.Contains('\0'),
+            "MultiString" => true,
+            _ => false,
+        };
+    }
+
+    /// <summary>¿Restaurar ese valor cambiaría algo? (si ya está igual, no se escribe nada).</summary>
+    internal static bool WouldChange(string path, string name, JsonObject s)
+    {
+        try { return !JsonNode.DeepEquals(Snap(path, name), s); } catch { return true; }
+    }
+
+    /// <summary>Todos los valores guardados de una copia de ajuste tienen forma válida y el ajuste sigue en el catálogo.</summary>
+    internal static string? CheckSnapshot(JsonObject it)
+    {
+        var id = (string?)it["id"];
+        if (id is null || All().FirstOrDefault(x => x.Id == id) is not { } d) return "ese ajuste ya no está en el catálogo";
+        if (it["saved"] is not JsonObject saved) return "falta lo guardado";
+        if (saved.Count > 200) return "demasiados valores";
+        foreach (var (k, v) in saved)
+        {
+            if (k is "createdPlan") { if (v is not null && !Guid.TryParse((string?)v, out _)) return "plan de energía no válido"; continue; }
+            if (v is not JsonObject o) return $"valor {k} no válido";
+            // registro: {existed,type,value}; servicio: {start,delayed}; kv: {kvOld}; tarea: {enabled}; energía: {scheme,ac}; especiales: {on|active}
+            if (o["existed"] is not null && !ValidSnap(o)) return $"valor {k} no válido";
+            if (o["start"] is { } st && (!ValidSnap(st) || ((string?)st["type"] is { } t && t != "dword") || ((string?)st["value"] is { } sv && !(int.TryParse(sv, out var n) && n is >= 2 and <= 4) && (bool?)st["existed"] == true)))
+                return $"arranque de servicio {k} no válido";
+            if (o["delayed"] is { } dl && !ValidSnap(dl)) return $"arranque diferido {k} no válido";
+            if (o["kvOld"] is JsonValue kv && (!kv.TryGetValue<string>(out var ks) || ks.Length > 256 || ks.Any(c => char.IsControl(c) || c is ';' or '='))) return $"valor {k} no válido";
+            if (o["scheme"] is { } sc && !Guid.TryParse((string?)sc, out _)) return "plan de energía no válido";
+            if (o["active"] is { } ac && !Guid.TryParse((string?)ac, out _)) return "plan de energía no válido";
+        }
+        if (it["orig"] is { } orig and not JsonObject) return "copia original no válida";
+        return null;
     }
 
     static JsonObject Snap(string path, string name)

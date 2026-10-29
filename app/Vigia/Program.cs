@@ -14,6 +14,8 @@ static class Program
     static int Main(string[] args)
     {
         // Modo sin ventana para verificación: Vigia.exe --probe salida.json
+        // Ayudante con permisos (lo abre la propia Vigía con UAC). Lista cerrada de operaciones; ver Elevation.cs.
+        if (args.Length >= 1 && args[0] == "--broker") return Elevation.RunBroker(args);
         if (args.Length >= 2 && args[0] == "--probe")
         {
             using var t = new Telemetry();
@@ -307,7 +309,11 @@ static class Program
                 + Environment.NewLine + "--- versiones" + Environment.NewLine + Updates.SelfTest()
                 + Environment.NewLine + "--- apps de Windows (lectura de PowerShell)" + Environment.NewLine + Debloat.SelfTest()
                 + Environment.NewLine + "--- ISO (cuentas)" + Environment.NewLine + IsoBuild.SelfTest()
-                + Environment.NewLine + "--- arranque (bcdedit en cualquier idioma)" + Environment.NewLine + Diagnostics.BcdSelfTest();
+                + Environment.NewLine + "--- arranque (bcdedit en cualquier idioma)" + Environment.NewLine + Diagnostics.BcdSelfTest()
+                + Environment.NewLine + "--- permisos (carpeta protegida)" + Environment.NewLine + InstallTrust.SelfTest()
+                + Environment.NewLine + "--- permisos (operaciones de administrador)" + Environment.NewLine + AdminOps.SelfTest()
+                + Environment.NewLine + "--- inicio con Windows" + Environment.NewLine + AutoStart.SelfTest()
+                + Environment.NewLine + "--- copias (restauración)" + Environment.NewLine + BackupGuard.SelfTest();
             File.WriteAllText(args[1], report);
             return report.Contains("FAIL") ? 1 : 0;
         }
@@ -538,6 +544,7 @@ sealed partial class MainForm : Form
         try
         {
             while (AutoStart.Busy()) { Send("pawnState", new { ok = false, waiting = true, error = (string?)null }); await Task.Delay(TimeSpan.FromMinutes(5)); }
+            if (!Elevation.IsAdmin) { await ViaBrokerAsync("pawnInstall", new JsonObject()); return; }
             string? err = null;
             var ok = await Task.Run(() => Pawn.InstallIfMissing(out err, asked: true));
             if (ok) _tel.CpuDriverReady();
@@ -552,7 +559,8 @@ sealed partial class MainForm : Form
         {
             await Task.Delay(TimeSpan.FromSeconds(30));
             while (AutoStart.Busy()) await Task.Delay(TimeSpan.FromMinutes(5));
-            await Task.Run(Tweaks.UndoRetired);
+            if (Elevation.IsAdmin) await Task.Run(Tweaks.UndoRetired);
+            else if (Tweaks.RetiredPending() && Elevation.Broker.Alive) await ViaBrokerAsync("undoRetired", new JsonObject());
         }
         catch { }
     }
@@ -621,22 +629,23 @@ sealed partial class MainForm : Form
             if (_resting)   // minimizada: solo la liberación automática
             {
                 var c = _cfg;
-                if (c.MemAuto) await Task.Run(() => Memory.AutoTick(c));
+                if (c.MemAuto) await MemAutoAsync(c);
                 return;
             }
             // con un juego delante (Vigía abierta detrás o en otra pantalla): nada de sensores, solo la memoria
             if (!ContainsFocus && AutoStart.Busy())
             {
                 var c = _cfg;
-                if (c.MemAuto && await Task.Run(() => Memory.AutoTick(c)) is { } a) Send("memFreed", a);
+                if (c.MemAuto && await MemAutoAsync(c) is { } a) Send("memFreed", a);
                 return;
             }
-            Send("telemetry", await Task.Run(_tel.Read));
+            if (!Elevation.IsAdmin && Elevation.Broker.Alive) await ViaBrokerAsync("telemetry", new JsonObject());   // sensores con el driver: solo con permisos
+            else Send("telemetry", await Task.Run(_tel.Read));
             // cada 2 lecturas: estado de la memoria y, si toca, liberación automática
             if (_tick++ % 2 == 0)
             {
                 var cfg = _cfg;
-                var auto = await Task.Run(() => Memory.AutoTick(cfg));
+                var auto = await MemAutoAsync(cfg);
                 if (auto is not null) Send("memFreed", auto);
                 Send("memStatus", await Task.Run(Memory.Status));
             }
@@ -645,6 +654,86 @@ sealed partial class MainForm : Form
         }
         catch (Exception e) { Send("error", e.Message); }
         finally { _busy = false; }
+    }
+
+    /// <summary>Liberación automática: necesita permisos. Sin ellos, solo si el ayudante ya está abierto (nunca saca UAC sola).</summary>
+    async Task<object?> MemAutoAsync(Settings c)
+    {
+        if (Elevation.IsAdmin) return await Task.Run(() => Memory.AutoTick(c));
+        if (Elevation.Broker.Alive)
+            await ViaBrokerAsync("memAuto", new JsonObject { ["on"] = c.MemAuto, ["threshold"] = c.MemAutoThreshold, ["interval"] = c.MemAutoIntervalMin });
+        return null;   // lo que se libere llega como «memFreed» desde el ayudante
+    }
+
+    /// <summary>
+    /// Manda una operación de la lista cerrada al ayudante con permisos (lo abre si hace falta: aviso de UAC).
+    /// Lo que el ayudante va contando llega a la interfaz igual que antes; al final se vuelven a leer aquí (sin permisos)
+    /// las listas que cambian. Si no se pudo, la pantalla recibe su «terminado» con el motivo.
+    /// </summary>
+    async Task ViaBrokerAsync(string cmd, JsonObject msg)
+    {
+        if (cmd == "simpleRun") { if (_simpleBusy) return; _simpleBusy = true; }
+        var seen = new HashSet<string>();
+        try
+        {
+            string? err;
+            try
+            {
+                var b = await Elevation.Broker.EnsureAsync();
+                err = await b.RunAsync(cmd, msg, (t, p) => { try { BeginInvoke(() => { seen.Add(t); OnBrokerEvent(t, p); }); } catch { } });
+            }
+            catch (Elevation.Denied d) { err = d.Message; }
+            if (err is not null)
+            {
+                if (AdminOps.Failed(cmd, msg, err) is { } f && !seen.Contains(f.Type)) Send(f.Type, f.Payload);
+                else if (cmd is not ("telemetry" or "memAuto" or "undoRetired")) Send("error", err);
+                UiMessage.Note($"ayudante: {cmd}: {err}");
+            }
+            await AfterAdminAsync(cmd);
+        }
+        finally { if (cmd == "simpleRun") _simpleBusy = false; }
+    }
+
+    void OnBrokerEvent(string type, JsonElement p)
+    {
+        switch (type)
+        {
+            case "pong": break;
+            case "_memAuto":
+                var on = p.ValueKind == JsonValueKind.Object && p.TryGetProperty("on", out var o) && o.ValueKind == JsonValueKind.True;
+                _cfg.MemAuto = on; if (on) _cfg.MemAutoThreshold = 60; _cfg.Save();
+                Send("settings", new { cfg = _cfg, lab = Tweaks.Lab, autoStart = AutoStart.Enabled() });
+                break;
+            case "_fpsFinished":
+                _ = Task.Run(GamesPayload).ContinueWith(t => { try { BeginInvoke(() => Send("games", t.Result)); } catch { } }, TaskScheduler.Default);
+                break;
+            case "_pawn":
+                Send("pawnState", new { ok = p.TryGetProperty("ok", out var k) && k.ValueKind == JsonValueKind.True, waiting = false,
+                    error = p.TryGetProperty("error", out var e) && e.ValueKind == JsonValueKind.String ? e.GetString() : null });
+                break;
+            case "autoStartRepaired":
+                Send("settings", new { cfg = _cfg, lab = Tweaks.Lab, autoStart = AutoStart.Enabled() });
+                break;
+            default:
+                Send(type, p);
+                break;
+        }
+    }
+
+    /// <summary>Lo que la interfaz volvía a leer después de cada operación (todo de lectura, sin permisos).</summary>
+    async Task AfterAdminAsync(string cmd)
+    {
+        switch (cmd)
+        {
+            case "secEnable" or "secScan": Send("sec", await Task.Run(Security.Status)); break;
+            case "startupOffAll" or "startupRemove" or "startupSet": Send("startup", await Task.Run(Startup.List)); break;
+            case "tweaksApply" or "tweaksRevert" or "undoRetired":
+                Send("tweaks", new { items = await Task.Run(Tweaks.List), restorePoints = await Task.Run(RestorePoint.Count), laptop = Suggestions.HasBattery() });
+                break;
+            case "bloatRemove": Send("bloat", await Task.Run(Debloat.List)); break;
+            case "backupRestore": Send("backups", await Task.Run(Backups.List)); break;
+            case "sugFix": Send("suggest", await Task.Run(() => Suggestions.Run(_tel))); break;
+        }
     }
 
     bool _fpsHooked;
@@ -679,7 +768,15 @@ sealed partial class MainForm : Form
             // origen real del documento, tamaño y forma: lo de app.js no basta
             var msg = UiMessage.Accept(e.Source, e.WebMessageAsJson, out var why);
             if (msg is null) { UiMessage.Note($"mensaje de la interfaz rechazado ({why})"); return; }
-            switch ((string?)msg["cmd"])
+            // Lo que necesita administrador va al ayudante (lista cerrada). Las de lectura siguen aquí, sin permisos.
+            var cmd0 = (string?)msg["cmd"] ?? "";
+            if (!Elevation.IsAdmin && AdminOps.Names.Contains(cmd0) && !(cmd0 == "sugFix" && ((string?)msg["fix"] ?? "").StartsWith("hz:"))
+                && !(AdminOps.Soft.Contains(cmd0) && !Elevation.Broker.Alive))
+            {
+                await ViaBrokerAsync(cmd0, msg);
+                return;
+            }
+            switch (cmd0)
             {
                 case "cleanScan":
                     Send("cleanScan", await Task.Run(Cleanup.Scan));
@@ -740,7 +837,10 @@ sealed partial class MainForm : Form
                     break;
                 case "autoStartSet":
                     var (aok, amsg) = await Task.Run(() => AutoStart.Set((bool?)msg["on"] ?? false));
-                    Send("autoStart", new { ok = aok, message = amsg, on = AutoStart.Enabled() });
+                    // queda la tarea antigua (con permisos de administrador): quitarla necesita permiso; lo pidió la persona al tocar el interruptor
+                    if (aok && !Elevation.IsAdmin && await Task.Run(AutoStart.LegacyTask) is not null)
+                        await ViaBrokerAsync("autoStartRepair", new JsonObject());
+                    Send("autoStart", new { ok = aok, message = amsg == "legacy" ? null : amsg, on = AutoStart.Enabled() });
                     break;
                 case "startupOffAll":
                     Send("startupAll", await Task.Run(Startup.OffAll));

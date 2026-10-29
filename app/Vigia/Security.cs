@@ -64,6 +64,28 @@ public static class Security
     const string DefKey = @"HKLM\SOFTWARE\Microsoft\Windows Defender";
     static readonly string[] Own = { "DisableAntiSpyware", "DisableAntiVirus" };
 
+    /// <summary>
+    /// Para restaurar copias: ¿este valor es uno de los que guarda «Activar Defender»? Y, si la copia no está sellada
+    /// por el ayudante, ¿la restauración solo lo deja como viene Windows (borrar la regla o el arranque de fábrica)?
+    /// Una copia editada a mano no puede volver a apagar Defender ni a bloquear SmartScreen.
+    /// </summary>
+    internal static (bool Known, bool Safe) RestoreTarget(string path, string name, System.Text.Json.Nodes.JsonObject snap)
+    {
+        var gone = (bool?)snap["existed"] != true;
+        foreach (var p in Policies) if (Eq(path, Pol + p.Sub) && Eq(name, p.Name)) return (true, gone);
+        foreach (var n in Own) if (Eq(path, DefKey) && Eq(name, n)) return (true, gone);
+        foreach (var sv in Services)
+            if (Eq(path, Svc + sv.Name) && Eq(name, "Start"))
+                return (true, gone || ((string?)snap["type"] == "dword" && (string?)snap["value"] == sv.Start.ToString()));
+        if (Eq(path, Svc + "wscsvc") && Eq(name, "DelayedAutostart")) return (true, gone || (string?)snap["value"] is "0" or "1");
+        if (Eq(path, Ifeo + "smartscreen.exe") && Eq(name, "Debugger")) return (true, gone);
+        if (Eq(path, @"HKLM\SOFTWARE\Policies\Microsoft\Windows\System") && Eq(name, "EnableSmartScreen")) return (true, gone);
+        if (Eq(path, @"HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Run") && Eq(name, "SecurityHealth"))
+            return (true, gone || ((string?)snap["value"] ?? "").Trim('"').Equals(@"%windir%\system32\SecurityHealthSystray.exe", StringComparison.OrdinalIgnoreCase));
+        return (false, false);
+        static bool Eq(string a, string b) => string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
+    }
+
     // Claves donde los administradores solo leen (la configuración propia de Defender, a veces sus servicios).
     // Se activa SeRestorePrivilege, el que usan los programas de copias, y se abre la clave en modo restauración.
     // No crea tareas ni procesos.

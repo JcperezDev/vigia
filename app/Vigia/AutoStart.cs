@@ -2,68 +2,112 @@ namespace Vigia;
 
 /// <summary>
 /// «Abrir Vigía al iniciar Windows» (apagado de entrada).
-/// Es una tarea programada oculta al iniciar sesión con privilegios altos: así no sale el aviso de UAC ni ninguna ventana.
-/// Vigía arranca escondida en la bandeja (en reposo, ~0,1 % de CPU) para que la liberación automática de memoria funcione.
+/// Es una entrada en Run de TU usuario (HKCU): Vigía arranca como tú, sin permisos de administrador y sin aviso de UAC.
+/// Antes era una tarea programada con «privilegios más altos» que abría Vigía desde una carpeta en la que tu usuario
+/// puede escribir: cualquier programa tuyo podía cambiar ese .exe y Windows lo abría como administrador. Esa tarea
+/// ya no se crea; <see cref="Repair"/> (con permiso) la quita y deja la entrada nueva si estaba activa.
+/// Vigía arranca escondida en la bandeja (en reposo, ~0,1 % de CPU). Una sola instancia (mutex en Program).
 /// A los 2 minutos hace un único repaso barato: programas nuevos que arrancan con Windows y ajustes de Vigía que alguien deshizo.
 /// Si hay un juego o algo a pantalla completa, espera; nunca abre la ventana, solo deja un aviso en la bandeja.
 /// </summary>
 public static class AutoStart
 {
     const string Folder = @"\Vigia", Name = "Iniciar Vigia";
+    const string RunKey = @"Software\Microsoft\Windows\CurrentVersion\Run", RunValue = "Vigia";
     public const string Arg = "--tray";
     static string KnownFile => Path.Combine(Settings.Dir, "startup-known.json");
 
-    public static bool Enabled()
+    /// <summary>Lo que se escribe en Run: siempre el Vigia.exe que está corriendo, entre comillas, y --tray.</summary>
+    internal static string Command(string exe) => $"\"{exe}\" {Arg}";
+
+    static string Exe => Environment.ProcessPath ?? Path.Combine(AppContext.BaseDirectory, "Vigia.exe");
+
+    public static bool Enabled() => RunEntry() is not null || LegacyTask() is { Enabled: true };
+
+    /// <summary>El valor de Run de Vigía, si existe y arranca un Vigia.exe.</summary>
+    internal static string? RunEntry()
+    {
+        try
+        {
+            using var k = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(RunKey);
+            return k?.GetValue(RunValue) is string v && IsOursExe(v) ? v : null;
+        }
+        catch { return null; }
+    }
+
+    /// <summary>
+    /// Activa o quita el inicio. No necesita administrador. Si queda la tarea antigua elevada, se avisa en
+    /// <c>Legacy</c> para que la interfaz ofrezca quitarla (eso sí pide permiso).
+    /// </summary>
+    public static (bool Ok, string? Message) Set(bool on)
+    {
+        try
+        {
+            using var k = Microsoft.Win32.Registry.CurrentUser.CreateSubKey(RunKey, writable: true);
+            if (on)
+            {
+                k.SetValue(RunValue, Command(Exe), Microsoft.Win32.RegistryValueKind.String);
+                if (!File.Exists(KnownFile)) Remember();   // lo que arranca hoy cuenta como conocido
+            }
+            else if (k.GetValue(RunValue) is string v && IsOursExe(v)) k.DeleteValue(RunValue, false);
+            // la tarea antigua: si se puede, fuera ahora mismo (con permisos); si no, queda avisada
+            if (LegacyTask() is not null)
+            {
+                if (Elevation.IsAdmin) Repair();
+                else if (!on) return (true, "legacy");
+            }
+            return (true, null);
+        }
+        catch (Exception e) { return (false, e.Message); }
+    }
+
+    public record LegacyInfo(bool Enabled, string Path, int RunLevel);
+
+    /// <summary>La tarea antigua de Vigía (\Vigia\Iniciar Vigia que abre un Vigia.exe). Ninguna otra.</summary>
+    public static LegacyInfo? LegacyTask()
     {
         try
         {
             dynamic svc = Connect();
             dynamic t = svc.GetFolder(Folder).GetTask(Name);
-            return t.Enabled;
+            dynamic def = t.Definition;
+            string path = "";
+            foreach (dynamic a in def.Actions) { try { path = (string)a.Path; } catch { } break; }
+            if (!IsOursExe(path)) return null;   // con ese nombre pero no es nuestra: no se toca
+            return new LegacyInfo((bool)t.Enabled, path, (int)def.Principal.RunLevel);
         }
-        catch { return false; }
+        catch { return null; }
     }
 
-    public static (bool Ok, string? Message) Set(bool on)
+    public record RepairDone(bool Ok, bool Removed, bool Migrated, string? Message);
+
+    /// <summary>
+    /// Quita la tarea antigua (solo la de Vigía, comprobada por nombre, carpeta y .exe) y, si estaba activa, deja el
+    /// inicio en Run para el usuario. Se hace desde el ayudante con permisos, una vez, y desde Puente al migrar.
+    /// La carpeta \Vigia del Programador se borra solo si queda vacía.
+    /// </summary>
+    public static RepairDone Repair()
     {
+        var info = LegacyTask();
+        if (info is null) return new(true, false, false, null);
         try
         {
             dynamic svc = Connect();
-            dynamic root = svc.GetFolder(@"\");
-            dynamic folder;
-            try { folder = svc.GetFolder(Folder); }
-            catch { if (!on) return (true, null); folder = root.CreateFolder(Folder); }
-            if (!on)
+            dynamic folder = svc.GetFolder(Folder);
+            folder.DeleteTask(Name, 0);
+            try { if (folder.GetTasks(1).Count == 0 && folder.GetFolders(0).Count == 0) svc.GetFolder(@"\").DeleteFolder(Folder.TrimStart('\\'), 0); } catch { }
+            var migrated = false;
+            if (info.Enabled)
             {
-                try { folder.DeleteTask(Name, 0); } catch { }
-                return (true, null);
+                using var k = Microsoft.Win32.Registry.CurrentUser.CreateSubKey(RunKey, writable: true);
+                k.SetValue(RunValue, Command(Exe), Microsoft.Win32.RegistryValueKind.String);
+                migrated = true;
             }
-            var user = $"{Environment.UserDomainName}\\{Environment.UserName}";
-            dynamic def = svc.NewTask(0);
-            def.RegistrationInfo.Description = "Abre Vigía escondida en la bandeja al iniciar sesión. Se quita desde Configuración de Vigía.";
-            def.RegistrationInfo.Author = "Vigía";
-            def.Principal.UserId = user;
-            def.Principal.LogonType = 3;          // TASK_LOGON_INTERACTIVE_TOKEN: corre en tu escritorio, sin contraseña guardada
-            def.Principal.RunLevel = 1;           // TASK_RUNLEVEL_HIGHEST: sin aviso de UAC
-            def.Settings.Enabled = true;
-            def.Settings.Hidden = true;
-            def.Settings.DisallowStartIfOnBatteries = false;
-            def.Settings.StopIfGoingOnBatteries = false;
-            def.Settings.ExecutionTimeLimit = "PT0S";
-            def.Settings.MultipleInstances = 2;   // TASK_INSTANCES_IGNORE_NEW
-            def.Settings.Priority = 7;            // por debajo de lo normal: no compite con lo que abras al entrar
-            dynamic trig = def.Triggers.Create(9); // TASK_TRIGGER_LOGON
-            trig.UserId = user;
-            trig.Delay = "PT20S";                 // deja que Windows termine de arrancar primero
-            dynamic act = def.Actions.Create(0);
-            act.Path = Environment.ProcessPath ?? Path.Combine(AppContext.BaseDirectory, "Vigia.exe");
-            act.Arguments = Arg;
-            act.WorkingDirectory = AppContext.BaseDirectory;
-            folder.RegisterTaskDefinition(Name, def, 6 /* crear o actualizar */, null, null, 3, null);
-            if (!File.Exists(KnownFile)) Remember();   // lo que arranca hoy cuenta como conocido
-            return (true, null);
+            UiMessage.Note($"inicio: tarea antigua quitada (nivel {info.RunLevel}){(migrated ? ", inicio pasado a Run" : "")}");
+            return new(LegacyTask() is null, true, migrated, null);
         }
-        catch (Exception e) { return (false, e.Message); }
+        catch (UnauthorizedAccessException) { return new(false, false, false, "needs-admin"); }
+        catch (Exception e) { return new(false, false, false, e.Message); }
     }
 
     static dynamic Connect()
@@ -86,7 +130,7 @@ public static class AutoStart
             || t.Equals(Name, StringComparison.OrdinalIgnoreCase) || t.Equals(Folder.TrimStart('\\') + "\\" + Name, StringComparison.OrdinalIgnoreCase);
     }
 
-    static bool IsOursExe(string? cmd)
+    internal static bool IsOursExe(string? cmd)
     {
         if (string.IsNullOrWhiteSpace(cmd)) return false;
         var c = cmd.Trim();
@@ -154,5 +198,17 @@ public static class AutoStart
         var mi = new MONITORINFO { Size = System.Runtime.InteropServices.Marshal.SizeOf<MONITORINFO>() };
         if (!GetMonitorInfoW(MonitorFromWindow(h, 2 /* NEAREST */), ref mi)) return false;
         return r.L <= mi.Monitor.L && r.T <= mi.Monitor.T && r.R >= mi.Monitor.R && r.B >= mi.Monitor.B;
+    }
+
+    public static string SelfTest()
+    {
+        var log = new List<string>();
+        void Check(bool ok, string what) => log.Add($"{(ok ? "OK  " : "FAIL")} {what}");
+        var exe = @"C:\Program Files\Vigia\Vigia.exe";
+        Check(Command(exe) == "\"C:\\Program Files\\Vigia\\Vigia.exe\" --tray", "inicio: ruta entre comillas y --tray");
+        Check(IsOursExe(Command(exe)), "inicio: reconoce su propia entrada");
+        Check(!IsOursExe("\"C:\\Tools\\otro.exe\" --tray") && !IsOursExe(""), "inicio: no toma como suya una entrada de otro programa");
+        Check(Command(exe).IndexOf("--broker", StringComparison.Ordinal) < 0, "inicio: nunca arranca el ayudante con permisos");
+        return string.Join(Environment.NewLine, log);
     }
 }

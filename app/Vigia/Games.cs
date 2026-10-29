@@ -13,7 +13,7 @@ public static class Games
     public record FortniteView(bool Found, string Path, bool ReadOnly, bool Running, string Mode, bool ProfileApplied, List<Setting> Settings);
     public record Done(bool Ok, string Message);
 
-    public static string FortnitePath => Environment.GetEnvironmentVariable("VIGIA_FORTNITE_INI") is { Length: > 0 } p ? p
+    public static string FortnitePath => !Elevation.InBroker && Environment.GetEnvironmentVariable("VIGIA_FORTNITE_INI") is { Length: > 0 } p ? p
         : System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), @"FortniteGame\Saved\Config\WindowsClient\GameUserSettings.ini");
 
     /// <summary>

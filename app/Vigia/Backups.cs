@@ -59,6 +59,7 @@ public static class Backups
                     ["id"] = id, ["at"] = now.ToString("s"), ["kind"] = kind, ["title"] = title,
                     ["restorePoint"] = restorePoint, ["restoredAt"] = null, ["items"] = list,
                 };
+                BackupGuard.Seal(o);
                 Write(id, o);
                 foreach (var old in Directory.GetFiles(Dir, "*.json").Where(f => Path.GetFileNameWithoutExtension(f) != OriginalId)
                                                 .OrderByDescending(f => f).Skip(Keep)) File.Delete(old);
@@ -98,6 +99,7 @@ public static class Backups
                     ["title"] = "Cómo estaba tu PC antes de Vigía", ["version"] = Updates.Current.ToString(3),
                     ["restorePoint"] = rp, ["restoredAt"] = null, ["items"] = new JsonArray(items.Cast<JsonNode>().ToArray()),
                 };
+                BackupGuard.Seal(o);
                 lock (Gate) Write(OriginalId, o);
                 return _haveOriginal = true;
             }
@@ -136,7 +138,19 @@ public static class Backups
         {
             var path = PathOf(id);
             if (!File.Exists(path)) return new(id, false, "Esa copia ya no existe.", []);
-            o = JsonNode.Parse(File.ReadAllText(path))!.AsObject();
+            // se lee una vez y todo lo de abajo trabaja con esta copia en memoria (nada se vuelve a leer del disco)
+            var fi = new FileInfo(path);
+            if ((fi.Attributes & FileAttributes.ReparsePoint) != 0 || fi.Length > 64 << 20) return new(id, false, "Esa copia no se puede leer con seguridad.", []);
+            try { o = JsonNode.Parse(File.ReadAllText(path)) as JsonObject ?? throw new FormatException(); }
+            catch { return new(id, false, "Esa copia está dañada; no cambié nada.", []); }
+        }
+        // la copia es un archivo que tu usuario puede editar: se valida entera antes de tocar nada
+        var isSealed = BackupGuard.Sealed(o);
+        var bad = BackupGuard.Check(o, isSealed);
+        if (bad.Count > 0)
+        {
+            UiMessage.Note($"copias: {id} rechazada ({bad.Count} {(bad.Count == 1 ? "cambio" : "cambios")}, sello {(isSealed ? "válido" : "no")})");
+            return new(id, false, "Esta copia tiene cambios que Vigía no puede restaurar con seguridad, así que no cambié nada.", bad.Take(20).ToArray());
         }
         var items = o["items"]!.AsArray().Select(i => i!.AsObject()).ToList();
 
@@ -155,6 +169,7 @@ public static class Backups
         lock (Gate)
         {
             o["restoredAt"] = DateTime.Now.ToString("s");
+            if (!isSealed) o.Remove("seal");   // nunca se sella algo que no se creó aquí
             Write(id, o);
         }
         var ok = errors.Count == 0;
@@ -221,6 +236,7 @@ public static class Backups
                 if ((bool?)it["readonly"] == true) System.IO.File.SetAttributes(fp, System.IO.File.GetAttributes(fp) | FileAttributes.ReadOnly);
                 break;
             case "wallpaper": Wallpaper.Restore(it); break;
+            default: throw new InvalidOperationException("tipo de cambio desconocido.");
             case "appx":
                 // Vigía solo quita la app de tu usuario: el paquete de Windows sigue ahí y se vuelve a registrar
                 var name = (string)it["name"]!;

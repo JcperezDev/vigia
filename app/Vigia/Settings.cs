@@ -20,7 +20,8 @@ public sealed class Settings
     public bool TrayHintShown { get; set; }
 
     // VIGIA_DATA: carpeta de datos aparte, para pruebas sin tocar la del usuario
-    public static string Dir { get; } = Environment.GetEnvironmentVariable("VIGIA_DATA") is { Length: > 0 } d ? d
+    // (el ayudante con permisos no lo hace caso: siempre la carpeta de datos de tu cuenta)
+    public static string Dir { get; } = !Elevation.InBroker && Environment.GetEnvironmentVariable("VIGIA_DATA") is { Length: > 0 } d ? d
         : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Vigia");
     static string FilePath => Path.Combine(Dir, "settings.json");
 
