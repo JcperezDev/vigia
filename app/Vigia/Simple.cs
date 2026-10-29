@@ -8,10 +8,13 @@ namespace Vigia;
 public static class Simple
 {
     public record Answers(bool Games = true, bool Printer = true, bool Xbox = false, bool Search = true, bool Laptop = false,
-        bool Visual = true, bool Privacy = true, bool MemAuto = true, bool Clean = true, string[]? KeepApps = null);
+        bool Visual = true, bool Privacy = true, bool MemAuto = true, bool Clean = true, string[]? KeepApps = null,
+        bool Wallpaper = false, string[]? Skip = null);
 
     public record Stage(string Id, string Title, List<string> Tweaks, List<string> Apps);
-    public record Plan(List<Stage> Stages, bool Clean, bool MemAuto, int Changes, List<string>? Names = null);
+    /// <summary>Un ajuste que el modo simple propone: sale en pantalla con su casilla para que el usuario decida.</summary>
+    public record Choice(string Id, string Title, string Detail, string Stage, bool Reboot);
+    public record Plan(List<Stage> Stages, bool Clean, bool MemAuto, int Changes, List<string>? Names = null, List<Choice>? Choices = null);
     public record Step(int Index, string Id, string State, string? Detail);
     public record Report(bool Ok, int Applied, int Already, int Failed, int AppsRemoved, double CleanedMb, double FreedMb, bool NeedsReboot, List<string> Problems);
 
@@ -56,12 +59,16 @@ public static class Simple
             new("memory", "Memoria", [], []),
             new("wallpaper", "Fondo de VigíaOS", [], []),
         };
-        try { if (Wallpaper.Status().Ours) stages.RemoveAll(s => s.Id == "wallpaper"); } catch { }
+        // todo lo propuesto, con nombre y explicación de Ajustes, antes de quitar lo que el usuario desmarcó
+        var choices = stages.SelectMany(s => s.Tweaks.Select(id => new Choice(id, view[id].Title, view[id].Detail, s.Title, view[id].Reboot))).ToList();
+        var skip = new HashSet<string>(a.Skip ?? [], StringComparer.OrdinalIgnoreCase);
+        stages = stages.Select(s => s with { Tweaks = s.Tweaks.Where(id => !skip.Contains(id)).ToList() }).ToList();
+        try { if (!a.Wallpaper || Wallpaper.Status().Ours) stages.RemoveAll(s => s.Id == "wallpaper"); } catch { }   // el fondo solo si dijo que sí
         if (!a.Clean) stages.RemoveAll(s => s.Id == "clean");
         // nombres de lo que se va a tocar, iguales a los de Ajustes, para decirlo en la pantalla
         var names = stages.SelectMany(s => s.Tweaks.Select(id => Tweaks.TitleOf(id) ?? s.Title)
             .Concat(s.Apps.Count > 0 ? [s.Title] : Array.Empty<string>())).Distinct().ToList();
-        return new(stages, a.Clean, a.MemAuto, stages.Sum(s => s.Tweaks.Count + s.Apps.Count), names);
+        return new(stages, a.Clean, a.MemAuto, stages.Sum(s => s.Tweaks.Count + s.Apps.Count), names, choices);
     }
 
     /// <summary>Corre el plan en orden. Una etapa que falla no frena las demás; todo queda en el informe.</summary>

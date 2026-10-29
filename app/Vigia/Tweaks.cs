@@ -290,14 +290,21 @@ public static class Tweaks
         {
             case "power-ultimate":
                 if (CpuAwake() == true) break;
-                var guid = FindUltimate();
+                // Plan propio «Vigía»: copia de Máximo rendimiento (o de Alto rendimiento si Windows no la tiene) con el
+                // procesador al 100 % enchufado. Así sirve aunque el usuario ya tenga un plan que se llame igual pero ahorre.
+                var guid = FindVigia();
                 if (guid is null)
                 {
-                    var (_, outp) = Run("powercfg.exe", "-duplicatescheme e9a42b02-d5df-448d-aa00-03f14749eb61");
-                    guid = Regex.Match(outp, @"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", RegexOptions.IgnoreCase).Value;
-                    if (guid.Length == 0) throw new Exception("Windows no creó el plan Máximo rendimiento.");
+                    foreach (var src in new[] { "e9a42b02-d5df-448d-aa00-03f14749eb61", "8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c", "381b4222-f694-41f0-9685-ff5bb260df2e" })
+                    {
+                        guid = GuidRx.Match(Run("powercfg.exe", $"-duplicatescheme {src}").output).Value;
+                        if (guid.Length > 0) break;
+                    }
+                    if (string.IsNullOrEmpty(guid)) throw new Exception("Windows no dejó crear el plan de energía de Vigía.");
                     saved["createdPlan"] = guid;
+                    Run("powercfg.exe", $"-changename {guid} \"Vigía\" \"Plan de Vigía: enchufado, el procesador no baja de velocidad.\"");
                 }
+                Must(Run("powercfg.exe", $"/setacvalueindex {guid} 54533251-82be-4824-96c1-47b60b740d00 893dee8e-2bef-41e0-89c6-b55d0929964c 100"), "configurar el plan de energía");
                 Must(Run("powercfg.exe", $"/setactive {guid}"), "activar el plan de energía");
                 break;
             case "hibernate-off": Must(Run("powercfg.exe", "/hibernate off"), "apagar la hibernación"); break;
@@ -505,6 +512,9 @@ public static class Tweaks
         var b = new byte[n];
         return PowerReadFriendlyName(IntPtr.Zero, ref g, IntPtr.Zero, IntPtr.Zero, b, ref n) == 0 ? System.Text.Encoding.Unicode.GetString(b).TrimEnd('\0') : null;
     }
+    static readonly Regex VigiaName = new(@"\(Vig.a\)\s*\*?\s*$", RegexOptions.IgnoreCase);
+    static string? FindVigia() => Run("powercfg.exe", "/list").output.Split('\n').Where(l => VigiaName.IsMatch(l.Trim()))
+        .Select(l => GuidRx.Match(l).Value).FirstOrDefault(g => g.Length > 0);
     static string? FindUltimate() => Run("powercfg.exe", "/list").output.Split('\n').Where(l => UltimateName.IsMatch(l))
         .Select(l => GuidRx.Match(l).Value).FirstOrDefault(g => g.Length > 0);
 

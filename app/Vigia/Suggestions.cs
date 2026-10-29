@@ -70,11 +70,11 @@ public static class Suggestions
         {
             facts.Add($"Señal Wi-Fi: {wf.Quality} %" + (wf.Rssi is { } r ? $" ({r} dBm)" : ""));
             if (wf.Band.Length > 0) facts.Add($"Banda: {wf.Band}");
-            if (wf.RxMbps > 0) facts.Add($"Velocidad del enlace: {Math.Round(wf.RxMbps)} Mbps");
+            if (wf.RxMbps > 0) facts.Add($"Velocidad entre tu PC y el router: {Math.Round(wf.RxMbps)} Mbps");
         }
-        else if (n.LinkMbps > 0) facts.Add($"Velocidad del enlace: {(n.LinkMbps >= 1000 ? $"{n.LinkMbps / 1000.0:0.#} Gbps" : $"{n.LinkMbps} Mbps")}");
-        if (gw is { Sent: > 0 }) facts.Add($"Al router: {gw.Sent - gw.Lost} de {gw.Sent} respuestas, media {Ms(gw.Avg)}, picos de {Ms(gw.Max)}, variación {Ms(gw.Jitter)}");
-        if (inet is { Sent: > 0 }) facts.Add($"A internet: {inet.Sent - inet.Lost} de {inet.Sent} respuestas, media {Ms(inet.Avg)}, picos de {Ms(inet.Max)}, variación {Ms(inet.Jitter)}");
+        else if (n.LinkMbps > 0) facts.Add($"Velocidad entre tu PC y el router: {(n.LinkMbps >= 1000 ? $"{n.LinkMbps / 1000.0:0.#} Gbps" : $"{n.LinkMbps} Mbps")}");
+        if (gw is { Sent: > 0 }) facts.Add($"Router: contestó {gw.Sent - gw.Lost} de {gw.Sent} veces, tarda {Ms(gw.Avg)} (lo más lento: {Ms(gw.Max)})");
+        if (inet is { Sent: > 0 }) facts.Add($"Internet: contestó {inet.Sent - inet.Lost} de {inet.Sent} veces, tarda {Ms(inet.Avg)} (lo más lento: {Ms(inet.Max)})");
 
         if (n.Kind == "wifi")
         {
@@ -116,9 +116,9 @@ public static class Suggestions
             var gwBad = LostAny(gw) || gw?.Jitter > 2 || gw?.Avg > 3;
             var netBad = LossPct(inet) >= 5 || inet?.Jitter > 15;
             if (n.LinkMbps is > 0 and < 1000)
-                res.Add(new("net-link", "warn", $"Tu cable de red va a {n.LinkMbps} Mbps",
-                    ["Tu tarjeta y casi todos los routers van a 1000 Mbps o más.", "Cuando el enlace se queda en 100, casi siempre es un cable viejo o dañado (o un conector mal puesto) que solo usa la mitad de sus hilos."],
-                    ["Cambia el cable por uno Cat 5e o Cat 6 y prueba otro puerto del router."], null, facts));
+                res.Add(new("net-link", "warn", "Tu cable de red va más lento de lo que puede",
+                    [$"Tu PC y el router se están hablando a {n.LinkMbps} Mbps, cuando pueden ir a 1000 (diez veces más).", "Casi siempre es el cable: viejo, doblado o mal enchufado.", "Si tu internet contratado es de menos de 100 Mbps, al navegar no lo notas; al descargar juegos o pasar archivos, sí."],
+                    ["Desenchufa el cable de los dos lados y vuelve a meterlo hasta que haga clic.", "Si sigue igual, cámbialo por uno que diga «Cat 6» (o «Cat 5e») impreso en el cable.", "Prueba también otro puerto del router."], null, facts));
             if (gwBad)
                 res.Add(new("net-lan", "warn", "Tu red de casa pierde paquetes",
                     [LostAny(gw) ? $"Aun por cable, entre tu PC y el router se perdieron {gw!.Lost} de {gw.Sent} respuestas." : $"Aun por cable, la espera hasta el router varía {Ms(gw!.Jitter)}.", "Por cable eso no debería pasar."],
@@ -367,7 +367,7 @@ public static class Suggestions
         if (active == "a1841308-3541-4fab-bc81-f71556f20b4a")
             yield return new("power-saver", "warn", "El PC está en modo Ahorro de energía",
                 ["En ese modo Windows baja la velocidad de la CPU para gastar menos.", "En un PC de escritorio solo te quita rendimiento."],
-                [], null, ["Plan de energía: Ahorro de energía"], HasBattery() ? null : "tweak:power-ultimate", HasBattery() ? null : "Poner Máximo rendimiento");
+                [], null, ["Plan de energía: Ahorro de energía"], HasBattery() ? null : "tweak:power-ultimate", HasBattery() ? null : "Aplicar plan de energía de Vigía");
     }
 
     [StructLayout(LayoutKind.Sequential)]

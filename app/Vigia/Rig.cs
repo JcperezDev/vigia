@@ -35,7 +35,7 @@ public static partial class Rig
         }
 
         list.Add(Ram(board));
-        list.Add(ReBar(board));
+        if (ReBar(board) is { Key: "rebar" } rb && !rb.Detail.StartsWith("Solo se puede comprobar")) list.Add(rb);   // solo con NVIDIA, que es donde se puede medir
 
         var tw = Tweaks.List().ToDictionary(t => t.Id);
         void Tw(string id, string title, string on, string off, string label)
@@ -51,8 +51,8 @@ public static partial class Rig
            "Apagado: Windows puede actualizar en plena partida.", "Encender modo juego");
         Tw("hags", "Programación de GPU por hardware (HAGS)", "Encendida.",
            "Apagada: sin generación de fotogramas de DLSS.", "Encender HAGS");
-        Tw("power-ultimate", "Plan de energía", "{plan}.",
-           "{plan}: el procesador baja de velocidad para ahorrar.", "Poner Máximo rendimiento");
+        Tw("power-ultimate", "Plan de energía", "Usas «{plan}»: enchufado, el procesador va siempre a tope.",
+           "Usas «{plan}»: el procesador baja de velocidad para ahorrar luz y en juegos eso se nota como tirones.", "Aplicar plan de energía de Vigía");
         return list;
     }
 

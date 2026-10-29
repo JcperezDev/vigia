@@ -1150,16 +1150,17 @@
     { k: 'printer', q: '¿Usas impresora o «Imprimir a PDF»?', h: 'Si dices que no, se apaga la cola de impresión.', def: true },
     { k: 'xbox', q: '¿Usas Xbox, Game Pass o la barra Win+G?', h: 'Si no, se quitan las apps y servicios de Xbox.', def: false },
     { k: 'search', q: '¿Buscas archivos desde el menú Inicio?', h: 'Si no, se apaga el indexador y deja de leer el disco por detrás.', def: true },
-    { k: 'laptop', q: '¿Es una laptop que usas con batería?', h: 'Si es laptop, no se pone el plan Máximo rendimiento ni se apaga la hibernación.', def: false },
+    { k: 'laptop', q: '¿Es una laptop que usas con batería?', h: 'Si es laptop, no se pone el plan de energía de Vigía ni se apaga la hibernación.', def: false },
     { k: 'visual', q: '¿Quitar transparencias y animaciones?', h: 'Windows se ve más simple y responde más rápido.', def: true },
     { k: 'privacy', q: '¿Apagar telemetría y anuncios de Windows?', h: 'Menos datos a Microsoft y nada de apps sugeridas.', def: true },
     { k: 'clean', q: '¿Borrar archivos temporales?', h: 'Solo temporales de más de 24 horas. Lo que esté en uso se salta.', def: true },
     { k: 'memAuto', q: '¿Liberar la memoria sola al llegar al 60 %?', h: 'Vigía la libera sin que hagas nada.', def: true },
+    { k: 'wallpaper', q: '¿Poner el fondo de VigíaOS en tu escritorio?', h: 'Si dices que no, tu fondo de pantalla se queda como está.', def: false },
   ];
   const smAns = Object.fromEntries(SM_Q.map((x) => [x.k, x.def]));
-  const smKeep = new Set();
+  const smKeep = new Set(), smSkip = new Set();
   let smAppsDrawn = false, smTimer = 0, smStages = [];
-  const smAnswers = () => ({ ...smAns, keepApps: [...smKeep] });
+  const smAnswers = () => ({ ...smAns, keepApps: [...smKeep], skip: [...smSkip] });
   const smAskPlan = () => { clearTimeout(smTimer); smTimer = setTimeout(() => send({ cmd: 'simplePlan', answers: smAnswers() }), 150); };
   (function smDraw() {
     const box = $('sm-qs');
@@ -1203,12 +1204,25 @@
       : n === 1 ? 'Se hará 1 cambio, con copia de seguridad antes.' : `Se harán ${n} cambios, con copia de seguridad antes.`;
     $('sm-go').disabled = false;
     smStages = p.stages;
+    // cada ajuste con su casilla: el usuario ve todo lo que se va a tocar y quita lo que no quiera
+    const ch = p.choices || [], box = $('sm-twlist');
+    $('view-simple').querySelector('.sm-tweaks').hidden = !ch.length;
+    box.textContent = '';
+    for (const c of ch) {
+      const l = document.createElement('label'); l.className = 'chk';
+      const i = document.createElement('input'); i.type = 'checkbox'; i.checked = !smSkip.has(c.id);
+      i.addEventListener('change', () => { if (i.checked) smSkip.delete(c.id); else smSkip.add(c.id); smAskPlan(); });
+      const t = document.createElement('div'); const b = document.createElement('b'); b.textContent = c.title;
+      const s = document.createElement('span'); s.textContent = c.detail; t.append(b, s);
+      l.append(i, t); box.append(l);
+    }
   }
   const SM_CHECK = '<svg viewBox="0 0 12 12"><path d="M2.5 6.2 5 8.6 9.6 3.6"/></svg>';
   const SM_HALF = '<svg viewBox="0 0 12 12"><path d="M6 2.6v4.2M6 9.2v.1"/></svg>';
   $('sm-go').addEventListener('click', () => {
     $('sm-go').disabled = true;
     $('sm-ask').hidden = true; $('sm-done').hidden = true; $('sm-run').hidden = false;
+    $('sm-reboot').hidden = true; $('sm-now').hidden = false;
     $('sm-ring').classList.remove('done'); $('sm-title').textContent = 'Optimizando…'; $('sm-now').textContent = 'No apagues el PC. Puedes seguir usándolo.';
     smSetPct(0);
     const ol = $('sm-stages'); ol.textContent = '';
@@ -1242,7 +1256,8 @@
     smSetPct(100); $('sm-ring').classList.add('done');
     const half = r.failed || $('sm-stages').querySelector('li.warn');
     $('sm-title').textContent = half ? 'Listo, con avisos' : 'Listo';
-    $('sm-now').textContent = r.needsReboot ? 'Reinicia cuando te convenga para que todo haga efecto.' : 'Todo hizo efecto ya.';
+    $('sm-now').textContent = 'Todo hizo efecto ya.';
+    $('sm-now').hidden = !!(r.needsReboot || r.applied || r.appsRemoved);   // si falta reiniciar, lo dice el recuadro de abajo
     const parts = [];
     if (r.applied) parts.push(plural(r.applied, 'ajuste puesto', 'ajustes puestos'));
     if (r.appsRemoved) parts.push(plural(r.appsRemoved, 'app quitada', 'apps quitadas'));
@@ -1252,8 +1267,33 @@
     $('sm-done-line').textContent = (parts.length ? parts.join(' · ') + '. ' : '') + 'Si algo no te gusta, en Copias tienes «Volver a como estaba».';
     const ul = $('sm-problems'); ul.textContent = ''; ul.hidden = !r.problems.length;
     for (const p of r.problems.slice(0, 8)) { const li = document.createElement('li'); li.textContent = p; ul.append(li); }
+    // reiniciar ahora o después: lo decide el usuario, Vigía nunca reinicia sola
+    const boot = !!(r.needsReboot || r.applied || r.appsRemoved);
+    $('sm-reboot').hidden = !boot;
+    if (boot) {
+      $('sm-reboot-t').textContent = 'Para que todos los cambios hagan efecto hay que reiniciar el PC. Guarda lo que tengas abierto antes.';
+      $('sm-reboot-now').textContent = 'Reiniciar ahora'; $('sm-reboot-now').hidden = false; $('sm-reboot-now').disabled = false;
+      $('sm-reboot-later').textContent = 'Después'; $('sm-reboot-later').hidden = false; smRebootOn = false;
+    }
     $('sm-done').hidden = false;
     changed();
+  }
+  let smRebootOn = false;
+  $('sm-reboot-now').addEventListener('click', () => {
+    if (smRebootOn) return;
+    $('sm-reboot-now').disabled = true; send({ cmd: 'rebootNow' });
+  });
+  $('sm-reboot-later').addEventListener('click', () => {
+    if (smRebootOn) { send({ cmd: 'rebootCancel' }); return; }
+    $('sm-reboot-t').textContent = 'Listo. Reinicia cuando te convenga: hasta entonces algunos cambios no se notan.';
+    $('sm-reboot-now').hidden = true; $('sm-reboot-later').hidden = true;
+  });
+  function smReboot(s) {
+    smRebootOn = !!s.on;
+    $('sm-reboot-now').disabled = smRebootOn; $('sm-reboot-now').hidden = smRebootOn;
+    $('sm-reboot-t').textContent = smRebootOn ? 'El PC se reinicia en 20 segundos.' : 'Reinicio cancelado. Reinicia cuando te convenga.';
+    $('sm-reboot-later').textContent = smRebootOn ? 'Cancelar reinicio' : 'Después';
+    if (!smRebootOn) { $('sm-reboot-now').hidden = true; $('sm-reboot-later').hidden = true; }
   }
   $('sm-again').addEventListener('click', () => { $('sm-run').hidden = true; $('sm-done').hidden = true; $('sm-ask').hidden = false; send({ cmd: 'bloatList' }); });
   $('sm-backups').addEventListener('click', () => document.querySelector('.nav[data-view="backups"]').click());
@@ -1326,6 +1366,11 @@
       if (act === 'demo') smStep({ index: 4, state: 'run' });
       else smDone({ failed: 0, applied: 18, appsRemoved: 3, cleanedMb: 1450, freedMb: 2200, needsReboot: true, problems: [] });
     }, 2500);
+    // 'simple-choices': para capturas; pinta la lista de ajustes con datos de ejemplo
+    if (view === 'simple' && act === 'choices') setTimeout(() => smPlan({ changes: 3, names: ['Servicios de Xbox', 'Windows Update sin sorpresas', 'Apagar la hibernación'], stages: smStages, choices: [
+      { id: 'services-xbox', title: 'Servicios de Xbox', detail: 'Fortnite y Steam no los usan. Rompe Xbox Game Pass, los logros de Xbox y Minecraft de la Tienda.' },
+      { id: 'update-control', title: 'Windows Update sin sorpresas', detail: 'No reinicia solo con la sesión abierta y no reemplaza tu driver de NVIDIA. Las actualizaciones de seguridad siguen llegando.' },
+      { id: 'hibernate-off', title: 'Apagar la hibernación', detail: 'Borra hiberfil.sys (ocupa casi lo mismo que tu RAM en C:). También desactiva el inicio rápido.' }] }) ?? $('sm-twlist').scrollIntoView({ block: 'center' }), 4000);
   };
 
   // ---------- actualizaciones (las instala Puente) ----------
@@ -1662,6 +1707,7 @@
     else if (type === 'simplePlan') smPlan(payload);
     else if (type === 'simpleStep') smStep(payload);
     else if (type === 'simpleDone') smDone(payload);
+    else if (type === 'rebootState') smReboot(payload);
     else if (type === 'procs') renderProcs(payload);
     else if (type === 'procDone') { $('pr-alert').hidden = false; $('pr-alert').textContent = payload.message; }
     else if (type === 'bloatDone') {

@@ -37,6 +37,11 @@
     if (!dict || !s || depth > 3 || !/[A-Za-zÀ-ÿ]/.test(s)) return s;
     if (Object.prototype.hasOwnProperty.call(dict, s)) return dict[s];
     if (depth === 0 && cache.has(s)) return cache.get(s);
+    // lista dentro de una frase («A, B, C»): se traduce cada nombre
+    if (depth > 0 && s.includes(', ')) {
+      const bits = s.split(', '), tb = bits.map((b) => tr(b, depth + 1));
+      if (tb.every((b, i) => b !== bits[i] || !/[A-Za-zÀ-ÿ]/.test(b))) return tb.join(', ');
+    }
     let res = s;
     // «12 apps quitadas», «3 copias guardadas»: número + palabra
     const num = /^([\d.,\s]+%?)\s+(.+)$/.exec(s);
