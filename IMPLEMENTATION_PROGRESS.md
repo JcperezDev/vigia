@@ -93,3 +93,9 @@ Pruebas de referencia ahora: selftest **318/0** · UI de Apps **44/0** · traduc
 ## Lo que necesita VM o tu decisión
 
 Validación en VM (`docs/INSTALL.md`), clave de firma, migración real, publicación, borrar restos de `%TEMP%`.
+
+## Sensores de la CPU (29 de octubre)
+
+- `3e55d0f`: PawnIO lo prepara Puente al instalar/actualizar/Reparar (nunca Monitor, nunca con juego abierto).
+- `054c1be`: servicio de solo lectura «Sensores de Vigía»; sin permisos, Vigía lee los grados desde el servicio. Probado con publicador de prueba y token de usuario básico (77,25 °C en Ryzen 9 9900X). Servicio real sin registrar en este PC: pendiente VM y el Ryzen del amigo.
+- Selftest 329/0, Puente 74/0, release 31/0, traducciones 0 errores. Detalle: `CPU_SENSOR_INTEGRATION_REPORT.md`.
