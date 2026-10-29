@@ -3,7 +3,7 @@ using System.Text.Json.Nodes;
 
 namespace Vigia;
 
-public record BackupView(string Id, string At, string Kind, string Title, string[] Lines, string? RestorePoint, string? RestoredAt, Dictionary<string, int>? Counts = null);
+public record BackupView(string Id, string At, string Kind, string Title, string[] Lines, string? RestorePoint, string? RestoredAt, Dictionary<string, int>? Counts = null, string[]? Limits = null);
 public record BackupDone(string Id, bool Ok, string Message, string[] Errors);
 
 /// <summary>
@@ -120,7 +120,7 @@ public static class Backups
                     var counts = its.GroupBy(i => (string?)i!["t"] ?? "").ToDictionary(g => g.Key, g => g.Count());
                     res.Add(new((string)o["id"]!, (string)o["at"]!, (string)o["kind"]!, (string)o["title"]!,
                         its.Select(i => (string?)i!["label"] ?? "").ToArray(),
-                        (string?)o["restorePoint"], (string?)o["restoredAt"], counts));
+                        (string?)o["restorePoint"], (string?)o["restoredAt"], counts, LimitsOf(counts.Keys)));
                 }
                 catch { /* archivo dañado: se ignora */ }
             }
@@ -169,8 +169,28 @@ public static class Backups
         "display" => Display.Status().Current is { } c ? Item.Display(c.Width, c.Height, c.Hz) : null,
         "file" => Item.File((string)it["path"]!, (string)it["label"]!),
         "wallpaper" => Wallpaper.Capture(it),
-        _ => null,   // apps quitadas: el estado actual es «quitada»; no hay nada que copiar
+        // frecuencia de una pantalla concreta: si sigue conectada, se guarda cómo está ahora
+        "hz" => Rig.Screens().FirstOrDefault(s => s.Device == (string?)it["device"]) is { Hz: > 1 } sc
+            ? new JsonObject { ["t"] = "hz", ["device"] = sc.Device, ["w"] = sc.Width, ["h"] = sc.Height, ["hz"] = sc.Hz, ["label"] = $"{sc.Name}: {sc.Width} × {sc.Height} a {sc.Hz} Hz" }
+            : null,
+        // apps: restaurar vuelve a registrar el paquete que Windows aún guarda. Ese paso no se deshace solo
+        // (habría que quitarla otra vez desde Apps de Windows), así que aquí no hay copia que guardar.
+        _ => null,
     };
+
+    /// <summary>Lo que una copia no puede garantizar, para enseñarlo antes de restaurar.</summary>
+    internal static string[] LimitsOf(IEnumerable<string> types)
+    {
+        try
+        {
+            var t = types.ToHashSet();
+            var res = new List<string>();
+            if (t.Contains("appx")) res.Add("Las apps quitadas vuelven solo si Windows aún guarda su paquete; si no, hay que instalarlas desde Microsoft Store. Volver a ponerlas no se deshace con otra copia.");
+            if (t.Contains("hz") || t.Contains("display")) res.Add("La resolución y la frecuencia solo vuelven si la misma pantalla sigue conectada y la acepta.");
+            return res.ToArray();
+        }
+        catch { return []; }
+    }
 
     static void RestoreItem(JsonObject it)
     {

@@ -78,7 +78,7 @@ public static partial class IsoBuild
         {
             if (!o.Output.EndsWith(".iso", StringComparison.OrdinalIgnoreCase)) return Fail("El archivo de salida tiene que terminar en .iso.");
             if (Path.GetFullPath(o.Output).Equals(Path.GetFullPath(o.Source), StringComparison.OrdinalIgnoreCase)) return Fail("La ISO nueva no puede pisar la original.");
-            if (o.LocalAccount && !ValidUser(o.User)) return Fail("El nombre de usuario solo puede llevar letras, números, espacios, puntos, guiones y guion bajo (hasta 20).");
+            // el nombre y la contraseña los pone quien instala, en la pantalla de Windows: la ISO no guarda ninguno
             var need = new FileInfo(o.Source).Length * 3L;
             var free = new DriveInfo(Path.GetPathRoot(outDir)!).AvailableFreeSpace;
             if (free < need) return Fail($"Hace falta {need / 1_073_741_824} GB libres en {Path.GetPathRoot(outDir)} y hay {free / 1_073_741_824} GB.");
@@ -150,7 +150,7 @@ public static partial class IsoBuild
             File.Move(part, outPath);
             var size = new FileInfo(outPath).Length;
             var what = removed.Count == 0 ? "sin quitar apps" : $"sin {removed.Count} {(removed.Count == 1 ? "app" : "apps")}";
-            return new(true, $"ISO lista ({what}{(o.NoAds ? ", sin anuncios" : "")}{(o.LocalAccount ? $", cuenta local «{o.User}»" : "")}{(o.NoTelemetry ? ", sin recopilación de datos" : "")}{(o.NoBitLocker ? ", sin cifrado automático" : "")}). Pásala a un USB con «Pasar a un USB».", outPath, size, sw.Elapsed.TotalMinutes);
+            return new(true, $"ISO lista ({what}{(o.NoAds ? ", sin anuncios" : "")}{(o.LocalAccount ? ", cuenta local" : "")}{(o.NoTelemetry ? ", sin recopilación de datos" : "")}{(o.NoBitLocker ? ", sin cifrado automático" : "")}). Pásala a un USB con «Pasar a un USB».", outPath, size, sw.Elapsed.TotalMinutes);
         }
         catch (OperationCanceledException) { return Fail("Cancelado. La ISO original sigue igual."); }
         catch (Exception e) { return Fail(e.Message); }
@@ -176,10 +176,6 @@ public static partial class IsoBuild
             throw new Exception($"No se pudo {what}: {line}");
         }
     }
-
-    internal static bool ValidUser(string? u) => u is { Length: > 0 and <= 20 } && UserRx().IsMatch(u)
-        && !new[] { "administrator", "administrador", "guest", "invitado", "defaultaccount", "system" }.Contains(u.Trim().ToLowerInvariant());
-    [GeneratedRegex(@"^[\p{L}\p{N}][\p{L}\p{N} ._-]*$")] private static partial Regex UserRx();
 
     // ---------- registro de la imagen ----------
     /// <summary>Los mismos valores que «Sin anuncios ni apps sugeridas», pero escritos en la imagen antes de instalar.</summary>
@@ -250,6 +246,19 @@ public static partial class IsoBuild
     }
 
     // ---------- respuesta automática ----------
+    public static string SelfTest()
+    {
+        var log = new List<string>();
+        void Check(bool ok, string what) => log.Add($"{(ok ? "OK  " : "FAIL")} {what}");
+        var x = Unattend(new Options("a.iso", "b.iso", 1, [], false, true, "Pepe", false)) ?? "";
+        Check(x.Contains("<HideOnlineAccountScreens>true") && !x.Contains("HideLocalAccountScreen"), "cuenta local: Windows pide nombre y contraseña en su pantalla");
+        Check(!x.Contains("<Password", StringComparison.OrdinalIgnoreCase) && !x.Contains("<LocalAccount ") && !x.Contains("Pepe") && !x.Contains("AutoLogon"), "la ISO no crea cuentas ni guarda contraseñas ni nombres");
+        var y = Unattend(new Options("a.iso", "b.iso", 1, [], false, true, null, true, NoTelemetry: true)) ?? "";
+        Check(y.Contains("<ProtectYourPC>3") && y.Contains("BypassTPMCheck"), "sin datos + sin comprobaciones: siguen puestos");
+        Check(Unattend(new Options("a.iso", "b.iso", 1, [], true, false, null, false)) is null, "sin opciones de instalación: sin archivo de respuestas");
+        return string.Join(Environment.NewLine, log);
+    }
+
     /// <summary>Solo lo que se pidió. Nunca particiona ni borra discos: esa pantalla la sigue viendo quien instala.</summary>
     internal static string? Unattend(Options o)
     {
@@ -269,10 +278,10 @@ public static partial class IsoBuild
         }
         if (o.LocalAccount)
         {
-            var user = SecurityElement.Escape(o.User!.Trim());
+            // Solo se esconde la pantalla de cuenta de Microsoft. Windows enseña la suya de cuenta local y ahí se ponen
+            // nombre y contraseña: no se crea ninguna cuenta sin contraseña ni se escribe una contraseña en la ISO.
             sb.AppendLine($"""  <settings pass="oobeSystem"><component name="Microsoft-Windows-Shell-Setup" {comp}>""");
-            sb.AppendLine("""    <OOBE><HideOnlineAccountScreens>true</HideOnlineAccountScreens><HideLocalAccountScreen>true</HideLocalAccountScreen><ProtectYourPC>3</ProtectYourPC></OOBE>""");
-            sb.AppendLine($"""    <UserAccounts><LocalAccounts><LocalAccount wcm:action="add"><Name>{user}</Name><DisplayName>{user}</DisplayName><Group>Administrators</Group><Password><Value></Value><PlainText>true</PlainText></Password></LocalAccount></LocalAccounts></UserAccounts>""");
+            sb.AppendLine($"""    <OOBE><HideOnlineAccountScreens>true</HideOnlineAccountScreens>{(o.NoTelemetry ? "<ProtectYourPC>3</ProtectYourPC>" : "")}</OOBE>""");
             sb.AppendLine("  </component></settings>");
         }
         else if (o.NoTelemetry)

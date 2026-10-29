@@ -675,11 +675,8 @@
   }
   function isoSum() { const n = document.querySelectorAll('#iso-apps input:checked').length; $('iso-apps-sum').textContent = `Apps que se quitan (${n})`; }
   function isoReady() {
-    const local = $('iso-local').checked, u = $('iso-user').value.trim();
-    $('iso-user').hidden = !local;
-    $('iso-build').disabled = isoBusy || !isoSrc || !isoOut || (local && !/^[\p{L}\p{N}][\p{L}\p{N} ._-]{0,19}$/u.test(u));
+    $('iso-build').disabled = isoBusy || !isoSrc || !isoOut;
   }
-  ['iso-local', 'iso-user'].forEach((id) => $(id).addEventListener('input', isoReady));
   $('iso-pick').addEventListener('click', () => send({ cmd: 'isoPick' }));
   $('iso-ms').addEventListener('click', () => send({ cmd: 'isoGetWindows' }));
   $('iso-dl-cancel').addEventListener('click', () => { busyBtn($('iso-dl-cancel'), true, 'Cancelando…'); send({ cmd: 'isoDlCancel' }); });
@@ -726,7 +723,7 @@
     send({ cmd: 'isoBuild', options: {
       source: isoSrc.path, output: isoOut, index: +$('iso-ed').value,
       apps: [...document.querySelectorAll('#iso-apps input:checked')].map((c) => c.dataset.id),
-      noAds: $('iso-ads').checked, localAccount: $('iso-local').checked, user: $('iso-user').value.trim() || null, skipChecks: $('iso-skip').checked,
+      noAds: $('iso-ads').checked, localAccount: $('iso-local').checked, user: null, skipChecks: $('iso-skip').checked,
       noTelemetry: $('iso-tele').checked, noBitLocker: $('iso-bitlocker').checked,
     } });
   });
@@ -998,6 +995,7 @@
     parts.forEach((x, i) => { if (i) body.lastChild.append(' · '); body.lastChild.append(el('span', null, x)); });
     if (o.restorePoint) body.append(el('p', 'src', 'Con punto de restauración de Windows del mismo momento.'));
     if (o.restoredAt) body.append(el('p', 'src', `Usada el ${bkWhen(o.restoredAt)}.`));
+    (o.limits || []).forEach((x) => body.append(el('p', 'src', x)));
     const b = el('button', 'btn', 'Volver a como estaba');
     bkArm(b, 'Volver a como estaba', '¿Seguro? Deshace todo lo de Vigía', () => { busyBtn(b, true, 'Restaurando…'); send({ cmd: 'backupRestore', id: o.id }); });
     box.replaceChildren(body, b);
@@ -1018,6 +1016,7 @@
       if (!c.title.endsWith(lines)) body.append(Object.assign(el('p', 'src cmd', lines), { title: c.lines.join('\n') }));
       if (c.restorePoint) body.append(el('p', 'src', 'Con punto de restauración de Windows.'));
       if (c.restoredAt) body.append(el('p', 'src', `Restaurada el ${bkWhen(c.restoredAt)}.`));
+      (c.limits || []).forEach((x) => body.append(el('p', 'src', x)));
       const b = el('button', 'btn', 'Restaurar');
       bkArm(b, 'Restaurar', '¿Seguro? Restaurar', () => { busyBtn(b, true, 'Restaurando…'); send({ cmd: 'backupRestore', id: c.id }); });
       li.append(el('span', `state${c.restoredAt ? '' : ' applied'}`, c.restoredAt ? 'Usada' : 'Guardada'), body, b);

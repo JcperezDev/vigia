@@ -293,6 +293,7 @@ static class Program
                 + Environment.NewLine + "--- discos" + Environment.NewLine + Optimize.SelfTest()
                 + Environment.NewLine + "--- versiones" + Environment.NewLine + Updates.SelfTest()
                 + Environment.NewLine + "--- apps de Windows (lectura de PowerShell)" + Environment.NewLine + Debloat.SelfTest()
+                + Environment.NewLine + "--- ISO (cuentas)" + Environment.NewLine + IsoBuild.SelfTest()
                 + Environment.NewLine + "--- arranque (bcdedit en cualquier idioma)" + Environment.NewLine + Diagnostics.BcdSelfTest();
             File.WriteAllText(args[1], report);
             return report.Contains("FAIL") ? 1 : 0;
