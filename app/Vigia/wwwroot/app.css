@@ -680,3 +680,4 @@ td.empty.loading::before { display: inline-block; vertical-align: -2px; margin-r
 .tw-one > summary:hover { color: var(--fg); }
 .tw-one[open] > summary { margin-bottom: 4px; }
 .head .actions[hidden] { display: none; }
+#ask-p { white-space: pre-line; }

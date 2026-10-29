@@ -154,9 +154,9 @@ sealed partial class MainForm
         _trayBusy = true;
         try
         {
-            var r = await Task.Run(() => Memory.Free(new MemOptions()));
+            var r = await Task.Run(() => Memory.Free(MemOptions.Safe));
             Send("memFreed", r);
-            Notify(string.Format(Tr.T("freed", l), Gb(r.FreedMb, l), r.Before.LoadPct, r.After.LoadPct));
+            Notify(string.Format(Tr.T("freed", l), Gb(r.CacheDroppedMb, l), Gb(r.Before.FreeGb * 1024, l), Gb(r.After.FreeGb * 1024, l)));
         }
         catch (Exception e) { Notify(e.Message, false); }
         finally { _trayBusy = false; }
@@ -169,14 +169,15 @@ sealed partial class MainForm
         try
         {
             Notify(Tr.T("optimizing", l));
-            var r = await Task.Run(() => Memory.Free(new MemOptions()));
+            var r = await Task.Run(() => Memory.Free(MemOptions.Safe));
             Send("memFreed", r);
-            var ssd = (await Task.Run(() => Optimize.Status(false))).Volumes.Where(v => v.Media == "SSD").Select(v => v.Letter).ToList();
+            // con un juego abierto no se pasa TRIM: el disco trabaja un rato y puede dar tirones
+            var ssd = AutoStart.Busy() ? [] : (await Task.Run(() => Optimize.Status(false))).Volumes.Where(v => v.Media == "SSD").Select(v => v.Letter).ToList();
             var ok = new List<string>();
             foreach (var letter in ssd)
                 if ((await Optimize.RunAsync(letter, _ => { })).Ok) ok.Add(letter);
             var trim = ok.Count > 0 ? string.Format(Tr.T("trimmed", l), string.Join(" ", ok)) : "";
-            Notify(string.Format(Tr.T("optimized", l), Gb(r.FreedMb, l), r.Before.LoadPct, r.After.LoadPct) + trim);
+            Notify(string.Format(Tr.T("optimized", l), Gb(r.CacheDroppedMb, l), Gb(r.Before.FreeGb * 1024, l), Gb(r.After.FreeGb * 1024, l)) + trim);
         }
         catch (Exception e) { Notify(e.Message, false); }
         finally { _trayBusy = false; }
@@ -332,9 +333,9 @@ static class Tr
         ["auto"] = ["Liberar sola al {0} %", "Auto-free at {0} %", "Liberar sozinha em {0} %", "Libérer seule à {0} %", "Automatisch freigeben bei {0} %"],
         ["quit"] = ["Salir de Vigía", "Quit Vigía", "Sair do Vigía", "Quitter Vigía", "Vigía beenden"],
         ["hint"] = ["Vigía sigue aquí, en reposo. Clic derecho en el icono para las acciones rápidas.", "Vigía is still here, resting. Right-click the icon for quick actions.", "O Vigía continua aqui, em repouso. Clique com o botão direito no ícone para ações rápidas.", "Vigía est toujours là, au repos. Clic droit sur l'icône pour les actions rapides.", "Vigía läuft im Ruhezustand weiter. Rechtsklick auf das Symbol für Schnellaktionen."],
-        ["freed"] = ["Liberados {0}. RAM {1} % → {2} %.", "Freed {0}. RAM {1} % → {2} %.", "Liberados {0}. RAM {1} % → {2} %.", "{0} libérés. RAM {1} % → {2} %.", "{0} freigegeben. RAM {1} % → {2} %."],
+        ["freed"] = ["Caché en espera soltada: {0}. Libre {1} → {2}.", "Standby cache released: {0}. Free {1} → {2}.", "Cache em espera liberado: {0}. Livre {1} → {2}.", "Cache en attente libéré : {0}. Libre {1} → {2}.", "Standby-Cache freigegeben: {0}. Frei {1} → {2}."],
         ["optimizing"] = ["Optimizando: memoria y TRIM de los SSD…", "Optimizing: memory and SSD TRIM…", "Otimizando: memória e TRIM dos SSD…", "Optimisation : mémoire et TRIM des SSD…", "Optimiere: Speicher und SSD-TRIM…"],
-        ["optimized"] = ["Listo. Liberados {0}, RAM {1} % → {2} %.", "Done. Freed {0}, RAM {1} % → {2} %.", "Pronto. Liberados {0}, RAM {1} % → {2} %.", "Terminé. {0} libérés, RAM {1} % → {2} %.", "Fertig. {0} freigegeben, RAM {1} % → {2} %."],
+        ["optimized"] = ["Listo. Caché en espera soltada: {0}, libre {1} → {2}.", "Done. Standby cache released: {0}, free {1} → {2}.", "Pronto. Cache em espera liberado: {0}, livre {1} → {2}.", "Terminé. Cache en attente libéré : {0}, libre {1} → {2}.", "Fertig. Standby-Cache freigegeben: {0}, frei {1} → {2}."],
         ["trimmed"] = [" TRIM en {0}.", " TRIM on {0}.", " TRIM em {0}.", " TRIM sur {0}.", " TRIM auf {0}."],
         ["keepQ"] = ["¿Se ve bien? Si no contestas, la pantalla vuelve sola a como estaba.", "Does it look right? If you don't answer, the display goes back on its own.", "Está tudo certo? Se você não responder, a tela volta sozinha.", "L'affichage est correct ? Sans réponse, l'écran revient tout seul.", "Sieht es gut aus? Ohne Antwort stellt sich der Bildschirm selbst zurück."],
         ["keep"] = ["Mantener", "Keep", "Manter", "Garder", "Behalten"],

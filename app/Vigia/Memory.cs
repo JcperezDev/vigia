@@ -6,11 +6,23 @@ namespace Vigia;
 public record MemStatus(double TotalGb, double UsedGb, double AvailGb, int LoadPct,
     double StandbyGb, double StandbyLowGb, double ModifiedGb, double FreeGb, double CommitGb, double CommitLimitGb);
 public record MemStep(string Name, bool Ok, string? Error);
-public record MemResult(double FreedMb, MemStatus Before, MemStatus After, MemStep[] Steps, bool Auto);
+/// <summary>Resultado medido antes y después. <see cref="FreedMb"/> es solo el cambio de «disponible», que casi nunca sube al soltar
+/// caché en espera (Windows ya la cuenta como disponible). Por eso se separan: caché descartada, libre ganada y disponible.
+/// Nada de esto es una mejora de FPS.</summary>
+public record MemResult(double FreedMb, MemStatus Before, MemStatus After, MemStep[] Steps, bool Auto,
+    double CacheDroppedMb = 0, double FreeGainedMb = 0, double ModifiedWrittenMb = 0, bool Deep = false);
 
-/// <summary>Opciones de liberación. Son funciones públicas de Windows (NtSetSystemInformation).</summary>
-public record MemOptions(bool WorkingSets = true, bool Modified = true, bool Standby = true, bool StandbyLowOnly = false,
-    bool FileCache = true, bool Combine = true);
+/// <summary>Opciones de liberación. Son funciones públicas de Windows (NtSetSystemInformation).
+/// Por defecto (y en bandeja, modo simple y automático) solo se suelta la caché en espera de baja prioridad:
+/// no saca páginas de los programas ni obliga a releer del disco lo que se está usando. Lo demás son opciones avanzadas
+/// que el usuario marca a mano en la vista Memoria.</summary>
+public record MemOptions(bool WorkingSets = false, bool Modified = false, bool Standby = true, bool StandbyLowOnly = true,
+    bool FileCache = false, bool Combine = false)
+{
+    public static readonly MemOptions Safe = new();
+    /// <summary>Alguna operación que puede dar tirones (sacar memoria de procesos, escribir modificadas, toda la caché…).</summary>
+    public bool IsDeep => WorkingSets || Modified || FileCache || Combine || (Standby && !StandbyLowOnly);
+}
 
 /// <summary>
 /// Liberación de RAM con las API del kernel (NtSetSystemInformation / SystemMemoryListInformation).
@@ -96,7 +108,11 @@ public static class Memory
             });
             Thread.Sleep(400);
             var after = Status();
-            LastResult = new MemResult(Math.Max(0, (after.AvailGb - before.AvailGb) * 1024), before, after, steps.ToArray(), auto);
+            LastResult = new MemResult(Math.Max(0, (after.AvailGb - before.AvailGb) * 1024), before, after, steps.ToArray(), auto,
+                CacheDroppedMb: Math.Max(0, (before.StandbyGb - after.StandbyGb) * 1024),
+                FreeGainedMb: Math.Max(0, (after.FreeGb - before.FreeGb) * 1024),
+                ModifiedWrittenMb: Math.Max(0, (before.ModifiedGb - after.ModifiedGb) * 1024),
+                Deep: o.IsDeep);
             return LastResult;
         }
     }
@@ -115,9 +131,24 @@ public static class Memory
         // al momento, y con poca RAM o disco lento eso deja el PC congelado varios segundos cada vez.
         // Solo se suelta la caché en espera de baja prioridad, y solo cuando de verdad queda poca libre.
         if (!(st.FreeGb < 2 && st.StandbyLowGb > 0.5)) return null;
-        var res = Free(new MemOptions(WorkingSets: false, Modified: false, Standby: true, StandbyLowOnly: true, FileCache: false, Combine: false), auto: true);
+        var res = Free(MemOptions.Safe, auto: true);
         AutoLog($"liberada caché en espera de baja prioridad: uso {st.LoadPct} %, libre {st.FreeGb:0.0} GB -> {res.After.AvailGb:0.0} GB disponibles");
         return res;
+    }
+
+    /// <summary>Comprueba la política sin liberar nada.</summary>
+    public static string SelfTest()
+    {
+        var log = new List<string>();
+        void Check(bool ok, string what) => log.Add($"{(ok ? "OK  " : "FAIL")} {what}");
+        Check(!MemOptions.Safe.IsDeep && MemOptions.Safe.Standby && MemOptions.Safe.StandbyLowOnly, "por defecto solo la caché en espera de baja prioridad");
+        Check(!new MemOptions().WorkingSets && !new MemOptions().Combine && !new MemOptions().FileCache && !new MemOptions().Modified, "new MemOptions() ya no vacía procesos, caché de archivos, modificadas ni combina");
+        Check(new MemOptions(WorkingSets: true).IsDeep && new MemOptions(StandbyLowOnly: false).IsDeep, "lo agresivo se marca como avanzado");
+        var j = System.Text.Json.JsonSerializer.Deserialize<MemOptions>("{}", Program.Json);
+        Check(j is not null && !j.IsDeep, "un mensaje sin opciones usa la política segura");
+        var st = Status();
+        Check(st.TotalGb > 0 && st.AvailGb >= 0 && st.StandbyGb >= st.StandbyLowGb, "lectura de listas de memoria coherente");
+        return string.Join(Environment.NewLine, log);
     }
 
     /// <summary>Cada intervención automática queda con su motivo y resultado en memoria.log (máx. ~256 KB).</summary>

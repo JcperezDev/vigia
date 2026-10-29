@@ -114,9 +114,9 @@ public static class Simple
                         setMemAuto(plan.MemAuto);
                         // Suave: justo después de quitar apps y cambiar ajustes, vaciar la memoria de todos los procesos y
                         // combinar páginas dejaba el PC congelado un rato. Solo la caché en espera de baja prioridad.
-                        var mr = Memory.Free(new MemOptions(WorkingSets: false, Modified: false, Standby: true, StandbyLowOnly: true, FileCache: false, Combine: false));
-                        freed = mr.FreedMb;
-                        detail = (plan.MemAuto ? "Se liberará sola al llegar al 60 %. " : "") + $"{mr.FreedMb:0} MB liberados ahora.";
+                        var mr = Memory.Free(MemOptions.Safe);
+                        freed = mr.CacheDroppedMb;
+                        detail = (plan.MemAuto ? "Se soltará sola si quedan menos de 2 GB libres. " : "") + $"{mr.CacheDroppedMb:0} MB de caché en espera soltados ahora.";
                         break;
                     case "wallpaper":
                         var wd = Wallpaper.Apply();

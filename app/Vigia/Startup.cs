@@ -42,25 +42,20 @@ public static class Startup
         ("rtkaud", "Es del driver de audio Realtek."),
         ("amd ", "Es de AMD: puede ser parte del driver del chipset."),
         ("amdryzen", "Es del driver del chipset AMD."),
-        ("easyanticheat", "Antitrampas: algunos juegos no abren sin él."),
-        ("battleye", "Antitrampas: algunos juegos no abren sin él."),
-        ("vgc", "Vanguard (Valorant): sin él Valorant no abre."),
         ("bluetooth", "Bluetooth: tus auriculares o mandos pueden dejar de conectar."),
         ("ctfmon", "Teclado e idioma de Windows."),
         ("onedrive", "Si lo apagas, OneDrive deja de sincronizar hasta que lo abras."),
-        ("hermes", "Es Hermes, tu asistente: si lo apagas, no arranca solo con Windows."),
-        ("remoting_host", "Escritorio remoto de Chrome: sin él no puedes entrar a este PC desde fuera."),
-        ("memurai", "Base de datos Redis: algún programa tuyo puede depender de ella."),
-        ("openrgb", "Controla las luces RGB: sin él vuelven al color por defecto."),
-        ("timerresolution", "Fija el temporizador a 0,5 ms al iniciar sesión."),
     ];
 
-    static readonly string[] AntiCheat = ["easyanticheat", "battleye", "beservice", "vgc", "vgk", "vanguard", "faceit", "eaanticheat", "ricochet", "nprotect", "xigncode", "mhyprot"];
-    static readonly string[] CriticalKeys = ["securityhealth", "fancontrol", "pawnio", "nvdisplay", "realtek", "rtkaud", "amdryzen", "easyanticheat", "battleye", "vgc", "bluetooth", "ctfmon", "remoting_host"];
-    internal static readonly HashSet<string> Critical = Careful.Where(c => CriticalKeys.Contains(c.Match)).Select(c => c.Why).ToHashSet();
+    internal const string AntiCheatWhy = "Antitrampas de un juego: sin él ese juego no abre. Vigía no lo apaga.";
+    static readonly string[] CriticalKeys = ["securityhealth", "fancontrol", "pawnio", "nvdisplay", "realtek", "rtkaud", "amdryzen", "bluetooth", "ctfmon"];
+    internal static readonly HashSet<string> Critical = Careful.Where(c => CriticalKeys.Contains(c.Match)).Select(c => c.Why).Append(AntiCheatWhy).ToHashSet();
 
-    static string? Warn(params string?[] texts)
+    /// <summary>Aviso para una entrada. Los antitrampas se reconocen por el nombre exacto del ejecutable o del servicio
+    /// (<see cref="AntiCheat"/>), nunca porque el texto contenga «vgc» o similar.</summary>
+    static string? Warn(string? exe, string? service, params string?[] texts)
     {
+        if (AntiCheat.Is(exe, service)) return AntiCheatWhy;
         var all = string.Join(" ", texts.Where(t => t is not null)).ToLowerInvariant();
         foreach (var (m, why) in Careful) if (all.Contains(m)) return why;
         return null;
@@ -92,7 +87,7 @@ public static class Startup
             var exe = ExePath(cmd);
             var (pub, desc) = Describe(exe);
             yield return new StartItem($"run:{tag}:{name}", "Programas", Friendly(desc, name), pub, cmd, where,
-                IsOn(ap?.GetValue(name)), exe is not null && !File.Exists(exe), Warn(name, cmd, pub));
+                IsOn(ap?.GetValue(name)), exe is not null && !File.Exists(exe), Warn(exe, null, name, cmd, pub));
         }
     }
 
@@ -107,7 +102,7 @@ public static class Startup
             var target = f.EndsWith(".lnk", StringComparison.OrdinalIgnoreCase) ? LinkTarget(f) : f;
             var (pub, desc) = Describe(target);
             yield return new StartItem($"folder:{tag}:{file}", "Programas", desc ?? Path.GetFileNameWithoutExtension(file), pub,
-                target ?? f, where, IsOn(ap?.GetValue(file)), target is not null && !File.Exists(target), Warn(file, target, pub));
+                target ?? f, where, IsOn(ap?.GetValue(file)), target is not null && !File.Exists(target), Warn(target, null, file, target, pub));
         }
     }
 
@@ -145,7 +140,7 @@ public static class Startup
                     var (pub, desc) = Describe(exe);
                     string name = t.Name, path = t.Path;
                     list.Add(new StartItem($"task:{path}", "Tareas programadas", desc ?? name, pub, cmd.Length > 0 ? cmd : "(sin programa: acción COM)",
-                        $"Programador de tareas · {path}", (bool)t.Enabled, exe is not null && !File.Exists(exe), Warn(name, cmd, pub)));
+                        $"Programador de tareas · {path}", (bool)t.Enabled, exe is not null && !File.Exists(exe), Warn(exe, null, name, cmd, pub)));
                 }
                 catch { /* tarea sin permisos de lectura */ }
             }
@@ -183,7 +178,7 @@ public static class Startup
                 if (display.StartsWith('@')) display = desc ?? name;
                 list.Add(new StartItem($"svc:{name}", "Servicios", display, pub, img,
                     auto ? "Servicio · automático" : "Servicio · manual (lo cambió Vigía)", auto, !File.Exists(exe),
-                    Warn(name, display, img, pub)));
+                    Warn(exe, name, name, display, img, pub)));
             }
             catch { }
         }
@@ -217,7 +212,7 @@ public static class Startup
         {
             var parts = id.Split(':', 3);
             // los antitrampas no se apagan nunca, ni uno por uno: el juego deja de abrir o te pueden sancionar
-            if (!on && AntiCheat.Any(a => id.Contains(a, StringComparison.OrdinalIgnoreCase)))
+            if (!on && AntiCheat.Is(ResolveExe(parts), parts[0] == "svc" ? parts[1] : null))
                 return new(id, false, "Es el antitrampas de un juego: Vigía no lo apaga.");
             // copia de seguridad del estado de antes; sin copia no se cambia nada
             var items = BackupItems(parts, id).ToList();
@@ -406,6 +401,44 @@ public static class Startup
 
     // ------------------------------------------------------------------ utilidades
     /// <summary>La ruta del programa dentro de una orden: "C:\x y\a.exe" -b, C:\a.exe -b, rundll32 x.dll,…</summary>
+    /// <summary>Ejecutable real de una entrada a partir de su id, para identificarla por archivo y no por texto.</summary>
+    static string? ResolveExe(string[] parts)
+    {
+        try
+        {
+            switch (parts[0])
+            {
+                case "run":
+                {
+                    var (hive, path) = parts[1] switch { "HKCU" => (Registry.CurrentUser, RunKey), "HKLM" => (Registry.LocalMachine, RunKey), "HKLM32" => (Registry.LocalMachine, RunKey32), _ => (null, "") };
+                    using var k = hive?.OpenSubKey(path);
+                    return ExePath(k?.GetValue(parts[2], "")?.ToString() ?? "");
+                }
+                case "svc":
+                {
+                    using var k = Registry.LocalMachine.OpenSubKey($@"SYSTEM\CurrentControlSet\Services\{parts[1]}");
+                    return ExePath(Environment.ExpandEnvironmentVariables(k?.GetValue("ImagePath", "")?.ToString() ?? ""));
+                }
+                case "folder":
+                {
+                    var dir = Environment.GetFolderPath(parts[1] == "common" ? Environment.SpecialFolder.CommonStartup : Environment.SpecialFolder.Startup);
+                    var f = Path.Combine(dir, Path.GetFileName(parts[2]));
+                    return f.EndsWith(".lnk", StringComparison.OrdinalIgnoreCase) ? LinkTarget(f) : f;
+                }
+                case "task":
+                {
+                    dynamic svc = Activator.CreateInstance(Type.GetTypeFromProgID("Schedule.Service")!)!;
+                    svc.Connect();
+                    dynamic t = svc.GetFolder(@"\").GetTask(string.Join(":", parts[1..]));
+                    foreach (dynamic a in t.Definition.Actions) if ((int)a.Type == 0) return ExePath(Environment.ExpandEnvironmentVariables($"{a.Path} {a.Arguments}".Trim()));
+                    return null;
+                }
+            }
+        }
+        catch { }
+        return null;
+    }
+
     public static string? ExePath(string cmd)
     {
         cmd = Environment.ExpandEnvironmentVariables(cmd.Trim());
@@ -461,5 +494,54 @@ public static class Startup
             return string.IsNullOrEmpty(t) ? null : t;
         }
         catch { return null; }
+    }
+}
+
+/// <summary>
+/// Antitrampas conocidos, identificados por el nombre exacto del ejecutable o del servicio de Windows.
+/// No se usa «contiene»: un programa llamado, por ejemplo, «svgconvert» no es Vanguard.
+/// Vigía nunca apaga, suspende ni modifica estos componentes.
+/// </summary>
+public static class AntiCheat
+{
+    // ejecutables (sin extensión)
+    static readonly HashSet<string> Exes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "vgc", "vgtray",                                         // Riot Vanguard
+        "EasyAntiCheat", "EasyAntiCheat_EOS", "EasyAntiCheat_Setup", "EasyAntiCheat_EOS_Setup",  // Easy Anti-Cheat
+        "BEService", "BEService_x64", "BEService_x86",           // BattlEye
+        "EAAntiCheat.GameService", "EAAntiCheat.GameServiceLauncher", "EAAntiCheat.Installer",   // EA Anti-Cheat
+        "FACEIT", "faceitservice",                               // FACEIT
+        "GameMon", "GameMon64",                                  // nProtect GameGuard
+    };
+    // nombres de servicio (clave en Services)
+    static readonly HashSet<string> Services = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "vgc", "vgk", "EasyAntiCheat", "EasyAntiCheat_EOS", "BEService", "BEDaisy",
+        "EAAntiCheatService", "FACEIT", "FACEITService", "npggsvc",
+    };
+
+    public static bool Is(string? exe, string? service)
+    {
+        if (service is not null && Services.Contains(service)) return true;
+        if (string.IsNullOrWhiteSpace(exe)) return false;
+        string name;
+        try { name = Path.GetFileNameWithoutExtension(exe.Trim().Trim('"')); } catch { return false; }
+        return Exes.Contains(name);
+    }
+
+    public static string SelfTest()
+    {
+        var log = new List<string>();
+        void Check(bool ok, string what) => log.Add($"{(ok ? "OK  " : "FAIL")} {what}");
+        Check(Is(@"C:\Program Files\Riot Vanguard\vgc.exe", null), "vgc.exe es Vanguard");
+        Check(Is(null, "vgk"), "el servicio vgk es Vanguard");
+        Check(Is(@"C:\Program Files (x86)\Common Files\BattlEye\BEService_x64.exe", null), "BEService_x64.exe es BattlEye");
+        Check(Is("\"C:\\Program Files (x86)\\EasyAntiCheat\\EasyAntiCheat.exe\"", null), "EasyAntiCheat.exe entre comillas es Easy Anti-Cheat");
+        Check(!Is(@"C:\Tools\svgconvert.exe", null), "svgconvert.exe no es un antitrampas");
+        Check(!Is(@"C:\x\myvgcapp.exe", "myvgcapp"), "myvgcapp.exe no es un antitrampas");
+        Check(!Is(@"C:\x\Vigia.exe", null), "Vigia.exe no es un antitrampas");
+        Check(!Is("", null) && !Is(null, null), "ruta vacía no es un antitrampas");
+        return string.Join(Environment.NewLine, log);
     }
 }

@@ -23,7 +23,7 @@ static class Program
             {
                 snapshot = snap, clean = Cleanup.Scan(), health = Health.Scan(t), diag = Diagnostics.Run(),
                 optimize = Optimize.Status(analyzeHdd: true), memory = Memory.Status(), tweaks = Tweaks.List(),
-                debloat = Debloat.List(), tools = Toolbox.List(Settings.Load().ToolsRoot), restorePoints = RestorePoint.Count(),
+                debloat = Debloat.List(), tools = Toolbox.List(), restorePoints = RestorePoint.Count(),
                 sensors = t.Dump().ToList(),
             }, new JsonSerializerOptions(Json) { WriteIndented = true }));
             return 0;
@@ -286,7 +286,10 @@ static class Program
                 + Environment.NewLine + "--- juegos" + Environment.NewLine + Games.SelfTest()
                 + Environment.NewLine + "--- fps" + Environment.NewLine + Fps.SelfTest()
                 + Environment.NewLine + "--- procesos" + Environment.NewLine + Procs.SelfTest()
-                + Environment.NewLine + "--- equipo" + Environment.NewLine + Rig.SelfTest();
+                + Environment.NewLine + "--- equipo" + Environment.NewLine + Rig.SelfTest()
+                + Environment.NewLine + "--- herramientas" + Environment.NewLine + Toolbox.SelfTest()
+                + Environment.NewLine + "--- antitrampas" + Environment.NewLine + AntiCheat.SelfTest()
+                + Environment.NewLine + "--- memoria" + Environment.NewLine + Memory.SelfTest();
             File.WriteAllText(args[1], report);
             return report.Contains("FAIL") ? 1 : 0;
         }
@@ -695,7 +698,7 @@ sealed partial class MainForm : Form
                     Optimize.Cancel();
                     break;
                 case "memFree":
-                    var o = msg["opts"].Deserialize<MemOptions>(Program.Json) ?? new MemOptions();
+                    var o = msg["opts"]?.Deserialize<MemOptions>(Program.Json) ?? MemOptions.Safe;
                     Send("memFreed", await Task.Run(() => Memory.Free(o)));
                     break;
                 case "autoStartSet":
@@ -748,11 +751,14 @@ sealed partial class MainForm : Form
                     Send("wall", Wallpaper.Status());
                     break;
                 case "toolsList":
-                    Send("tools", new { root = _cfg.ToolsRoot, items = Toolbox.List(_cfg.ToolsRoot) });
+                    Send("tools", new { items = await Task.Run(Toolbox.List) });
                     break;
                 case "toolOpen":
-                    var tid = (string)msg["id"]!;
-                    Send("toolDone", tid == "restorepoint" ? await Task.Run(() => Toolbox.Open(_cfg.ToolsRoot, tid)) : Toolbox.Open(_cfg.ToolsRoot, tid));
+                    var tid = (string?)msg["id"] ?? "";
+                    Send("toolDone", tid == "restorepoint" ? await Task.Run(() => Toolbox.Open(tid)) : Toolbox.Open(tid));
+                    break;
+                case "toolInstall":
+                    Send("toolDone", Toolbox.Install((string?)msg["id"] ?? ""));
                     break;
                 case "startupList":
                     Send("startup", await Task.Run(Startup.List));

@@ -457,9 +457,11 @@
     );
   }
   function memOpts() {
-    const o = {};
-    document.querySelectorAll('#view-mem [data-opt]').forEach((c) => { o[c.dataset.opt] = c.checked; });
-    return o;
+    const v = {};
+    document.querySelectorAll('#view-mem [data-opt]').forEach((c) => { v[c.dataset.opt] = c.checked; });
+    // «toda la caché» manda sobre la de baja prioridad; el resto viaja tal cual
+    return { workingSets: !!v.workingSets, fileCache: !!v.fileCache, modified: !!v.modified, combine: !!v.combine,
+      standby: !!(v.standby || v.standbyAll), standbyLowOnly: !v.standbyAll };
   }
   $('m-free').addEventListener('click', () => {
     busyBtn($('m-free'), true, 'Liberando…');
@@ -475,10 +477,14 @@
   }
   ['m-auto', 'm-thr', 'm-int'].forEach((id) => $(id).addEventListener('change', saveCfg));
   function renderFreed(r) {
-    const mb = r.freedMb;
-    const amount = mb >= 1024 ? GBf(mb / 1024) : `${num(Math.round(mb))} MB`;
+    const mbs = (mb) => (mb >= 1024 ? GBf(mb / 1024) : `${num(Math.round(mb))} MB`);
     const failed = r.steps.filter((s) => !s.ok);
-    let txt = `${r.auto ? 'Liberación automática: ' : ''}${mb < 1 ? 'No había nada que liberar' : `Liberados ${amount}`}. Uso ${r.before.loadPct} % → ${r.after.loadPct} %.`;
+    const head = r.auto ? 'Liberación automática: ' : '';
+    let txt = (r.cacheDroppedMb ?? 0) < 1 && (r.freeGainedMb ?? 0) < 1
+      ? `${head}No había caché que soltar.`
+      : `${head}Caché soltada ${mbs(r.cacheDroppedMb ?? 0)}. Libre sin caché ${GBf(r.before.freeGb)} → ${GBf(r.after.freeGb)}. Disponible para programas ${GBf(r.before.availGb)} → ${GBf(r.after.availGb)}.`;
+    if ((r.modifiedWrittenMb ?? 0) >= 1) txt += ` Escritas al disco ${mbs(r.modifiedWrittenMb)} de páginas modificadas.`;
+    if (r.deep) txt += ' Usaste opciones avanzadas: los programas pueden ir lentos un rato mientras Windows vuelve a leer del disco.';
     if (failed.length) txt += ` No se pudo: ${failed.map((s) => `${s.name.toLowerCase()} (${s.error})`).join('; ')}.`;
     const skipped = r.steps.filter((s) => s.ok && s.error);
     if (skipped.length) txt += ` ${skipped.map((s) => `${s.name}: ${s.error}`).join('; ')}.`;
@@ -790,9 +796,9 @@
 
   // ---------- herramientas ----------
   function renderTools(p) {
-    const mine = p.items.filter((t) => t.kind === 'folder');
     const apps = p.items.filter((t) => t.kind === 'app');
-    $('tl-sub').textContent = `${mine.filter((t) => t.found).length} programas de tu carpeta, ${apps.length === 1 ? '1 programa instalado' : `${apps.length} programas instalados`} y ${p.items.length - mine.length - apps.length} herramientas de Windows.`;
+    const have = apps.filter((t) => t.found).length;
+    $('tl-sub').textContent = `${p.items.length - apps.length} herramientas de Windows y ${apps.length} programas conocidos (${have} instalados). Vigía solo los abre.`;
     const groups = [...new Set(p.items.map((t) => t.group))];
     $('tl-groups').replaceChildren(...groups.map((g) => {
       const sec = el('section', 'tw-group'); sec.append(el('h2', null, g));
@@ -800,13 +806,22 @@
       p.items.filter((t) => t.group === g).forEach((t) => {
         const card = el('div', 'tool');
         const install = t.kind === 'app' && !t.found;
-        const b = el('button', 'btn', install ? 'Instalar' : t.kind === 'cmd' || t.kind === 'action' ? 'Ejecutar' : 'Abrir'); b.disabled = !t.found && !install;
+        const b = el('button', 'btn', install ? 'Instalar' : t.kind === 'cmd' || t.kind === 'action' ? 'Ejecutar' : 'Abrir');
         b.dataset.tool = t.id;
-        b.addEventListener('click', () => {
+        b.addEventListener('click', async () => {
+          // reparaciones, programas de otros e instalaciones: primero se explica y se pregunta
+          if (install) {
+            if (!await ask(`Instalar ${t.name}`, `Editor: ${t.publisher}. Paquete de WinGet: ${t.winget}. Web oficial: ${t.url}. Se abre una ventana con la instalación desde el repositorio oficial de WinGet; si el instalador necesita permisos, Windows te lo pregunta.${t.warning ? ` ${t.warning}` : ''}`, 'Instalar')) return;
+          } else if (t.confirm) {
+            if (!await ask(t.name, `${t.detail}${t.warning ? ` ${t.warning}` : ''}`, t.kind === 'app' ? 'Abrir' : 'Ejecutar')) return;
+          }
           if (t.id === 'restorepoint') busyBtn(b, true, 'Creando…');
-          send({ cmd: 'toolOpen', id: t.id });
+          send({ cmd: install ? 'toolInstall' : 'toolOpen', id: t.id });
         });
-        card.append(el('strong', null, t.name), b, el('p', null, t.found || install ? t.detail + (install ? ' No está instalado: se instala desde winget.' : '') : 'No está en la carpeta.'));
+        const info = el('p', null, t.detail);
+        card.append(el('strong', null, t.name), b, info);
+        if (t.kind === 'app') card.append(el('p', 'note', `${t.publisher} · ${install ? 'No instalado' : 'Instalado'}`));
+        else if (t.warning) card.append(el('p', 'note', t.warning));
         grid.append(card);
       });
       sec.append(grid);
@@ -1233,7 +1248,7 @@
     if (r.applied) parts.push(plural(r.applied, 'ajuste puesto', 'ajustes puestos'));
     if (r.appsRemoved) parts.push(plural(r.appsRemoved, 'app quitada', 'apps quitadas'));
     if (r.cleanedMb >= 1) parts.push(r.cleanedMb >= 1024 ? `${(r.cleanedMb / 1024).toFixed(1)} GB de temporales borrados` : `${Math.round(r.cleanedMb)} MB de temporales borrados`);
-    if (r.freedMb >= 1) parts.push(r.freedMb >= 1024 ? `${(r.freedMb / 1024).toFixed(1)} GB de memoria liberados` : `${Math.round(r.freedMb)} MB de memoria liberados`);
+    if (r.freedMb >= 1) parts.push(r.freedMb >= 1024 ? `${(r.freedMb / 1024).toFixed(1)} GB de caché en espera soltados` : `${Math.round(r.freedMb)} MB de caché en espera soltados`);
     $('sm-done-title').textContent = r.failed ? `${plural(r.failed, 'cosa no se pudo', 'cosas no se pudieron')} hacer` : 'Tu PC quedó optimizada';
     $('sm-done-line').textContent = (parts.length ? parts.join(' · ') + '. ' : '') + 'Si algo no te gusta, en Copias tienes «Volver a como estaba».';
     const ul = $('sm-problems'); ul.textContent = ''; ul.hidden = !r.problems.length;

@@ -219,15 +219,18 @@
       <div class="cols">
         <fieldset class="box">
           <legend>Qué liberar</legend>
-          <label class="chk"><input type="checkbox" data-opt="workingSets" checked><span><b>Memoria de los procesos</b>Saca a disco las páginas que los programas no están usando. Vuelven solas si las necesitan.</span></label>
-          <label class="chk"><input type="checkbox" data-opt="fileCache" checked><span><b>Caché de archivos del sistema</b>Archivos que Windows dejó abiertos en memoria.</span></label>
-          <label class="chk"><input type="checkbox" data-opt="modified" checked><span><b>Páginas modificadas</b>Escribe al disco lo pendiente para que esa memoria quede libre.</span></label>
-          <label class="chk"><input type="checkbox" data-opt="standby" checked><span><b>Caché en espera</b>Lo que más ocupa.</span></label>
-          <label class="chk"><input type="checkbox" data-opt="combine" checked><span><b>Combinar páginas repetidas</b>Junta copias idénticas de la misma página.</span></label>
+          <label class="chk"><input type="checkbox" data-opt="standby" checked><span><b>Caché en espera de baja prioridad</b>Datos que Windows guardó por si acaso y que casi no usa. Soltarlos no quita memoria a ningún programa.</span></label>
+          <p class="note">Avanzado. Puede dar tirones o lentitud un rato, porque Windows tiene que volver a leer del disco lo que saques. Nunca se hace solo.</p>
+          <label class="chk"><input type="checkbox" data-opt="standbyAll"><span><b>Toda la caché en espera</b>También la de prioridad alta, la que Windows usa más.</span></label>
+          <label class="chk"><input type="checkbox" data-opt="workingSets"><span><b>Memoria de los procesos</b>Saca a disco las páginas que los programas no están usando. Vuelven solas si las necesitan, pero tarda.</span></label>
+          <label class="chk"><input type="checkbox" data-opt="fileCache"><span><b>Caché de archivos del sistema</b>Archivos que Windows dejó abiertos en memoria.</span></label>
+          <label class="chk"><input type="checkbox" data-opt="modified"><span><b>Páginas modificadas</b>Escribe al disco lo pendiente para que esa memoria quede libre.</span></label>
+          <label class="chk"><input type="checkbox" data-opt="combine"><span><b>Combinar páginas repetidas</b>Junta copias idénticas de la misma página.</span></label>
+          <p class="note">Liberar RAM no sube los FPS. La caché en espera ya cuenta como disponible: Windows la entrega al momento a quien la pida.</p>
         </fieldset>
         <fieldset class="box">
           <legend>Automático</legend>
-          <label class="chk"><input type="checkbox" id="m-auto" checked><span><b>Liberar sola cuando la memoria pase de <input type="number" id="m-thr" min="50" max="98" step="1" value="60"> %</b>Como máximo una vez cada <input type="number" id="m-int" min="1" max="120" step="1" value="5"> min. Hace lo mismo que «Liberar ahora»; si salta en mitad de una partida puede dar un tirón corto.</span></label>
+          <label class="chk"><input type="checkbox" id="m-auto"><span><b>Liberar sola cuando la memoria pase de <input type="number" id="m-thr" min="50" max="98" step="1" value="60"> %</b>Como máximo una vez cada <input type="number" id="m-int" min="1" max="120" step="1" value="5"> min. Solo suelta la caché de baja prioridad y solo si quedan menos de 2 GB libres. Con un juego abierto no hace nada.</span></label>
           <p class="note">Funciona mientras Vigía esté abierta.</p>
         </fieldset>
       </div>
@@ -550,7 +553,7 @@
 
     <section class="view" id="view-tools" hidden>
       <header class="head">
-        <div><h1>Herramientas</h1><p class="sub" id="tl-sub">Programas de tu carpeta. Vigía solo los abre.</p></div>
+        <div><h1>Herramientas</h1><p class="sub" id="tl-sub">Herramientas de Windows y programas conocidos. Vigía solo los abre.</p></div>
       </header>
       <p class="result" id="tl-result" aria-live="polite"></p>
       <div id="tl-groups"></div>
