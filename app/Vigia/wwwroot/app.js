@@ -419,7 +419,7 @@
       sugKeepT = setInterval(() => { n -= 1; b.textContent = `Se ve bien (${n})`; if (n <= 0) clearInterval(sugKeepT); }, 1000);
     }
   }
-  function sugAuto() { if (!sugDone && document.visibilityState === 'visible') send({ cmd: 'suggest' }); }
+  function sugAuto() { if (!sugDone && document.visibilityState === 'visible') send({ cmd: 'suggest', auto: true }); }
   setTimeout(sugAuto, 20000);
   document.addEventListener('visibilitychange', () => setTimeout(sugAuto, 3000));
 
@@ -1120,7 +1120,7 @@
   });
   $('ds-restore').addEventListener('click', () => { dsConfirm(false); send({ cmd: 'displayRestore' }); });
   $('ds-undo').addEventListener('click', () => { dsConfirm(false); send({ cmd: 'displayRestore' }); });
-  $('ds-keep').addEventListener('click', () => { dsConfirm(false); $('ds-result').textContent = 'Listo. «Volver a la normal» la deja como estaba.'; $('ds-result').classList.remove('bad'); });
+  $('ds-keep').addEventListener('click', () => { dsConfirm(false); send({ cmd: 'displayKeep' }); $('ds-result').textContent = 'Listo. «Volver a la normal» la deja como estaba.'; $('ds-result').classList.remove('bad'); });
 
   // Cada sección carga sus datos al abrirla. Si desde entonces se cambió algo (en otra sección, o fuera de Vigía
   // mientras la ventana estaba oculta), se vuelven a leer al volver a ella. Escanear discos o almacenamiento solo la primera vez.

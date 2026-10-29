@@ -485,6 +485,8 @@ sealed partial class MainForm : Form
     /// con copia de seguridad antes. Espera a que el PC esté tranquilo y nunca en mitad de un juego.
     /// </summary>
     /// <summary>Driver para los grados del procesador: si falta, se pone una vez, en silencio y sin juego abierto.</summary>
+    CancellationTokenSource? _dsGuard;
+
     async Task PawnAsync()
     {
         try
@@ -628,6 +630,9 @@ sealed partial class MainForm : Form
                     Send("healthScan", await Task.Run(() => Health.Scan(_tel)));
                     break;
                 case "suggest":
+                    // la revisión sola (al abrir) solo con Vigía delante y sin juego: hace pings, WMI y lee discos.
+                    // Si no, espera a la próxima vez que mires Vigía o a que pulses «Analizar».
+                    if ((bool?)msg["auto"] == true && (AutoStart.Busy() || Form.ActiveForm != this)) break;
                     // a la vez que el resto: unos segundos mirando el ratón y los sticks, sin pedirle nada al usuario
                     var sense = Task.Run(() => Drift.Sense(this, 3000));
                     var srep = await Task.Run(() => Suggestions.Run(_tel));
@@ -774,10 +779,27 @@ sealed partial class MainForm : Form
                 case "displayStretch":
                     var dw = (int)msg["w"]!; var dh = (int)msg["h"]!;
                     var dg = msg["games"]?.GetValue<bool>() ?? false;
-                    Send("displayDone", await Task.Run(() => Display.Stretch(dw, dh, dg)));
+                    var sdone = await Task.Run(() => Display.Stretch(dw, dh, dg));
+                    Send("displayDone", sdone);
                     Send("display", Display.Status());
+                    // red de seguridad aquí y no solo en la página: si la ventana está minimizada, WebView2 duerme
+                    // su cuenta atrás y la pantalla podría quedarse en negro sin volver
+                    _dsGuard?.Cancel(); _dsGuard = null;
+                    if (sdone.Ok && sdone.Pending)
+                    {
+                        var g = _dsGuard = new CancellationTokenSource();
+                        _ = Task.Delay(TimeSpan.FromSeconds(20), g.Token).ContinueWith(t =>
+                        {
+                            if (t.IsCanceled) return;
+                            BeginInvoke(() => { if (_dsGuard != g) return; _dsGuard = null; Send("displayDone", Display.Restore()); Send("display", Display.Status()); });
+                        }, TaskScheduler.Default);
+                    }
+                    break;
+                case "displayKeep":
+                    _dsGuard?.Cancel(); _dsGuard = null;
                     break;
                 case "displayRestore":
+                    _dsGuard?.Cancel(); _dsGuard = null;
                     Send("displayDone", Display.Restore());
                     Send("display", Display.Status());
                     break;
@@ -788,7 +810,7 @@ sealed partial class MainForm : Form
                     Send("update", await Updates.CheckAsync());
                     break;
                 case "updateRun":
-                    if (await Updates.EnsurePuenteAsync() is string perr) { Send("update", (await Updates.CheckAsync()) with { Error = perr }); break; }
+                    if (await Updates.EnsurePuenteAsync(fresh: true) is string perr) { Send("update", (await Updates.CheckAsync()) with { Error = perr }); break; }
                     if (Updates.StartPuente()) { _quitting = true; Close(); }   // salir de verdad, no a la bandeja
                     else Send("update", (await Updates.CheckAsync()) with { Error = "No pude abrir Puente." });
                     break;

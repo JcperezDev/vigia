@@ -55,6 +55,7 @@ public static class Startup
         ("timerresolution", "Fija el temporizador a 0,5 ms al iniciar sesión."),
     ];
 
+    static readonly string[] AntiCheat = ["easyanticheat", "battleye", "beservice", "vgc", "vgk", "vanguard", "faceit", "eaanticheat", "ricochet", "nprotect", "xigncode", "mhyprot"];
     static readonly string[] CriticalKeys = ["securityhealth", "fancontrol", "pawnio", "nvdisplay", "realtek", "rtkaud", "amdryzen", "easyanticheat", "battleye", "vgc", "bluetooth", "ctfmon", "remoting_host"];
     internal static readonly HashSet<string> Critical = Careful.Where(c => CriticalKeys.Contains(c.Match)).Select(c => c.Why).ToHashSet();
 
@@ -215,6 +216,9 @@ public static class Startup
         try
         {
             var parts = id.Split(':', 3);
+            // los antitrampas no se apagan nunca, ni uno por uno: el juego deja de abrir o te pueden sancionar
+            if (!on && AntiCheat.Any(a => id.Contains(a, StringComparison.OrdinalIgnoreCase)))
+                return new(id, false, "Es el antitrampas de un juego: Vigía no lo apaga.");
             // copia de seguridad del estado de antes; sin copia no se cambia nada
             var items = BackupItems(parts, id).ToList();
             var verb = on ? "Encender al inicio" : "Apagar al inicio";

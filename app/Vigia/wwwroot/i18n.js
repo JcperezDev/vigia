@@ -42,6 +42,12 @@
       const bits = s.split(', '), tb = bits.map((b) => tr(b, depth + 1));
       if (tb.every((b, i) => b !== bits[i] || !/[A-Za-zÀ-ÿ]/.test(b))) return tb.join(', ');
     }
+    // resumen con « · » («18 ajustes puestos · 3 apps quitadas.»): se traduce cada trozo
+    if (s.includes(' · ') && depth < 3 && !(/[.!?] [A-ZÁÉÍÓÚ¿]/.test(s) && depth < 2)) {
+      const end = /[.!?]$/.test(s) ? s.slice(-1) : '';
+      const bits = (end ? s.slice(0, -1) : s).split(' · '), tb = bits.map((b) => tr(b, depth + 1));
+      if (tb.some((b, i) => b !== bits[i])) { const r = tb.join(' · ') + end; if (depth === 0) cache.set(s, r); return r; }
+    }
     let res = s;
     // «12 apps quitadas», «3 copias guardadas»: número + palabra
     const num = /^([\d.,\s]+%?)\s+(.+)$/.exec(s);
@@ -51,6 +57,8 @@
         const m = p.re.exec(s);
         if (!m) continue;
         const parts = p.order.map((_, i) => m[i + 1]);
+        // un patrón corto («{0} de {1}») no debe tragarse un resumen « · » ni varias frases: eso se parte abajo
+        if (p.fixed < 12 && parts.some((x) => x.includes(' · ') || /[.!?] [A-ZÁÉÍÓÚ¿]/.test(x))) continue;
         const done = parts.map((x) => tr(x.trim(), depth + 1));
         // una parte larga que no se pudo traducir = el patrón agarró una frase que no es la suya
         // (las fechas y cifras no se traducen y pueden ser largas: «Oct 27, 10:17 PM»)

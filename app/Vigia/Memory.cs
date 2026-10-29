@@ -109,8 +109,6 @@ public static class Memory
         var st = Status();
         if (st.LoadPct < s.MemAutoThreshold || DateTime.Now - _lastAuto < TimeSpan.FromMinutes(Math.Max(1, s.MemAutoIntervalMin))) return null;
         _lastAuto = DateTime.Now;
-        // jugando: sacar la memoria de los procesos obliga al juego a volver a leerla del disco y da tirones.
-        // Solo se suelta la caché en espera de baja prioridad, y solo si de verdad queda poca libre.
         // Nunca se vacía la memoria de los procesos en automático, juegues o no: todo lo que se saca vuelve del disco
         // al momento, y con poca RAM o disco lento eso deja el PC congelado varios segundos cada vez.
         // Solo se suelta la caché en espera de baja prioridad, y solo cuando de verdad queda poca libre.

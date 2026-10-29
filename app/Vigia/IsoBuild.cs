@@ -143,10 +143,14 @@ public static partial class IsoBuild
             report(new("Creando la ISO", 6, N, 0));
             var part = o.Output + ".parcial";
             WriteIso(files, part, p => report(new("Creando la ISO", 6, N, p)));
-            File.Move(part, o.Output, true);
-            var size = new FileInfo(o.Output).Length;
+            // nunca encima de otra ISO (podría ser la original o una que ya tenías): «nombre (2).iso», «(3)»…
+            var outPath = o.Output;
+            for (var n = 2; File.Exists(outPath); n++)
+                outPath = Path.Combine(Path.GetDirectoryName(o.Output)!, $"{Path.GetFileNameWithoutExtension(o.Output)} ({n}){Path.GetExtension(o.Output)}");
+            File.Move(part, outPath);
+            var size = new FileInfo(outPath).Length;
             var what = removed.Count == 0 ? "sin quitar apps" : $"sin {removed.Count} {(removed.Count == 1 ? "app" : "apps")}";
-            return new(true, $"ISO lista ({what}{(o.NoAds ? ", sin anuncios" : "")}{(o.LocalAccount ? $", cuenta local «{o.User}»" : "")}{(o.NoTelemetry ? ", sin recopilación de datos" : "")}{(o.NoBitLocker ? ", sin cifrado automático" : "")}). Pásala a un USB con «Pasar a un USB».", o.Output, size, sw.Elapsed.TotalMinutes);
+            return new(true, $"ISO lista ({what}{(o.NoAds ? ", sin anuncios" : "")}{(o.LocalAccount ? $", cuenta local «{o.User}»" : "")}{(o.NoTelemetry ? ", sin recopilación de datos" : "")}{(o.NoBitLocker ? ", sin cifrado automático" : "")}). Pásala a un USB con «Pasar a un USB».", outPath, size, sw.Elapsed.TotalMinutes);
         }
         catch (OperationCanceledException) { return Fail("Cancelado. La ISO original sigue igual."); }
         catch (Exception e) { return Fail(e.Message); }
