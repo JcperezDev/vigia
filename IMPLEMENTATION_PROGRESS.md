@@ -3,8 +3,8 @@
 Actualizado 2026-10-29, rama `debloat-v2` (sin push ni merge). Una línea por requisito.
 Estados: ✅ hecho y probado · 🟡 hecho, falta validación física/VM · ⛔ bloqueado (decisión tuya) · ⬜ pendiente.
 
-Pruebas de referencia ahora: selftest **300/0** · UI de Apps **44/0** · traducciones **0 errores** · Puente **57/0** ·
-`release.sh` **25/0**.
+Pruebas de referencia ahora: selftest **302/0** · UI de Apps **44/0** · traducciones **0 errores** · Puente **64/0** ·
+`release.sh` **27/0**.
 
 ## Prompt 1 — auditoría de ajustes, rendimiento y seguridad (hasta 0.20.17)
 
@@ -67,7 +67,9 @@ Pruebas de referencia ahora: selftest **300/0** · UI de Apps **44/0** · traduc
 | P1 TOCTOU cerrado | ✅ | `.descargas` solo-admin; firma en memoria en Vigía |
 | P1 Recuperación (diario, `--repair`, `--rollback`) | 🟡 | probado con cortes simulados; falta apagado real |
 | P1 Desinstalación limpia que deja tus datos | 🟡 | probado en `%TEMP%`; falta VM |
-| P2 `release.sh` borrador → verificar → publicar | ✅ | probado contra mock; nunca contra GitHub real |
+| P2 `release.sh` borrador → verificar → publicar | ✅ | probado contra mock; nunca contra GitHub real; cada archivo del borrador se compara byte a byte, no solo por tamaño |
+| Revisión extra del instalador (programas de Windows con ruta fija, un Puente a la vez, reparar sin perder la versión buena, mínima segura guardada aunque falle) | ✅ | `Tweaks.Sys`/`Native.Sys`; `Acl.Lock` en instalar/revertir/desinstalar; Puente 64/0 |
+| Copias de juegos: solo el archivo de Fortnite se repone | ✅ | `BackupGuard.FileTarget`; selftest 302/0 |
 | P2 Clave de firma protegida | ⛔ | legible por `CodexSandboxUsers` y sin cifrar; necesita tu OK (`docs/SIGNING.md`) |
 | P2 Procedimiento de rotación | ✅ | documentado, no ejecutado |
 | P3 Debloat bajo la arquitectura nueva | 🟡 | `appsScan/appsPreview` sin permisos, `appsRun/Restore` con ayudante; falta VM |
