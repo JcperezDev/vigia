@@ -17,6 +17,9 @@ static class Program
         // Ayudante con permisos (lo abre la propia Vigía con UAC). Lista cerrada de operaciones; ver Elevation.cs.
         if (args.Length >= 1 && args[0] == "--broker") return Elevation.RunBroker(args);
         // Lo usa Puente antes de activar una versión nueva: ¿están sus piezas y se pueden leer? Solo lee; no abre ventanas.
+        // Servicio «Sensores de Vigía» (lo instala Puente; solo SYSTEM). --sensor-publish es la prueba sin servicio.
+        if (args.Length == 1 && args[0] == "--sensor-service") return SensorHost.RunService();
+        if (args.Length == 2 && args[0] == "--sensor-publish" && int.TryParse(args[1], out var pubSecs)) return SensorHost.RunTest(pubSecs);
         if (args.Length >= 1 && args[0] == "--setup-sensors")
         {
             if (!Elevation.IsAdmin || InstallTrust.Problem(AppContext.BaseDirectory) is not null) return 3;
@@ -331,7 +334,8 @@ static class Program
                 + Environment.NewLine + "--- enlaces externos" + Environment.NewLine + Support.SelfTest()
                 + Environment.NewLine + "--- inicio con Windows" + Environment.NewLine + AutoStart.SelfTest()
                 + Environment.NewLine + "--- copias (restauración)" + Environment.NewLine + BackupGuard.SelfTest()
-                + Environment.NewLine + "--- comandos de laboratorio (solo en VM)" + Environment.NewLine + LabGuard.SelfTest();
+                + Environment.NewLine + "--- comandos de laboratorio (solo en VM)" + Environment.NewLine + LabGuard.SelfTest()
+                + Environment.NewLine + "--- sensores de Vigía (servicio de solo lectura)" + Environment.NewLine + SensorHost.SelfTest();
             try { Directory.Delete(testKeys, true); } catch { }
             BackupGuard.KeyDirOverride = null;
             File.WriteAllText(args[1], report);

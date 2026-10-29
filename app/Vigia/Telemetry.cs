@@ -74,7 +74,7 @@ public sealed class Telemetry : IDisposable
         return list;
     }
 
-    bool _cpuTempNote;
+    string? _cpuTempWhy;
     // Si el driver llega con Vigía ya abierta, el procesador se lee aparte: cerrar y reabrir todo LHM
     // tocaría las librerías de la gráfica (ver _closed) y puede tumbar el proceso.
     Computer? _cpuLate;
@@ -86,10 +86,13 @@ public sealed class Telemetry : IDisposable
         {
             if (_closed || _cpuLate is not null) return;
             try { var c = new Computer { IsCpuEnabled = true }; c.Open(); _cpuLate = c; } catch { return; }
-            _notes.Remove("Para ver los grados del procesador hace falta el driver PawnIO, que no está instalado en este PC.");
-            _cpuTempNote = false;
+            if (_cpuTempWhy is { } old) _notes.Remove(old);
+            _cpuTempWhy = null;
         }
     }
+
+    static readonly string[] CpuTempNames = ["CPU Package", "Core (Tctl/Tdie)", "Core (Tdie)", "Core (Tctl)", "CCDs Max (Tdie)", "CCD1 (Tdie)", "Core Average", "Core Max"];
+    internal static double? CpuTemp(IHardware h) => Temp(h, CpuTempNames);
 
     // Un sensor sin driver devuelve 0 en vez de nada: 0 °C (o 150+) no es una lectura real.
     static double? Temp(IHardware h, params string[] names)
@@ -148,18 +151,22 @@ public sealed class Telemetry : IDisposable
                 if (_baseMhz > 0) clock = Math.Round(_baseMhz.Value * perf / 100 / 1000, 2);
             }
             load ??= cpuH is null ? null : S(cpuH, SensorType.Load, "CPU Total");
-            string[] tnames = ["CPU Package", "Core (Tctl/Tdie)", "Core (Tdie)", "Core (Tctl)", "CCDs Max (Tdie)", "CCD1 (Tdie)", "Core Average", "Core Max"];
-            double? temp = cpuH is null ? null : Temp(cpuH, tnames);
+            double? temp = cpuH is null ? null : CpuTemp(cpuH);
             if (temp is null && _cpuLate is not null)
                 foreach (var h in _cpuLate.Hardware.Where(h => h.HardwareType == HardwareType.Cpu))
                 {
-                    try { h.Update(); temp ??= Temp(h, tnames); } catch { }
+                    try { h.Update(); temp ??= CpuTemp(h); } catch { }
                 }
-            if (temp is null && !_cpuTempNote && cpuH is not null)
+            // Sin permisos el driver no se puede abrir: los grados los publica el servicio «Sensores de Vigía».
+            SensorHost.Share? share = null;
+            if (temp is null && !Elevated) { (var st, temp) = SensorHost.ReadCpu(); share = st; }
+            if (temp is not null && _cpuTempWhy is { } old) { _notes.Remove(old); _cpuTempWhy = null; }
+            if (temp is null && _cpuTempWhy is null && cpuH is not null)
             {
                 // Sin el driver PawnIO, LibreHardwareMonitor deja los sensores del procesador en 0: mejor decir por qué que mostrar 0 °C.
-                _cpuTempNote = true;
-                if (!PawnIoInstalled()) _notes.Add("Para ver los grados del procesador hace falta el driver PawnIO, que no está instalado en este PC.");
+                _cpuTempWhy = !PawnIoInstalled() ? "Para ver los grados del procesador hace falta el driver PawnIO, que no está instalado en este PC."
+                    : share is { } s ? SensorHost.Explain(s) : null;
+                if (_cpuTempWhy is not null) _notes.Add(_cpuTempWhy);
             }
             if (clock is null && cpuH is not null)
             {

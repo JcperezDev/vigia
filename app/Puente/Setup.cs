@@ -497,6 +497,7 @@ static partial class Program
             Log(p.ExitCode == 0 ? "sensores: dependencia presente; lectura física pendiente de comprobar"
                 : p.ExitCode == 4 ? "sensores: aplazado por juego abierto; reintentar con Reparar"
                 : "sensores: preparación falló, código " + p.ExitCode + "; usar Reparar");
+            InstallSensors(exe);   // aunque se aplace PawnIO: sin driver el servicio solo informa que no hay dato
         }
         catch (Exception e) { Log("sensores: " + e.Message); }
     }
@@ -613,6 +614,7 @@ static partial class Program
         if (!Ask("¿Quitar Vigía de este PC?", "Tus ajustes y las copias de lo que cambió Vigía se quedan en " + Layout.UserData + ".", "Quitar")) return 0;
         using var busy = Directory.Exists(Layout.Root) ? Exclusive() : null;
         Ui.Show("Quitando Vigía", "", double.NaN);
+        RemoveSensors();
         CloseVigia(null);
         if (!Layout.Test) RemovePawnIfOurs();
         foreach (var l in LinkPaths()) try { if (File.Exists(l)) File.Delete(l); } catch { }
@@ -835,6 +837,7 @@ static partial class Program
     static void LaunchVigia()
     {
         if (CurrentExe() is not { } exe || Layout.Test) return;
+        if (Native.IsAdmin) StartSensors();   // CloseVigia lo paró; si no existe, no hace nada
         var dir = Path.GetDirectoryName(exe)!;
         if (Native.RunAsShellUser(exe, "", dir) is not null) return;
         if (!Native.IsAdmin) { Process.Start(new ProcessStartInfo(exe) { UseShellExecute = true, WorkingDirectory = dir })?.Dispose(); return; }
@@ -844,6 +847,7 @@ static partial class Program
 
     static void CloseVigia(int? waitPid)
     {
+        StopSensors();   // el servicio corre desde la carpeta de la versión: suelta sus archivos antes de tocarlos
         if (waitPid is int pid)
         {
             try { using var p = Process.GetProcessById(pid); Ui.Show("Esperando a que se cierre Vigía", "", double.NaN); p.WaitForExit(30_000); }

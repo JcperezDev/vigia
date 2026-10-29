@@ -11,10 +11,22 @@
 - Instalador ausente y juego detectado producen error explícito en Pawn. Código de salida no cero deja de acreditarse como éxito; un intento fallido no adquiere propiedad de un driver ajeno.
 - Puente registra resultado/errores/aplazamiento. Presenta la fase como sensores de Vigía y mantiene atribución PawnIO.
 
+## Hallazgo (probado en este PC)
+- Con token de usuario básico (sin Administradores, sin ventana), `Vigia --probe` da **temp: None** en el Ryzen 9 9900X, aunque PawnIO esté instalado. Antes solo avisaba «pueden no estar disponibles». Con UAC normal ese es el caso de casi todos: Vigía corre `asInvoker`.
+
+## IMPLEMENTED (segunda tanda)
+- `app/Vigia/SensorHost.cs`: servicio de solo lectura «Sensores de Vigía» (`Vigia.exe --sensor-service`): solo como SYSTEM y desde carpeta confiable (si no, código 3). Lee la CPU solo mientras hay una ventana de Vigía abierta. Publica grados+hora en memoria compartida `Global\VigiaSensores` (escribe SYSTEM; leen Administradores y usuarios autenticados). No hay tubería, puerto ni archivo de entrada: no recibe órdenes.
+- Lector en `Telemetry`: sin permisos usa el servicio; ignora un objeto cuyo dueño no sea SYSTEM/Administradores, datos de más de 15 s, 0 °C o fuera de 1–150 °C. Aviso concreto según el caso (no activo, no responde, sin dato válido) en vez de «N/D».
+- `app/Puente/SensorService.cs`: Puente registra/reapunta el servicio a la versión activa en cada instalación, actualización, Reparar y vuelta atrás; lo para antes de tocar archivos (CloseVigia), lo arranca al lanzar Vigía y lo borra al desinstalar antes que los archivos. Solo acepta rutas bajo la instalación protegida. Reinicio automático si se cae.
+- Traducciones en/pt/fr/de de los avisos nuevos (`tools/i18n-add-sensors.js`).
+
 ## Pruebas ejecutadas
 - Contrato estático tools/sensor-install-contract-test.py: rojo antes del cambio, verde después. No demuestra ejecución real de Setup.
 - Builds Vigía y Puente finales: 0 errores, 0 warnings.
-- Selftest final: 318 OK / 0 FAIL.
+- Selftest final: 329 OK / 0 FAIL (11 nuevas de sensores).
+- Puente 74/0 y release 31/0 tras el servicio.
+- De punta a punta sin servicio registrado: publicador de prueba como administrador + `--probe` con token de usuario básico → **77,25 °C**, `elevated=false`. Sin publicador → aviso «no está activo… usa Reparar», sin inventar grados.
+- Traducciones: 0 errores en los cuatro idiomas.
 - Puente 74/0 y release mock 31/0 durante esta tanda (antes de los últimos ajustes menores de registro/diagnóstico).
 - Probe local real, Ryzen 9 9900X: 62,63 °C, elevated=true. Sin instalar ni modificar drivers. No representa un Ryzen remoto ni una prueba de usuario estándar.
 
@@ -23,7 +35,9 @@
 - La presencia del servicio todavía no prueba disponibilidad. No se ha implementado una reparación automática de un PawnIO registrado pero averiado.
 - Códigos especiales de reinicio del instalador deben verificarse con el contrato oficial; por ahora solo 0 se toma como éxito y ningún fallo provoca reinicio.
 - Los fallos se registran en Puente; falta un resumen persistente amigable del estado de dependencia y reintento diferido automático. Reparar permite repetir cuando se cierre el juego.
-- Privilegios: ya existe telemetría por broker cuando está vivo. Falta probar apertura del dispositivo como usuario estándar y, si resulta necesaria, diseñar/validar una ruta de lectura privilegiada sin elevación permanente. No se añadió un servicio nuevo sin esa evidencia.
+- Servicio «Sensores de Vigía»: probado solo con publicador de prueba (`--sensor-publish`, nombre `Local\…Test`); el servicio real (`sc create`, arranque como SYSTEM, `Global\VigiaSensores`) no se registró en este PC. Falta en VM: instalar, actualizar (reapunta a la nueva versión), Reparar, desinstalar (se borra antes que los archivos), reinicio del equipo y caída del servicio.
+- Rechazo de una memoria compartida creada por un usuario normal: el código lo comprueba por dueño, pero solo se probó el caso «dueño ilegible», no un objeto real creado por otra cuenta.
+- Endurecimiento opcional pendiente: reducir privilegios del servicio (`sc privs`) tras probar que el driver sigue abriendo.
 - Las cadenas antiguas y DOM oculto de consentimiento permanecen por compatibilidad, sin emisión del aviso ni instalación desde Monitor. Falta retirar ese código muerto y revisar documentación/traducciones anteriores.
 - Falta prueba final en Ryzen del amigo (modelo y versión desconocidos). No se declara arreglado ese equipo.
 - No instalación real en host, no cambio de clave, no push, merge ni release.
