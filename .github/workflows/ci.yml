@@ -45,6 +45,13 @@ jobs:
           Write-Output $out
           if ($out -match '(?m)^\s*>\s') { Write-Error 'hay paquetes con vulnerabilidades conocidas'; exit 1 }
 
+      - name: Sin claves ni tokens en el repositorio
+        shell: bash
+        run: |
+          if git grep -nIE '(ghp_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{40,}|gho_[A-Za-z0-9]{30,}|AKIA[0-9A-Z]{16}|xox[baprs]-[A-Za-z0-9-]{10,}|sk-[A-Za-z0-9]{32,}|-----BEGIN ([A-Z]+ )?PRIVATE KEY-----)' -- . ':!*.png' ':!*.ico'; then
+            echo 'hay algo que parece una clave o un token'; exit 1
+          fi
+
       - name: JavaScript y traducciones
         run: |
           node --check app/Vigia/wwwroot/app.js
