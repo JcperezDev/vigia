@@ -521,16 +521,14 @@ td.empty.loading::before { display: inline-block; vertical-align: -2px; margin-r
 .sm-qs { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 10px; margin-bottom: 12px; }
 .sm-q { padding: 12px 14px; background: var(--ink-2); border: 1px solid var(--line); border-radius: var(--r); display: grid; grid-template-rows: auto 1fr auto; gap: 6px; }
 .sm-q b { font-weight: 500; }
+.sm-tweaks { display: contents; }   /* los ajustes siguen la misma rejilla que las preguntas */
+.sm-tweaks[hidden] { display: none; }
 .sm-q span { font-size: 12.5px; color: var(--fg-3); }
 .sm-q .seg { justify-self: start; margin-top: 4px; }
 .sm-q .seg button[aria-checked="true"] { background: color-mix(in oklch, var(--violet) 42%, var(--ink-3)); color: var(--fg); font-weight: 500; }
 .sm-q .seg button { padding: 4px 16px; font-size: 13px; }
 .sm-applist { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0 18px; margin-top: 6px; }
 .sm-applist .chk { padding: 5px 0; border-top: 0 !important; }
-.sm-tweaks { margin-bottom: 12px; }
-.sm-twlist { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 0 22px; margin-top: 6px; }
-.sm-twlist .chk { padding: 7px 0; border-top: 0 !important; }
-.sm-twlist .chk span { display: block; font-size: 12.5px; color: var(--fg-3); margin-top: 2px; }
 .sm-reboot { margin: 10px 0 14px; padding: 12px 14px; background: var(--ink-3); border: 1px solid var(--line); border-radius: var(--r); }
 .sm-reboot p { margin: 0 0 10px; color: var(--fg); }
 .sm-foot { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 14px; }
