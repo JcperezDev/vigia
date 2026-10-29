@@ -146,12 +146,28 @@ public static class Elevation
         return 0;
     }
 
-    static async Task Loop(NamedPipeClientStream pipe, SemaphoreSlim gate, CancellationToken ct)
+    /// <summary>Tiempo sin pedidos tras el que el ayudante se cierra solo. Vigía puede quedarse días en la bandeja;
+    /// el proceso con permisos no tiene por qué quedarse con ella. Lo siguiente que haga falta vuelve a pedir UAC.</summary>
+    internal static TimeSpan IdleLimit = TimeSpan.FromMinutes(10);
+
+    internal static async Task Loop(Stream pipe, SemaphoreSlim gate, CancellationToken ct)
     {
         var running = new List<Task>();
         while (!ct.IsCancellationRequested)
         {
-            var line = await ReadLineAsync(pipe, ct);
+            string? line;
+            using (var idle = CancellationTokenSource.CreateLinkedTokenSource(ct))
+            {
+                idle.CancelAfter(IdleLimit);
+                try { line = await ReadLineAsync(pipe, idle.Token); }
+                catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+                {
+                    running.RemoveAll(t => t.IsCompleted);
+                    if (running.Count > 0) continue;   // hay algo en marcha (un USB, una ISO): no se corta a medias
+                    UiMessage.Note("ayudante: sin pedidos en un rato, me cierro (lo próximo vuelve a pedir permiso)");
+                    break;
+                }
+            }
             if (line is null) break;   // la interfaz se cerró
             int id; string cmd; JsonObject msg;
             try
@@ -463,6 +479,36 @@ public static class InstallTrust
               "programas de Windows con ruta fija (no se buscan junto al .exe ni en la carpeta actual)");
         Check(Elevation.PipeRx.IsMatch("Vigia." + new string('a', 32)) && !Elevation.PipeRx.IsMatch("Vigia.x") && !Elevation.PipeRx.IsMatch("..\\Vigia." + new string('a', 32)),
             "nombre de la tubería: solo Vigia.<32 hex>");
+        // el ayudante se cierra solo si nadie le pide nada (con una tubería de prueba, sin permisos)
+        var oldIdle = Elevation.IdleLimit;
+        try
+        {
+            Elevation.IdleLimit = TimeSpan.FromMilliseconds(300);
+            var pn = "Vigia." + Guid.NewGuid().ToString("N");
+            using var srv = new global::System.IO.Pipes.NamedPipeServerStream(pn, global::System.IO.Pipes.PipeDirection.InOut, 1, global::System.IO.Pipes.PipeTransmissionMode.Byte, global::System.IO.Pipes.PipeOptions.Asynchronous);
+            using var cli = new global::System.IO.Pipes.NamedPipeClientStream(".", pn, global::System.IO.Pipes.PipeDirection.InOut, global::System.IO.Pipes.PipeOptions.Asynchronous);
+            var acc = srv.WaitForConnectionAsync();
+            cli.Connect(5000); acc.GetAwaiter().GetResult();
+            var sw = Stopwatch.StartNew();
+            var loop = Elevation.Loop(cli, new SemaphoreSlim(1, 1), CancellationToken.None);
+            Check(loop.Wait(TimeSpan.FromSeconds(10)) && sw.Elapsed >= TimeSpan.FromMilliseconds(250),
+                "ayudante sin pedidos: se cierra solo al pasar el tiempo límite (no se queda elevado en la bandeja)");
+            // un pedido no permitido reinicia la espera pero no hace nada
+            Elevation.IdleLimit = TimeSpan.FromSeconds(2);
+            using var srv2 = new global::System.IO.Pipes.NamedPipeServerStream(pn + "b", global::System.IO.Pipes.PipeDirection.InOut, 1, global::System.IO.Pipes.PipeTransmissionMode.Byte, global::System.IO.Pipes.PipeOptions.Asynchronous);
+            using var cli2 = new global::System.IO.Pipes.NamedPipeClientStream(".", pn + "b", global::System.IO.Pipes.PipeDirection.InOut, global::System.IO.Pipes.PipeOptions.Asynchronous);
+            var acc2 = srv2.WaitForConnectionAsync();
+            cli2.Connect(5000); acc2.GetAwaiter().GetResult();
+            var loop2 = Elevation.Loop(cli2, new SemaphoreSlim(1, 1), CancellationToken.None);
+            srv2.Write(global::System.Text.Encoding.UTF8.GetBytes("{\"id\":1,\"cmd\":\"cmd.exe\",\"msg\":{}}\n")); srv2.Flush();
+            using var rd = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            var answer = Elevation.ReadLineAsync(srv2, rd.Token).GetAwaiter().GetResult() ?? "";
+            Check(answer.Contains("\"end\":true") && answer.Contains("no est"), "ayudante: un comando fuera de la lista recibe «no permitido»");
+            srv2.Dispose();   // la interfaz se va: el ayudante termina sin esperar al límite
+            Check(loop2.Wait(TimeSpan.FromSeconds(5)), "ayudante: si la interfaz se cierra, termina enseguida");
+        }
+        catch (Exception e) { Check(false, "ayudante sin pedidos: " + e.GetType().Name + " " + e.Message); }
+        finally { Elevation.IdleLimit = oldIdle; }
         return string.Join(Environment.NewLine, log);
     }
 }

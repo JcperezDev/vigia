@@ -302,7 +302,7 @@ public static class AdminOps
         "isoInspect" => ("isoSource", new IsoBuild.Source((string?)msg["path"] ?? "", 0, [], message)),
         "isoBuild" => ("isoDone", new IsoBuild.Done(false, message, null, 0, 0)),
         "usbWrite" => ("usbDone", new IsoBuild.UsbDone(false, message, null, 0)),
-        "usbList" => ("usbList", Array.Empty<object>()),
+        "usbList" => ("usbList", new { error = message }),   // la página de ISO enseña el motivo (antes: lista vacía sin explicación)
         "restorePoint" => ("toolDone", new ToolDone("restorepoint", false, message)),
         "pawnInstall" => ("pawnState", new { ok = false, waiting = false, error = message }),
         _ => null,

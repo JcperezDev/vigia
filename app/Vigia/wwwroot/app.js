@@ -1085,8 +1085,13 @@
       d.addEventListener('close', onClose); d.showModal(); $('ask-no').focus();
     });
   }
+  let usbDenied = false;
   function usbList(list) {
-    usbDrives = list || []; busyBtn($('usb-refresh'), false, 'Analizar');
+    busyBtn($('usb-refresh'), false, 'Analizar');
+    const r = $('usb-result');
+    if (list && !Array.isArray(list)) { usbDenied = true; r.textContent = list.error || ''; r.classList.add('bad'); list = []; }
+    else if (usbDenied) { usbDenied = false; r.textContent = ''; r.classList.remove('bad'); }
+    usbDrives = list || [];
     const sel = $('usb-drive'), keep = sel.value;
     sel.replaceChildren(...usbDrives.map((d) => { const o = el('option', '', `${d.name} · ${gb(d.bytes)}${d.letters?.length ? ` · ${d.letters.map((l) => l + ':').join(' ')}` : ''}`); o.value = String(d.number); return o; }));
     if (usbDrives.some((d) => String(d.number) === keep)) sel.value = keep;
