@@ -59,6 +59,10 @@ OUT="$ROOT/out/$V"
 mkdir -p out
 DISCARD="$ROOT/out/.discard"  # mingw curl falla (23) al escribir en /dev/null
 P="$OUT/puente/Puente.exe"
+if [ "$SKIP_BUILD" = 1 ]; then
+  # solo con el servidor de pruebas (tools/release-test.js): artefactos de prueba en %TEMP% y Puente de prueba
+  OUT="${VIGIA_RELEASE_OUT:-$OUT}"; P="${VIGIA_RELEASE_PUENTE:-$P}"
+fi
 ZIP="Vigia-$V-win-x64.zip"
 ASSETS=("$ZIP" "$ZIP.sig" Puente.exe Puente.exe.sig Vigia-Setup.exe Vigia-Setup.exe.sig vigia-manifest.json vigia-manifest.json.sig SHA256SUMS.txt)
 

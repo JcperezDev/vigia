@@ -909,7 +909,15 @@ static partial class Program
         {
             using (var ec = ECDsa.Create()) ec.ImportFromPem(Encoding.ASCII.GetString(plain));   // que sea una clave de verdad
             var blob = Native.Protect(plain);
-            using var fs = new FileStream(outFile, FileMode.CreateNew, FileAccess.Write, FileShare.None);
+            // se crea ya con permisos propios (sin heredar): solo tu cuenta. DPAPI impide descifrarla desde otra cuenta,
+            // y así otras cuentas o grupos con lectura heredada en la carpeta ni siquiera pueden copiarla.
+            var acl = new System.Security.AccessControl.FileSecurity();
+            acl.SetAccessRuleProtection(true, false);
+            acl.AddAccessRule(new System.Security.AccessControl.FileSystemAccessRule(
+                System.Security.Principal.WindowsIdentity.GetCurrent().User!,
+                System.Security.AccessControl.FileSystemRights.FullControl, System.Security.AccessControl.AccessControlType.Allow));
+            using var fs = new FileInfo(outFile).Create(FileMode.CreateNew, System.Security.AccessControl.FileSystemRights.Write,
+                FileShare.None, 4096, FileOptions.None, acl);
             fs.Write(blob);
         }
         finally { CryptographicOperations.ZeroMemory(plain); }
