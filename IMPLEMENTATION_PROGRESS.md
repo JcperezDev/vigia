@@ -3,8 +3,8 @@
 Actualizado 2026-10-29, rama `debloat-v2` (sin push ni merge). Una línea por requisito.
 Estados: ✅ hecho y probado · 🟡 hecho, falta validación física/VM · ⛔ bloqueado (decisión tuya) · ⬜ pendiente.
 
-Pruebas de referencia ahora: selftest **318/0** · UI de Apps **44/0** · traducciones **0 errores** · Puente **74/0** ·
-`release.sh` **31/0**.
+Pruebas de referencia ahora (`048de17`): selftest **344/0** · UI de Apps **44/0** · traducciones **0 errores** · Puente **74/0** ·
+`release.sh` **31/0** · contrato de sensores OK · VigiaLab **20/22** pruebas reales (`VM_VALIDATION_REPORT.md`).
 
 ## Validación real — 29 de octubre
 
@@ -109,3 +109,10 @@ Validación en VM (`docs/INSTALL.md`), clave de firma, migración real, publicac
 | Privacidad: aviso traducido y «Aplicado» frente al registro | `UNIT_TESTED` | `PRIVACY_TWEAK_REVIEW.md` | `--snap tweaks-all@en/de`, lectura del registro | coincide 1 a 1 | efecto real: VM |
 
 Dato real de solo lectura de este PC: la RAM va a 5600 MT/s siendo de 6000 → EXPO apagado (no se cambió nada).
+
+## Cierre 2026-10-29 (VigiaLab)
+- ✅ Migración 0.20.17 → 0.21.0, ACL de Program Files, usuario estándar, actualización, downgrade, rollback, reparación (también con archivo bloqueado), dos Puentes, desinstalación: probado en VM.
+- ✅ Servicio de sensores en VM: arranque como SYSTEM, parar/arrancar, relanzado tras caída, sin PawnIO, suplantación del mapa rechazada. Temperaturas: 🟡 solo en hardware físico.
+- ✅ Debloat V2 en VM: quitar, historial, recuperar, aprovisionamiento en Avanzado, casos negativos.
+- ⛔ UAC/ayudante en VM (necesita un clic en la consola) · clave de firma (rotación tuya) · migración real en tu PC, publicar, merge, push.
+- «Fable» = JITA, no Vigía. Detalle y siguiente paso: `FINAL_VALIDATION_REPORT.md`.

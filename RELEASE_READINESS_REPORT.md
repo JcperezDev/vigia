@@ -1,4 +1,6 @@
 # Release readiness — NOT READY
+
+> Resumen vigente en `FINAL_VALIDATION_REPORT.md`. Bloquean: clave de firma con posible exposición (rotación pendiente de ti), UAC sin probar en VM, temperaturas sin validar en hardware con el servicio, revisión independiente del servicio SYSTEM. Versión recomendada: 0.21.0.
 Fecha: 2026-10-29 · rama debloat-v2 · solo commits locales.
 
 ## Ejecución verificada
@@ -6,10 +8,10 @@ Fecha: 2026-10-29 · rama debloat-v2 · solo commits locales.
 |---|---|
 | Build Vigía Release win-x64 | 0 errores, 0 warnings |
 | Build Puente Release win-x64 | 0 errores, 0 warnings |
-| Publicación self-contained Vigía para laboratorio | rc=0 (anterior a ffe469e; regenerar) |
-| Selftest | 329/0 (st70, con servicio de sensores). st71 con BIOS: 332 OK y 7 FAIL de juegos, todos «Cierra Fortnite primero» porque el usuario estaba jugando (guardia correcta); repetir con el juego cerrado |
+| Paquetes de laboratorio 0.21.0 / 0.21.1 (clave ficticia) | rc=0, desde HEAD `048de17` |
+| Selftest | 344/0 en `03ad4c4`+cambio (= `048de17`), Fortnite cerrado: las 7 de juegos pasan |
 | UI Apps | 44 OK / 0 fallos, scratch/ui61/ui.txt |
-| Puente | 74/0 en tanda actual; no prueba VM |
+| Puente | 74/0 (simulado) · validación real en VM: ver `VM_VALIDATION_REPORT.md` (20/22) |
 | release.sh | 31/0 en tanda actual; mock, no publicación |
 | Firmas históricas 0.20.17 | ZIP y Puente rc=0 |
 | Clave real, solo ACL | rc=3: CodexSandboxUsers tiene RX heredado |
