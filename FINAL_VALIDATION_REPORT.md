@@ -23,7 +23,7 @@ Solo commits locales: sin push, merge ni release. La instalación principal del 
 El baseline 302/64/27 que pedías se superó: las pruebas crecieron con el trabajo nuevo y ninguna se quitó.
 
 ## Pruebas en VM (reales, no simuladas)
-Detalle en `VM_VALIDATION_REPORT.md`. 20 de 22 pruebas con resultado comprobado después: migración 0.20.17 → 0.21.0, ACL, usuario estándar, servicio, suplantación del mapa, servicio sin driver, Debloat (quitar, recuperar, aprovisionamiento, casos negativos), firmas malas, paquete incompleto, actualización cortada, downgrade, reparación, archivo bloqueado, rollback, dos Puentes, desinstalación. La prueba de UAC está bloqueada (necesita escritorio) y el inicio sin administrador quedó parcial. **La VM no tiene sensores: ninguna temperatura física se validó en la VM.**
+Detalle en `VM_VALIDATION_REPORT.md`. 22 pruebas; 20 completas y 2 (UAC del ayudante, token de admin al iniciar sesión) validadas salvo el punto que necesita escritorio. Comprobado después: ayudante `--broker` (8 rechazos e IPC), migración 0.20.17 → 0.21.0, ACL, usuario estándar, servicio, suplantación del mapa, servicio sin driver, Debloat (quitar, recuperar, aprovisionamiento, casos negativos), firmas malas, paquete incompleto, actualización cortada, downgrade, reparación, archivo bloqueado, rollback, dos Puentes, desinstalación. La prueba de UAC está bloqueada (necesita escritorio) y el inicio sin administrador quedó parcial. **La VM no tiene sensores: ninguna temperatura física se validó en la VM.**
 
 ## Seguridad del servicio «Sensores de Vigía»
 - **¿Hace falta LocalSystem?** Sí. PawnIO solo atiende a administradores y SYSTEM; en este PC la lectura salió sin admin = nada y con admin = 62,63 °C. Alternativas de menos privilegio: LocalService o NetworkService no pueden abrir el driver; una cuenta virtual necesitaría estar en Administradores, que no es menos. Dejar a Vigía elevada todo el tiempo sería peor. Se queda LocalSystem, reducido al mínimo:
@@ -42,7 +42,7 @@ Probado en Windows real (VM): inventario AppX/Win32/aprovisionadas/dependencias,
 
 ## Privacidad · Juegos · BIOS
 - Privacidad: seis directivas con fuente Microsoft Learn, fuera de «Aplicar todo» y del modo simple; estado «aplicado» comparado con el registro (solo lectura). Efecto real en Windows Home/empresa: sin validar. No se añadió nada nuevo.
-- Juegos: CS2, Rocket League y Apex siguen en investigación con evidencia parcial; Siege X pendiente; Marvel Rivals descartado; Valorant no se toca (`GAME_PROFILE_RESEARCH.md`). No se implementó ningún perfil nuevo: no hay evidencia suficiente para hacerlo sin inventar.
+- Juegos: evaluación cerrada en `GAME_PROFILE_RESEARCH.md`. Valorant y Marvel Rivals REJECTED (Marvel lo prohíbe oficialmente); CS2, Rocket League y Apex VERIFIABLE_CANDIDATE con claves corroboradas, **no implementados** en 0.21.0 porque no hay un archivo real del juego en un equipo de prueba para verificar claves y restauración; Siege X RESEARCH_PENDING. Rocket League es el primero para la próxima versión.
 - BIOS: solo lectura (`BiosWatch`), sin ninguna API de escritura de firmware. RAM a 5600 MT/s de 6000 nominal: EXPO probablemente apagado. **No se cambió.** Activarlo es decisión tuya en la BIOS, y después conviene una prueba de memoria.
 
 ## Clave de firma
@@ -55,7 +55,7 @@ Probado en Windows real (VM): inventario AppX/Win32/aprovisionadas/dependencias,
 
 ## Bloqueos (necesitan tu intervención o hardware)
 1. Clave de firma: rotación y custodia (bloquea publicar).
-2. UAC/ayudante en VM: un clic en la consola de Hyper-V.
+2. El clic de UAC en VM (consola de Hyper-V). Los rechazos del ayudante y su IPC ya se probaron en VM (8/8).
 3. Temperaturas reales con el servicio: hardware físico autorizado.
 4. Migración real en tu PC, publicar 0.21.0, merge y push: autorización.
 5. Revisión de seguridad independiente del servicio SYSTEM antes de instalarlo en equipos de usuarios.

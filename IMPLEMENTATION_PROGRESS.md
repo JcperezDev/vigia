@@ -67,7 +67,7 @@ Pruebas de referencia ahora (`048de17`): selftest **344/0** · UI de Apps **44/0
 | Requisito | Estado | Dónde / nota |
 |---|---|---|
 | P0 Inicio sin tarea elevada (Run de HKCU) | ✅ | `AutoStart.cs`; Puente quita la tarea vieja solo si es de Vigía |
-| P0 Vigía como usuario + ayudante bajo demanda con lista cerrada | 🟡 | `Elevation.cs`, `AdminOps.cs`; falta UAC real en VM |
+| P0 Vigía como usuario + ayudante bajo demanda con lista cerrada | 🟢 VM_VALIDATED salvo el clic de UAC | `Elevation.cs`, `AdminOps.cs`; en VigiaLab: `asInvoker`, Run sin privilegios, 8/8 rechazos del ayudante (argumentos, otra imagen, otra cuenta, tubería ajena, carpeta escribible, usuario estándar) |
 | P0 Clasificar todas las operaciones (41 admin / 48 usuario) | ✅ | `docs/PRIVILEGES.md` |
 | P0 Lecturas sin permisos no inventan resultados | ✅ | Diagnóstico, Seguridad, Salud, Limpieza |
 | P0 Copias como dato no confiable (esquema, destinos, HMAC) | ✅ | `BackupGuard.cs` |
@@ -114,5 +114,5 @@ Dato real de solo lectura de este PC: la RAM va a 5600 MT/s siendo de 6000 → E
 - ✅ Migración 0.20.17 → 0.21.0, ACL de Program Files, usuario estándar, actualización, downgrade, rollback, reparación (también con archivo bloqueado), dos Puentes, desinstalación: probado en VM.
 - ✅ Servicio de sensores en VM: arranque como SYSTEM, parar/arrancar, relanzado tras caída, sin PawnIO, suplantación del mapa rechazada. Temperaturas: 🟡 solo en hardware físico.
 - ✅ Debloat V2 en VM: quitar, historial, recuperar, aprovisionamiento en Avanzado, casos negativos.
-- ⛔ UAC/ayudante en VM (necesita un clic en la consola) · clave de firma (rotación tuya) · migración real en tu PC, publicar, merge, push.
+- ⛔ clic de UAC en VM (consola) · clave de firma (rotación tuya) · migración real en tu PC, publicar, merge, push.
 - «Fable» = JITA, no Vigía. Detalle y siguiente paso: `FINAL_VALIDATION_REPORT.md`.
