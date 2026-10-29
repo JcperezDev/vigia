@@ -52,6 +52,8 @@ static class Program
             Ui.Render(Path.Combine(d, "3-listo.bmp"), "Listo: Vigía 0.7.0", "La 0.6.0 quedó guardada por si quieres volver a ella.", 1.0, []);
             Ui.Render(Path.Combine(d, "4-aldia.bmp"), "Vigía está al día", "Tienes la versión 0.7.0, que es la última.", null, ["Abrir Vigía", "Cerrar"], 0);
             Ui.Render(Path.Combine(d, "5-error.bmp"), "No se pudo terminar", "No hay conexión con GitHub. Vigía sigue como estaba.", null, ["Cerrar"]);
+            Ui.Render(Path.Combine(d, "6-reintentando.bmp"), "Se cortó la conexión", "Reintentando en unos segundos.", 0.44, []);
+            Ui.Render(Path.Combine(d, "7-corte.bmp"), "No se pudo terminar", CutText, null, ["Reintentar", "Cerrar"]);
             return 0;
         }
         var cli = args.FirstOrDefault() is "--genkey" or "--sign" or "--verify" or "--check";
@@ -70,20 +72,60 @@ static class Program
                 case "--sign": return SignFile(args[1], args[2]);
                 case "--verify": return Verify(args[1], File.ReadAllText(args[1] + ".sig")) ? 0 : 1;
                 case "--check": return await Check();
+                case "--fetch-test": return await FetchTest(args[1]);
                 case "--rollback": return Rollback();
                 case "--uninstall": return Uninstall();
-                default: return await Install(WaitPid(args));
+                default:
+                    while (true)
+                    {
+                        try { return await Install(WaitPid(args)); }
+                        catch (Exception e) when (IsNet(e) && Ui.Active)
+                        {
+                            // la red se cayó y los reintentos no alcanzaron: se ofrece seguir, sin el texto técnico de Windows
+                            Log(e.ToString());
+                            Ui.Lock(false);
+                            if (Ui.Choose("No se pudo terminar", CutText, "Reintentar", "Cerrar") != 0) return 1;
+                        }
+                    }
             }
         }
         catch (Exception e)
         {
             Log(e.ToString());
             Ui.Lock(false);
+            var why = IsNet(e) ? CutText
+                : e is InvalidOperationException ? Sentence(e.Message) + " Vigía sigue como estaba."
+                : $"Algo falló en este PC. Vigía sigue como estaba. Los detalles quedaron en {LogFile}.";
             if (cli || !Ui.Active) { Console.Error.WriteLine($"No se pudo terminar: {e.Message}"); return 1; }
-            Ui.Choose("No se pudo terminar", Sentence(e.Message) + " Vigía sigue como estaba.", "Cerrar");
+            Ui.Choose("No se pudo terminar", why, "Cerrar");
             return 1;
         }
         finally { Ui.Close(); }
+    }
+
+    const string CutText = "Se cortó la conexión con GitHub. Revisa tu internet y dale a Reintentar: la descarga sigue donde se quedó. Vigía sigue como estaba.";
+
+    /// <summary>¿Es un fallo de red (conexión cortada, sin internet, tiempo agotado)? Esos se reintentan.</summary>
+    static bool IsNet(Exception? e)
+    {
+        for (; e is not null; e = e.InnerException)
+            if (e is HttpRequestException or System.Net.Sockets.SocketException or TimeoutException or TaskCanceledException or HttpIOException) return true;
+        return false;
+    }
+
+    /// <summary>Repite una consulta corta si la red falla: 4 intentos, esperando 2, 5 y 10 s.</summary>
+    static async Task<T> Net<T>(Func<Task<T>> f)
+    {
+        for (int i = 1; ; i++)
+        {
+            try { return await f(); }
+            catch (Exception e) when (IsNet(e) && i < 4)
+            {
+                Log($"red, intento {i}: {e.Message}");
+                if (!_quiet) Ui.Show("Se cortó la conexión", "Reintentando en unos segundos.", double.NaN);
+                await Task.Delay(TimeSpan.FromSeconds(i switch { 1 => 2, 2 => 5, _ => 10 }));
+            }
+        }
     }
 
     static string Sentence(string s) => s.Length == 0 ? s : char.ToUpperInvariant(s[0]) + s[1..] + (s.EndsWith('.') ? "" : ".");
@@ -98,7 +140,7 @@ static class Program
         SelfInstall();
 
         using var http = Http();
-        var rel = await Latest(http);
+        var rel = await Net(() => Latest(http));
         var installed = InstalledVersion();
 
         await UpdateSelf(http, rel);
@@ -121,9 +163,18 @@ static class Program
         var zipAsset = rel.Asset($"Vigia-{rel.Version}-win-x64.zip");
         var zip = Path.Combine(Work, zipAsset.Name);
         Directory.CreateDirectory(Work);
+        var resumed = File.Exists(zip);
         await Download(http, zipAsset, zip);
         Ui.Show($"Comprobando Vigía {rel.Version}", "Revisando la firma: solo se instala lo que publicó Vigía.", double.NaN);
-        if (!Verify(zip, await http.GetStringAsync(rel.Asset(zipAsset.Name + ".sig").Url)))
+        var sig = await Net(() => http.GetStringAsync(rel.Asset(zipAsset.Name + ".sig").Url));
+        if (resumed && !Verify(zip, sig))
+        {
+            // lo que quedó de un intento anterior estaba mal: se baja entero una vez más
+            Log("la parte guardada no servía; se baja de cero");
+            File.Delete(zip);
+            await Download(http, zipAsset, zip);
+        }
+        if (!Verify(zip, sig))
         {
             File.Delete(zip);
             throw new InvalidOperationException("la firma no coincide. El archivo no viene de la publicación de Vigía; no se instaló nada.");
@@ -155,7 +206,7 @@ static class Program
     static async Task<int> Check()
     {
         using var http = Http();
-        var rel = await Latest(http);
+        var rel = await Net(() => Latest(http));
         var installed = InstalledVersion();
         Console.WriteLine(JsonSerializer.Serialize(new Dictionary<string, string?>
         {
@@ -174,7 +225,7 @@ static class Program
         if (a.Digest is { } d && d.Equals("sha256:" + Sha256(me), StringComparison.OrdinalIgnoreCase)) return;
         var tmp = Path.Combine(HomeDir, "Puente.new.exe");
         await Download(http, a, tmp, quiet: true);
-        if (Sha256(tmp) == Sha256(me) || !Verify(tmp, await http.GetStringAsync(rel.Asset("Puente.exe.sig").Url)))
+        if (Sha256(tmp) == Sha256(me) || !Verify(tmp, await Net(() => http.GetStringAsync(rel.Asset("Puente.exe.sig").Url))))
         {
             File.Delete(tmp);
             return;
@@ -362,7 +413,9 @@ static class Program
 
     static HttpClient Http()
     {
-        var h = new HttpClient { Timeout = TimeSpan.FromMinutes(10) };
+        // conexión en 20 s; cada pedido 2 min como mucho hasta que llegan los encabezados; la descarga se vigila por lectura (ver Download)
+        var h = new HttpClient(new SocketsHttpHandler { ConnectTimeout = TimeSpan.FromSeconds(20), PooledConnectionLifetime = TimeSpan.FromMinutes(2) })
+            { Timeout = TimeSpan.FromMinutes(2) };   // con ResponseHeadersRead solo cuenta hasta los encabezados
         h.DefaultRequestHeaders.UserAgent.ParseAdd("Puente/" + typeof(Program).Assembly.GetName().Version);
         return h;
     }
@@ -383,26 +436,75 @@ static class Program
         return new Release(Norm(Version.Parse(tag)), r.TryGetProperty("body", out var b) ? b.GetString() ?? "" : "", assets);
     }
 
+    /// <summary>
+    /// Baja un archivo. Si la conexión se corta, espera y sigue desde donde iba (pide el resto con Range);
+    /// si un Reintentar empieza de nuevo, también aprovecha lo que ya estaba bajado. La firma se revisa después,
+    /// así que un trozo malo nunca se instala.
+    /// </summary>
     static async Task Download(HttpClient http, Asset a, string dest, bool quiet = false)
     {
-        using var res = await http.GetAsync(a.Url, HttpCompletionOption.ResponseHeadersRead);
-        res.EnsureSuccessStatusCode();
-        var total = res.Content.Headers.ContentLength ?? a.Size;
-        await using var src = await res.Content.ReadAsStreamAsync();
-        await using var dst = File.Create(dest);
-        var buf = new byte[1 << 16];
-        long done = 0; int n; var last = -1;
-        while ((n = await src.ReadAsync(buf)) > 0)
+        long done = File.Exists(dest) ? new FileInfo(dest).Length : 0;
+        if (done >= a.Size) { File.Delete(dest); done = 0; }
+        var last = -1;
+        for (int attempt = 1; ; attempt++)
         {
-            await dst.WriteAsync(buf.AsMemory(0, n));
-            done += n;
-            var pct = total > 0 ? (int)(done * 100 / total) : 0;
-            if (!quiet && pct != last)
+            try
             {
-                Ui.Show($"Descargando Vigía {Ver(a.Name)}", $"{Mb(done)} de {Mb(total)} MB · {pct} %", total > 0 ? (double)done / total : double.NaN);
-                last = pct;
+                using var req = new HttpRequestMessage(HttpMethod.Get, a.Url);
+                if (done > 0) req.Headers.Range = new System.Net.Http.Headers.RangeHeaderValue(done, null);
+                using var head = new CancellationTokenSource(TimeSpan.FromMinutes(2));
+                using var res = await http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, head.Token);
+                res.EnsureSuccessStatusCode();
+                if (done > 0 && res.StatusCode != System.Net.HttpStatusCode.PartialContent) done = 0;   // el servidor manda todo de nuevo
+                var total = done + (res.Content.Headers.ContentLength ?? a.Size - done);
+                await using var src = await res.Content.ReadAsStreamAsync();
+                await using var dst = new FileStream(dest, done > 0 ? FileMode.Append : FileMode.Create, FileAccess.Write);
+                var buf = new byte[1 << 16];
+                while (true)
+                {
+                    using var stall = new CancellationTokenSource(TimeSpan.FromSeconds(30));   // 30 s sin recibir nada = conexión muerta
+                    int n;
+                    try { n = await src.ReadAsync(buf, stall.Token); }
+                    catch (OperationCanceledException) { throw new TimeoutException("la descarga se quedó parada."); }
+                    if (n == 0) break;
+                    await dst.WriteAsync(buf.AsMemory(0, n));
+                    done += n;
+                    if (TestCut is { } cut && done >= cut) { TestCut = null; throw new HttpIOException(HttpRequestError.ResponseEnded, "corte de prueba"); }
+                    var pct = total > 0 ? (int)(done * 100 / total) : 0;
+                    if (!quiet && pct != last)
+                    {
+                        Ui.Show($"Descargando Vigía {Ver(a.Name)}", $"{Mb(done)} de {Mb(total)} MB · {pct} %", total > 0 ? (double)done / total : double.NaN);
+                        last = pct;
+                    }
+                }
+                if (done < a.Size) throw new HttpIOException(HttpRequestError.ResponseEnded, "la descarga llegó incompleta.");
+                return;
+            }
+            catch (Exception e) when (IsNet(e) && attempt < 6)
+            {
+                Log($"descarga cortada en {done} bytes, intento {attempt}: {e.Message}");
+                if (!quiet) Ui.Show("Se cortó la conexión", "Reintentando en unos segundos.", a.Size > 0 ? (double)done / a.Size : double.NaN);
+                await Task.Delay(TimeSpan.FromSeconds(attempt switch { 1 => 2, 2 => 4, 3 => 8, _ => 15 }));
+                last = -1;
             }
         }
+    }
+
+    // para probar los cortes sin desenchufar nada: PUENTE_TEST_CUT=bytes corta la descarga una vez al llegar ahí
+    static long? TestCut = long.TryParse(Environment.GetEnvironmentVariable("PUENTE_TEST_CUT"), out var c) ? c : null;
+
+    /// <summary>Solo para pruebas: baja el zip de la última versión a una carpeta y revisa la firma. No instala nada.</summary>
+    static async Task<int> FetchTest(string dir)
+    {
+        using var http = Http();
+        var rel = await Net(() => Latest(http));
+        var a = rel.Asset($"Vigia-{rel.Version}-win-x64.zip");
+        Directory.CreateDirectory(dir);
+        var dest = Path.Combine(dir, a.Name);
+        await Download(http, a, dest, quiet: true);
+        var ok = Verify(dest, await Net(() => http.GetStringAsync(rel.Asset(a.Name + ".sig").Url)));
+        Console.WriteLine($"{a.Name} {new FileInfo(dest).Length}/{a.Size} firma {(ok ? "ok" : "MAL")}");
+        return ok ? 0 : 1;
     }
 
     // ---------------------------------------------------------------- firma

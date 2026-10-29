@@ -2148,5 +2148,9 @@
  "Modo simple dice qué va a cambiar, con el mismo nombre que en Ajustes.",
  "Ajustes ya no dice «Todo aplicado» si quedan ajustes por elegir uno por uno.",
  "Ayuda más directa",
- "Ayuda: «¿Puede romper Windows?» ahora responde «No» de entrada."
+ "Ayuda: «¿Puede romper Windows?» ahora responde «No» de entrada.",
+ "no hay conexión con GitHub ahora mismo",
+ "Actualizar aguanta cortes de internet",
+ "Si se corta la conexión mientras se baja una versión, Puente espera y sigue desde donde iba, en vez de mostrar un error técnico.",
+ "Si aun así no se puede, sale «Reintentar» y la descarga no empieza de cero."
 ]
