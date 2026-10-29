@@ -8,7 +8,7 @@ public sealed record CleanTarget(string Id, string Name, string Path, long Bytes
 public sealed record CleanResult(long FreedBytes, int Deleted, int Skipped);
 
 /// <summary>
-/// Limpieza conservadora: carpetas temporales (de tu usuario y de Windows), descargas viejas de Windows Update,
+/// Limpieza conservadora: carpetas temporales (de tu usuario y de Windows), descargas viejas de Windows Update, cachés de shaders,
 /// informes de errores y la Papelera. En carpetas solo borra archivos con más de 24 h y nunca sigue enlaces;
 /// lo que esté en uso se salta.
 /// </summary>
@@ -18,7 +18,11 @@ public static class Cleanup
 
     /// <summary>Lo que se puede borrar pero tiene un costo: los shaders se recompilan (tirones la primera partida),
     /// los volcados e informes sirven para saber por qué se cerró algo. Ni se marca solo ni lo borra el modo simple.</summary>
-    static readonly HashSet<string> CareIds = ["d3d_cache", "crash_dumps", "wer", RecycleId];
+    // Cachés de shaders de los drivers: se regeneran solas, así que borrarlas no da FPS; solo sirve si una
+    // está corrupta o para recuperar espacio. Solo salen las que existen y nunca se borran con un juego abierto.
+    static readonly string[] ShaderIds = ["d3d_cache", "nv_dx", "nv_gl", "amd_dx", "amd_dxc", "amd_vk"];
+    // va después de ShaderIds: los campos estáticos se inicializan en orden
+    static readonly HashSet<string> CareIds = ["d3d_cache", "crash_dumps", "wer", "wu_download", RecycleId, .. ShaderIds];
     public static string CareOf(string id) => CareIds.Contains(id) ? "care" : "safe";
 
     static IEnumerable<(string id, string name, string path)> Roots()
@@ -26,6 +30,11 @@ public static class Cleanup
         var local = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
         yield return ("user_temp", "Temporales de usuario", Path.GetTempPath());
         yield return ("d3d_cache", "Caché de shaders DirectX", Path.Combine(local, "D3DSCache"));
+        yield return ("nv_dx", "Caché de shaders NVIDIA (DirectX)", Path.Combine(local, "NVIDIA", "DXCache"));
+        yield return ("nv_gl", "Caché de shaders NVIDIA (OpenGL y Vulkan)", Path.Combine(local, "NVIDIA", "GLCache"));
+        yield return ("amd_dx", "Caché de shaders AMD (DirectX)", Path.Combine(local, "AMD", "DxCache"));
+        yield return ("amd_dxc", "Caché de shaders AMD (DirectX 12)", Path.Combine(local, "AMD", "DxcCache"));
+        yield return ("amd_vk", "Caché de shaders AMD (Vulkan)", Path.Combine(local, "AMD", "VkCache"));
         yield return ("crash_dumps", "Volcados de errores", Path.Combine(local, "CrashDumps"));
         var win = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
         var data = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
@@ -68,7 +77,7 @@ public static class Cleanup
 
     public static List<CleanTarget> Scan()
     {
-        var list = Roots().Select(r =>
+        var list = Roots().Where(r => !ShaderIds.Contains(r.id) || r.id == "d3d_cache" || Directory.Exists(r.path)).Select(r =>
         {
             long b = 0; int n = 0;
             foreach (var f in Files(r.path)) { try { b += f.Length; n++; } catch { } }
@@ -93,6 +102,9 @@ public static class Cleanup
     public static CleanResult Run(IEnumerable<string> ids)
     {
         var set = ids.ToHashSet();
+        // con un juego abierto no se tocan sus shaders; con Windows Update trabajando no se tocan sus descargas
+        if (AutoStart.Busy()) set.ExceptWith(ShaderIds);
+        if (UpdateBusy()) set.Remove("wu_download");
         var r = RunPaths(Roots().Where(x => set.Contains(x.id)).Select(x => x.path));
         if (set.Contains(StartupId))
         {
@@ -107,6 +119,18 @@ public static class Cleanup
         var (lb, li) = Recycle();
         var freed = ok ? rb : Math.Max(0, rb - lb);
         return new CleanResult(r.FreedBytes + freed, r.Deleted + (int)Math.Min(ri - li, int.MaxValue), r.Skipped + (int)Math.Min(li, int.MaxValue));
+    }
+
+    /// <summary>Windows está instalando o descargando algo: el instalador de módulos o el orquestador de actualizaciones corren.</summary>
+    static bool UpdateBusy()
+    {
+        foreach (var n in new[] { "TiWorker", "TrustedInstaller", "MoUsoCoreWorker", "wuauclt", "SetupHost" })
+        {
+            var ps = System.Diagnostics.Process.GetProcessesByName(n);
+            var any = ps.Length > 0; foreach (var x in ps) x.Dispose();
+            if (any) return true;
+        }
+        return false;
     }
 
     /// <summary>Borra solo archivos (nunca carpetas ni enlaces) con más de 24 h bajo las rutas dadas.</summary>
@@ -154,6 +178,8 @@ public static class Cleanup
             // el modo simple usa TempIds: ni shaders, ni volcados, ni informes de errores, ni la Papelera
             ("modo simple sin cachés de shaders, volcados, informes ni Papelera",
                 !TempIds.Any(id => id is "d3d_cache" or "crash_dumps" or "wer" or RecycleId) && CareOf("d3d_cache") == "care" && CareOf("user_temp") == "safe"),
+            ("modo simple no toca Windows Update ni cachés de NVIDIA/AMD",
+                !TempIds.Any(id => id == "wu_download" || ShaderIds.Contains(id)) && ShaderIds.All(id => CareOf(id) == "care")),
         };
         try { Directory.Delete(link); } catch { }
         try { Directory.Delete(root, true); Directory.Delete(outside, true); } catch { }

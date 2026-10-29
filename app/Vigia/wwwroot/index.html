@@ -488,24 +488,29 @@
         <h2>Las secciones</h2>
         <dl class="hp-guide" id="hp-guide">
           <div><dt><button class="hp-go" data-go="monitor">Monitor</button></dt><dd>Uso y temperatura de CPU, tarjeta gráfica, RAM y discos. Úsalo con un juego abierto para ver qué se llena primero.</dd></div>
+          <div><dt><button class="hp-go" data-go="simple">Modo simple</button></dt><dd>Te pregunta cada cambio uno por uno, con Sí o No, y solo hace lo que aceptas. Antes guarda una copia.</dd></div>
           <div><dt><button class="hp-go" data-go="sug">Sugerencias</button></dt><dd>Lo que se puede mejorar fuera de Vigía: cable en vez de Wi‑Fi, la frecuencia de la pantalla, la RAM a su velocidad, discos con errores.</dd></div>
-          <div><dt><button class="hp-go" data-go="mem">Memoria</button></dt><dd>Libera RAM sin cerrar programas. Se libera sola al pasar del 60 %; el número lo eliges tú.</dd></div>
-          <div><dt><button class="hp-go" data-go="tweaks">Ajustes</button></dt><dd>Ajustes de Windows para jugar, cada uno explicado. Los que tienen riesgo vienen apagados y marcados.</dd></div>
-          <div><dt><button class="hp-go" data-go="apps">Apps de Windows</button></dt><dd>Quita apps que trae Windows y no usas. Se pueden volver a instalar desde Microsoft Store.</dd></div>
-          <div><dt><button class="hp-go" data-go="games">Juegos</button></dt><dd>Cambia la resolución de la pantalla para jugar, normal o estirada. Si no confirmas que se ve bien, vuelve sola.</dd></div>
+          <div><dt><button class="hp-go" data-go="mem">Memoria</button></dt><dd>Libera RAM sin cerrar programas, solo con lo que marques. Lo automático viene apagado y nunca actúa con un juego abierto. Liberar RAM no da más FPS.</dd></div>
+          <div><dt><button class="hp-go" data-go="tweaks">Ajustes</button></dt><dd>Ajustes de Windows para jugar, cada uno explicado y con su fuente. Los experimentales vienen apagados y marcados; los que tenían riesgo se quitaron.</dd></div>
+          <div><dt><button class="hp-go" data-go="games">Juegos</button></dt><dd>Resolución para jugar, normal o estirada (si no confirmas que se ve bien, vuelve sola), y FPS y frametimes medidos de verdad.</dd></div>
+          <div><dt><button class="hp-go" data-go="bios">BIOS</button></dt><dd>Revisa qué conviene encender en la BIOS (EXPO/XMP, Resizable BAR…) y te dice dónde está en tu placa. Solo lee: Vigía nunca escribe en la BIOS.</dd></div>
+          <div><dt><button class="hp-go" data-go="apps">Apps de Windows</button></dt><dd>Quita apps que trae Windows y no usas, solo de tu usuario. Se pueden volver a instalar desde Microsoft Store.</dd></div>
           <div><dt><button class="hp-go" data-go="startup">Inicio de Windows</button></dt><dd>Lo que arranca solo al encender el PC. Apagar no borra nada: se vuelve a encender con un clic.</dd></div>
-          <div><dt><button class="hp-go" data-go="storage">Almacenamiento</button></dt><dd>Borra temporales de más de 24 horas. Lo que esté en uso se salta.</dd></div>
+          <div><dt><button class="hp-go" data-go="storage">Almacenamiento</button></dt><dd>Borra temporales de más de 24 horas (lo que esté en uso se salta) y optimiza las unidades con la herramienta de Windows: TRIM en SSD, desfragmentar solo discos duros que lo necesiten. La Papelera y las cachés de shaders solo se tocan si las marcas.</dd></div>
           <div><dt><button class="hp-go" data-go="health">Salud de discos</button></dt><dd>Vida útil, horas de uso y errores de cada disco. Solo lee.</dd></div>
-          <div><dt><button class="hp-go" data-go="diag">Diagnóstico</button></dt><dd>Errores de Windows de los últimos 7 días, explicados. Solo lee.</dd></div>
-          <div><dt><button class="hp-go" data-go="tools">Herramientas</button></dt><dd>Control de ventiladores y accesos a programas y paneles útiles.</dd></div>
-          <div><dt><button class="hp-go" data-go="backups">Copias de seguridad</button></dt><dd>Una copia por cada cambio, más la del estado de tu PC antes de instalar Vigía.</dd></div>
+          <div><dt><button class="hp-go" data-go="diag">Diagnóstico</button></dt><dd>Errores de Windows de los últimos 7 días explicados, qué programas se cerraron y por qué, y el estado de seguridad de Windows: antivirus, firewall, UAC, TPM, BitLocker. Solo lee.</dd></div>
+          <div><dt><button class="hp-go" data-go="tools">Herramientas</button></dt><dd>Paneles de Windows a mano, reparaciones de Windows con aviso antes, y programas de diagnóstico conocidos que se instalan con WinGet solo si lo confirmas.</dd></div>
+          <div><dt><button class="hp-go" data-go="iso">ISO de Windows</button></dt><dd>Crea una ISO de Windows sin apps de relleno ni anuncios y la pasa a un USB. El nombre y la contraseña los pones tú al instalar; la ISO no guarda ninguno.</dd></div>
+          <div><dt><button class="hp-go" data-go="backups">Copias de seguridad</button></dt><dd>Una copia por cada cambio, más la del estado de tu PC antes de instalar Vigía. Antes de restaurar te dice lo que no se puede devolver solo, como apps quitadas.</dd></div>
+          <div><dt><button class="hp-go" data-go="settings">Configuración</button></dt><dd>Actualizaciones, inicio con Windows e idioma.</dd></div>
+          <div><dt><button class="hp-go" data-go="support">Apoya Vigía</button></dt><dd>Vigía es gratis y sin anuncios. Si te sirve, puedes ayudar así.</dd></div>
         </dl>
       </section>
 
       <section class="tw-group">
         <h2>Preguntas</h2>
         <div class="hp-faq">
-          <details><summary>¿Puede romper Windows?</summary><p>No. Cada cambio se guarda antes de hacerlo y, si Vigía no puede guardar la copia, no cambia nada. Los ajustes con riesgo se prueban primero en una máquina virtual y vienen apagados. Vigía nunca escribe en la BIOS, no apaga Defender y no frena las actualizaciones de seguridad.</p></details>
+          <details><summary>¿Puede romper Windows?</summary><p>No. Cada cambio se guarda antes de hacerlo y, si Vigía no puede guardar la copia, no cambia nada. Los ajustes que tenían riesgo se quitaron y los experimentales vienen apagados. Vigía nunca escribe en la BIOS, no apaga Defender y no frena las actualizaciones de seguridad.</p></details>
           <details><summary>¿Gasta recursos mientras juego?</summary><p>Minimizada deja de dibujar y lee el PC muy de vez en cuando: en nuestras pruebas, unos 50 MB de RAM y menos del 0,2 % de un núcleo. Si la cierras, se queda junto al reloj gastando lo mismo.</p></details>
           <details><summary>¿Hace falta una cuenta?</summary><p>No. Vigía no pide correo ni registro y no manda datos tuyos a ningún sitio. Solo pregunta a GitHub si hay versión nueva.</p></details>
           <details><summary>¿Por qué pide permisos de administrador?</summary><p>Para leer las temperaturas y cambiar ajustes del sistema. Sin permisos, el Monitor y las secciones de solo lectura funcionan igual.</p></details>

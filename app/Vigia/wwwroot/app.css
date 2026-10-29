@@ -126,6 +126,7 @@ dd { margin: 0; font: 500 14px "JBMono", monospace; font-variant-numeric: tabula
 .targets label { display: contents; cursor: pointer; }
 .targets input { accent-color: var(--violet); width: 16px; height: 16px; margin: 0; }
 .targets .path { display: block; font-size: 11px; color: var(--fg-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.targets .care-why { display: block; font-size: 11px; color: var(--fg-3); white-space: normal; overflow-wrap: anywhere; }
 .targets .size { font: 500 13px "JBMono", monospace; font-variant-numeric: tabular-nums; }
 .clean-foot { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; border-top: 1px solid var(--line); }
 .clean-foot p { margin: 0; color: var(--fg-2); font-size: 13px; }

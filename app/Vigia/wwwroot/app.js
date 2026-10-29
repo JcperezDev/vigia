@@ -167,7 +167,9 @@
   // por qué lo «con precaución» no se marca solo
   const CARE_WHY = {
     recycle: 'Con precaución: lo borrado de la Papelera no se recupera',
-    d3d_cache: 'Con precaución: los juegos vuelven a compilar los shaders y la primera partida puede dar tirones',
+    d3d_cache: 'Con precaución: se regenera sola, así que no da más FPS; el juego vuelve a compilar los shaders y las primeras partidas pueden dar tirones. Con un juego abierto no se borra',
+    nv_dx: 'Con precaución: se regenera sola, así que no da más FPS; el juego vuelve a compilar los shaders y las primeras partidas pueden dar tirones. Con un juego abierto no se borra', nv_gl: 'Con precaución: se regenera sola, así que no da más FPS; el juego vuelve a compilar los shaders y las primeras partidas pueden dar tirones. Con un juego abierto no se borra', amd_dx: 'Con precaución: se regenera sola, así que no da más FPS; el juego vuelve a compilar los shaders y las primeras partidas pueden dar tirones. Con un juego abierto no se borra', amd_dxc: 'Con precaución: se regenera sola, así que no da más FPS; el juego vuelve a compilar los shaders y las primeras partidas pueden dar tirones. Con un juego abierto no se borra', amd_vk: 'Con precaución: se regenera sola, así que no da más FPS; el juego vuelve a compilar los shaders y las primeras partidas pueden dar tirones. Con un juego abierto no se borra',
+    wu_download: 'Con precaución: son actualizaciones ya instaladas; Windows las vuelve a bajar si le hacen falta. Si Windows Update está trabajando, no se tocan',
     crash_dumps: 'Con precaución: sirven para saber por qué se cerró un programa',
     wer: 'Con precaución: sirven para saber por qué falló Windows o un programa',
   };
@@ -183,8 +185,11 @@
       cb.checked = has && t.care !== 'care'; cb.disabled = !has; cb.dataset.id = t.id;
       cb.addEventListener('change', updateTotal);
       li.querySelector('.tname').textContent = t.name;
-      li.querySelector('.path').textContent = (t.id === 'startup_left' ? `${t.path} · ${t.files} entradas` : `${t.path} · ${t.files} archivos`)
-        + (t.care === 'care' ? ` · ${CARE_WHY[t.id] || 'Con precaución'}` : '');
+      // en trozos: la ruta no se traduce, el contador y el aviso cada uno por su lado
+      li.querySelector('.path').append(el('span', null, t.path), ' · ',
+        el('span', null, t.id === 'startup_left' ? `${t.files} entradas` : `${t.files} archivos`),
+        );
+      if (t.care === 'care') li.querySelector('.path').after(el('span', 'care-why', CARE_WHY[t.id] || 'Con precaución'));
       li.querySelector('.size').textContent = t.id === 'startup_left' ? '' : gb(t.bytes);
       return li;
     }));
