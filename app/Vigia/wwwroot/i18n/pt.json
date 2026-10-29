@@ -2049,5 +2049,17 @@
  "Sugerencias reúne lo de Juegos (pantalla, plan de energía, modo juego…) con botón para arreglarlo, más el drift y la respuesta del ratón y del mando.": "Sugestões reúne o que estava em Jogos (tela, plano de energia, modo de jogo…) com botão para corrigir, além do drift e da resposta do mouse e do controle.",
  "Optimizar discos sale del menú: Windows ya lo hace solo cada semana. Si alguien lo apagó, Sugerencias avisa y lo vuelve a encender.": "Otimizar discos sai do menu: o Windows já faz isso sozinho toda semana. Se alguém desligou, Sugestões avisa e liga de novo.",
  "Modo simple: el fondo de VigíaOS por detrás y, al optimizar, también lo pone en el escritorio.": "Modo simples: o fundo do VigíaOS fica atrás e, ao otimizar, também é colocado na área de trabalho.",
- "Los botones para volver a revisar dicen «Analizar» en todas partes.": "Os botões para revisar de novo dizem «Analisar» em todo lugar."
+ "Los botones para volver a revisar dicen «Analizar» en todas partes.": "Os botões para revisar de novo dizem «Analisar» em todo lugar.",
+ "Revisando la conexión, la pantalla, la memoria, los discos, el ratón y el mando…": "Verificando a conexão, a tela, a memória, os discos, o mouse e o controle…",
+ "Tu ratón va a {0} Hz": "Seu mouse está a {0} Hz",
+ "Cada movimiento llega hasta {0} ms tarde.": "Cada movimento chega até {0} ms atrasado.",
+ "Lo notas como input lag al apuntar.": "Você sente como input lag ao mirar.",
+ "{0} Hz medidos mientras movías el ratón": "{0} Hz medidos enquanto você movia o mouse",
+ "El stick izquierdo del mando se mueve solo": "O analógico esquerdo do controle se move sozinho",
+ "El stick derecho del mando se mueve solo": "O analógico direito do controle se move sozinho",
+ "Ratón, mando y avisos de versión": "Mouse, controle e avisos de versão",
+ "«Analizar» en Sugerencias ya mira el ratón y el mando solo: si el ratón va a pocos Hz o un stick se mueve solo, sale como sugerencia con qué hacer.": "«Analisar» em Sugestões já verifica o mouse e o controle sozinho: se o mouse está com poucos Hz ou um analógico se move sozinho, aparece como sugestão com o que fazer.",
+ "Cuando sale una versión nueva, Novedades se abre sola una vez con el botón «Actualizar».": "Quando sai uma versão nova, Novidades abre sozinha uma vez com o botão «Atualizar».",
+ "Juegos: «Resolución» a secas y sin la medida de FPS.": "Jogos: só «Resolução» e sem a medição de FPS.",
+ "Modo simple: sin el fondo detrás de la app; el fondo de VigíaOS se pone en el escritorio al optimizar.": "Modo simples: sem o fundo atrás do app; o fundo do VigíaOS é colocado na área de trabalho ao otimizar."
 }

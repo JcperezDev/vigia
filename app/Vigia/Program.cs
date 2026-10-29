@@ -587,7 +587,10 @@ sealed partial class MainForm : Form
                     Send("healthScan", await Task.Run(() => Health.Scan(_tel)));
                     break;
                 case "suggest":
-                    Send("suggest", await Task.Run(() => Suggestions.Run(_tel)));
+                    // a la vez que el resto: unos segundos mirando el ratón y los sticks, sin pedirle nada al usuario
+                    var sense = Task.Run(() => Drift.Sense(this, 3000));
+                    var srep = await Task.Run(() => Suggestions.Run(_tel));
+                    Send("suggest", Suggestions.WithInput(srep, await sense));
                     break;
                 case "diagRun":
                     Send("diagRun", await Task.Run(() => Diagnostics.Run(7)));

@@ -389,7 +389,7 @@
       <p class="result" id="gm-result" aria-live="polite"></p>
       <section class="box stretch" id="ds-box">
         <div>
-          <h2>Resolución estirada</h2>
+          <h2>Resolución</h2>
           <p class="sub" id="ds-sub">Leyendo la pantalla…</p>
           <p class="sub ds-est" id="ds-est"></p>
         </div>
@@ -407,21 +407,6 @@
           <button class="btn" id="ds-undo">Volver ya</button>
         </div>
         <p class="result ds-result" id="ds-result" aria-live="polite"></p>
-      </section>
-      <section class="tw-group">
-        <h2>FPS: antes y después</h2>
-        <div class="gm-ctl">
-          <select id="gm-dur" class="st-select" aria-label="Cuánto medir">
-            <option value="120">2 minutos de juego</option>
-            <option value="300" selected>5 minutos de juego</option>
-            <option value="600">10 minutos de juego</option>
-          </select>
-          <button class="btn primary" id="gm-measure">Medir mi próxima partida</button>
-          <button class="btn" id="gm-cancel" hidden>Cancelar</button>
-        </div>
-        <p class="src gm-state" id="gm-state" aria-live="polite"></p>
-        <div class="gm-compare" id="gm-compare"></div>
-        <ul class="rows" id="gm-hist"></ul>
       </section>
       <section class="tw-group">
         <h2>Fortnite</h2>
@@ -572,23 +557,7 @@
         <button class="btn" id="s-run">Analizar</button>
       </header>
       <p class="result" id="sug-msg" aria-live="polite"></p>
-      <ul class="findings sugs" id="sugs"><li class="empty">Revisando la conexión, la pantalla, la memoria y los discos…</li></ul>
-      <section class="box stretch drift" id="dr-box">
-        <div>
-          <h2>Drift del ratón y del mando</h2>
-          <p class="sub" id="dr-sub">Suelta el ratón y el mando 10 segundos: Vigía mira si se mueven solos.</p>
-        </div>
-        <div class="ds-act"><button class="btn primary" id="dr-run">Probar</button></div>
-        <ul class="findings" id="dr-list" hidden></ul>
-      </section>
-      <section class="box stretch drift" id="hz-box">
-        <div>
-          <h2>Respuesta del ratón y del mando</h2>
-          <p class="sub" id="hz-sub">Cuántas veces por segundo mandan datos al PC. Menos Hz = más input lag.</p>
-        </div>
-        <div class="ds-act"><button class="btn primary" id="hz-run">Medir</button></div>
-        <ul class="findings" id="hz-list" hidden></ul>
-      </section>
+      <ul class="findings sugs" id="sugs"><li class="empty">Revisando la conexión, la pantalla, la memoria, los discos, el ratón y el mando…</li></ul>
     </section>
     <section class="view" id="view-diag" hidden>
       <header class="head">
