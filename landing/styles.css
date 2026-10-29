@@ -272,7 +272,7 @@ h2 { font-size: clamp(2rem, 3.8vw, 3.3rem); font-weight: 780; font-stretch: 112%
 footer { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 30px; padding: 28px var(--edge) 40px; border-top: 1px solid var(--rule); font-size: 14.5px; color: var(--ink-3); }
 footer .brand { font-size: 16px; color: var(--ink); margin-right: auto; }
 footer .brand svg { width: 20px; height: 20px; }
-footer .brand svg.do { width: 18px; height: 12px; margin-left: 10px; border-radius: 2px; opacity: .85; stroke: none; }   /* bandera dominicana, discreta */
+footer svg.do { width: 18px; height: 12px; border-radius: 2px; opacity: .85; flex: none; stroke: none; }   /* bandera dominicana, discreta, al final a la derecha */
 footer a { color: var(--ink-3); text-decoration: none; }
 footer a:hover { color: var(--ink); text-decoration: underline; }
 
