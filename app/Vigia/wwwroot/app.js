@@ -1084,7 +1084,7 @@
     if (!$('ds-w').value) { $('ds-w').value = Math.round(dsNative.height * 4 / 3 / 2) * 2; $('ds-h').value = dsNative.height; }
     $('ds-custom').hidden = $('ds-mode').value !== 'custom';
     $('ds-apply').disabled = false;
-    $('ds-apply').textContent = d.stretched ? 'Cambiar' : 'Estirar';
+    $('ds-apply').textContent = 'Aplicar';
     dsEstimate();
   }
   function dsConfirm(show) {

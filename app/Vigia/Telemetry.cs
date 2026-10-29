@@ -74,6 +74,23 @@ public sealed class Telemetry : IDisposable
         return list;
     }
 
+    bool _cpuTempNote;
+
+    // Un sensor sin driver devuelve 0 en vez de nada: 0 °C (o 150+) no es una lectura real.
+    static double? Temp(IHardware h, params string[] names)
+    {
+        foreach (var n in names)
+            foreach (var s in h.Sensors)
+                if (s.SensorType == SensorType.Temperature && s.Name.Equals(n, StringComparison.OrdinalIgnoreCase) && s.Value is float v && v > 1 && v < 150)
+                    return Math.Round(v, 2);
+        return null;
+    }
+
+    static bool PawnIoInstalled()
+    {
+        try { using var k = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(@"SYSTEM\CurrentControlSet\Services\PawnIO"); return k is not null; } catch { return false; }
+    }
+
     static double? S(IHardware h, SensorType t, params string[] names)
     {
         foreach (var n in names)
@@ -119,7 +136,13 @@ public sealed class Telemetry : IDisposable
                 if (_baseMhz > 0) clock = Math.Round(_baseMhz.Value * perf / 100 / 1000, 2);
             }
             load ??= cpuH is null ? null : S(cpuH, SensorType.Load, "CPU Total");
-            double? temp = cpuH is null ? null : S(cpuH, SensorType.Temperature, "CPU Package", "Core (Tctl/Tdie)", "Core Average", "Core Max");
+            double? temp = cpuH is null ? null : Temp(cpuH, "CPU Package", "Core (Tctl/Tdie)", "Core (Tdie)", "Core (Tctl)", "CCDs Max (Tdie)", "CCD1 (Tdie)", "Core Average", "Core Max");
+            if (temp is null && !_cpuTempNote && cpuH is not null)
+            {
+                // Sin el driver PawnIO, LibreHardwareMonitor deja los sensores del procesador en 0: mejor decir por qué que mostrar 0 °C.
+                _cpuTempNote = true;
+                if (!PawnIoInstalled()) _notes.Add("Para ver los grados del procesador hace falta el driver PawnIO, que no está instalado en este PC.");
+            }
             if (clock is null && cpuH is not null)
             {
                 var clocks = cpuH.Sensors.Where(s => s.SensorType == SensorType.Clock && s.Name.StartsWith("Core #") && s.Value > 0).Select(s => (double)s.Value!.Value).ToList();
