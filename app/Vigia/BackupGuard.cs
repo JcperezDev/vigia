@@ -274,7 +274,8 @@ public static class BackupGuard
             if (!isSealed) return "un acceso en el Inicio de todos los usuarios solo se repone desde una copia sellada por Vigía";
             ok = ext is ".lnk" or ".url" && Path.GetDirectoryName(full)!.Equals(common.TrimEnd('\\'), StringComparison.OrdinalIgnoreCase);
         }
-        else ok = Under(local) && ext is ".ini" or ".cfg" or ".xml" or ".json" && full.Contains(@"\Saved\Config\", StringComparison.OrdinalIgnoreCase);
+        // de juegos solo se guarda el archivo de Fortnite (en su sitio de siempre): nada de «cualquier .ini bajo Saved\Config»
+        else ok = local.Length > 0 && Eq(full, Path.Combine(local, "FortniteGame", "Saved", "Config", "WindowsClient", "GameUserSettings.ini"));
         if (!ok) return "ese archivo no es de los que guarda Vigía";
 
         // ningún tramo puede ser un enlace (junction o simbólico): llevaría la escritura a otro sitio
@@ -319,7 +320,8 @@ public static class BackupGuard
         Check(Bad(F(Path.Combine(local, "FortniteGame", "Saved", "Config", "WindowsClient", "x.exe"))), "copias: extensión fuera de la lista se rechaza");
         Check(Bad(F(@"\\servidor\recurso\x.ini")), "copias: rutas de red se rechazan");
         Check(Bad(F(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonStartup), "x.lnk"))), "copias: Inicio de todos los usuarios sin sello se rechaza");
-        Check(!Bad(F(Path.Combine(local, "VigiaPruebaNoExiste", "Saved", "Config", "WindowsClient", "GameUserSettings.ini"))), "copias: la configuración de un juego en tu perfil se permite");
+        Check(!Bad(F(Path.Combine(local, "FortniteGame", "Saved", "Config", "WindowsClient", "GameUserSettings.ini"))), "copias: la configuración de Fortnite en tu perfil se permite");
+        Check(Bad(F(Path.Combine(local, "VigiaPruebaNoExiste", "Saved", "Config", "WindowsClient", "GameUserSettings.ini"))), "copias: otro .ini bajo Saved\\Config no se repone (Vigía no lo guarda)");
         Check(Bad(new JsonObject { ["t"] = "appx", ["name"] = "x'; calc; '", ["label"] = "x" }), "copias: nombre de app con comillas se rechaza");
         Check(Bad(new JsonObject { ["t"] = "hz", ["device"] = @"\\.\DISPLAY1"" & calc", ["w"] = 1920, ["h"] = 1080, ["hz"] = 60, ["label"] = "x" }), "copias: pantalla no válida se rechaza");
         Check(Bad(new JsonObject { ["t"] = "display", ["w"] = 99999, ["h"] = 1, ["hz"] = 60, ["label"] = "x" }), "copias: resolución fuera de rango se rechaza");

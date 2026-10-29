@@ -141,7 +141,9 @@ public static class Games
         foreach (var (k, label) in Info)
             if (ini.Get(k) is { } v) list.Add(new(k, label, v, null, true));
         var ro = (File.GetAttributes(path) & FileAttributes.ReadOnly) != 0;
-        return new(true, path, ro, FortniteRunning(), ModeOf(ini), list.Where(s => s.Want is not null).All(s => s.Ok), list);
+        // «aplicado» solo si reconoce al menos una clave del perfil y todas están: una versión sin ninguna no cuenta como hecha
+        var mine = list.Where(s => s.Want is not null).ToList();
+        return new(true, path, ro, FortniteRunning(), ModeOf(ini), mine.Count > 0 && mine.All(s => s.Ok), list);
     }
 
     static bool Same(string v, string want) =>
