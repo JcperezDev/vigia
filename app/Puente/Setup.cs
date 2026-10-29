@@ -472,6 +472,7 @@ static partial class Program
     static void Activate(State st, Version v, Version? migrated)
     {
         var exe = Path.Combine(Layout.VersionDir(v), "Vigia.exe");
+        PrepareSensors(exe);
         try { Shortcuts(exe); } catch (Exception e) { Log("accesos: " + e.Message); }
         try { RegisterApp(exe, v); } catch (Exception e) { Log("registro en Apps: " + e.Message); }
         try { AutoStartMigrate(exe); } catch (Exception e) { Log("inicio con Windows: " + e.Message); }
@@ -479,6 +480,26 @@ static partial class Program
     }
 
     // ---------------------------------------------------------------- integridad de una versión instalada
+
+    // Solo ejecuta código de la versión ya verificada, bajo Program Files protegido.
+    static void PrepareSensors(string exe)
+    {
+        if (Layout.Test) return; // los fixtures no son una instalación real
+        Ui.Show("Preparando sensores de Vigía", "Comprobando la dependencia oficial firmada PawnIO para leer la temperatura del procesador.", double.NaN);
+        try
+        {
+            var dir = Path.GetDirectoryName(exe)!;
+            if (FilesProblem(dir) is { } bad) { Log("sensores: integridad: " + bad); return; }
+            using var p = Process.Start(new ProcessStartInfo(exe, "--setup-sensors")
+                { UseShellExecute = false, CreateNoWindow = true, WorkingDirectory = dir });
+            if (p is null) { Log("sensores: no se pudo iniciar la preparación"); return; }
+            if (!p.WaitForExit(150_000)) { try { p.Kill(); } catch { } Log("sensores: tiempo agotado"); return; }
+            Log(p.ExitCode == 0 ? "sensores: dependencia presente; lectura física pendiente de comprobar"
+                : p.ExitCode == 4 ? "sensores: aplazado por juego abierto; reintentar con Reparar"
+                : "sensores: preparación falló, código " + p.ExitCode + "; usar Reparar");
+        }
+        catch (Exception e) { Log("sensores: " + e.Message); }
+    }
 
     const string ListName = ".vigia-archivos.json";
 

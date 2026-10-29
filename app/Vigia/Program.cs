@@ -17,6 +17,15 @@ static class Program
         // Ayudante con permisos (lo abre la propia Vigía con UAC). Lista cerrada de operaciones; ver Elevation.cs.
         if (args.Length >= 1 && args[0] == "--broker") return Elevation.RunBroker(args);
         // Lo usa Puente antes de activar una versión nueva: ¿están sus piezas y se pueden leer? Solo lee; no abre ventanas.
+        if (args.Length >= 1 && args[0] == "--setup-sensors")
+        {
+            if (!Elevation.IsAdmin || InstallTrust.Problem(AppContext.BaseDirectory) is not null) return 3;
+            if (AutoStart.Busy()) return 4; // aplazado: no cargar drivers con un juego abierto
+            if (Pawn.Installed()) return 0;
+            var ok = Pawn.InstallIfMissing(out var error, asked: true);
+            if (error is not null) Console.Error.WriteLine(error);
+            return ok ? 0 : 1;
+        }
         if (args.Length >= 1 && args[0] == "--install-check") return Updates.InstallCheck();
         if (args.Length >= 2 && args[0] == "--probe")
         {
@@ -433,7 +442,7 @@ sealed partial class MainForm : Form
             if (_snapPath is null) InitTray();   /* --bench mide con el icono puesto */
             await InitAsync();
             if (_snapPath is null) _ = UndoRetiredAsync();
-            if (_snapPath is null) _ = PawnAsync();
+            // La dependencia de sensores se prepara en Puente, nunca al abrir Monitor.
             if (_startHidden)
             {
                 Hide(); ShowInTaskbar = true; Opacity = 1; CenterToScreen();
@@ -549,18 +558,6 @@ sealed partial class MainForm : Form
     /// </summary>
     CancellationTokenSource? _dsGuard;
 
-    /// <summary>Driver para los grados del procesador: si falta, se pregunta en Monitor. Solo con un «sí» se instala, sin juego abierto.</summary>
-    async Task PawnAsync()
-    {
-        try
-        {
-            if (Pawn.Installed()) return;
-            await Task.Delay(TimeSpan.FromSeconds(20));
-            if (_cfg.PawnConsent != true) { Send("pawnAsk", new { declined = _cfg.PawnConsent == false }); return; }
-            await PawnInstallAsync();
-        }
-        catch { }
-    }
 
     bool _pawnBusy;
     async Task PawnInstallAsync()
@@ -734,6 +731,7 @@ sealed partial class MainForm : Form
                 _ = Task.Run(GamesPayload).ContinueWith(t => { try { BeginInvoke(() => Send("games", t.Result)); } catch { } }, TaskScheduler.Default);
                 break;
             case "_pawn":
+                if (p.TryGetProperty("ok", out var ready) && ready.ValueKind == JsonValueKind.True) _tel.CpuDriverReady();
                 Send("pawnState", new { ok = p.TryGetProperty("ok", out var k) && k.ValueKind == JsonValueKind.True, waiting = false,
                     error = p.TryGetProperty("error", out var e) && e.ValueKind == JsonValueKind.String ? e.GetString() : null });
                 break;
@@ -1190,7 +1188,7 @@ sealed partial class MainForm : Form
                     if (msg["yes"] is not System.Text.Json.Nodes.JsonValue yv || yv.GetValueKind() is not (System.Text.Json.JsonValueKind.True or System.Text.Json.JsonValueKind.False)) break;
                     _cfg.PawnConsent = (bool)yv;
                     _cfg.Save();
-                    if (_cfg.PawnConsent == true) await PawnInstallAsync();
+                    // Compatibilidad con mensajes antiguos: no instalar desde Monitor.
                     break;
                 case "openSource":
                     // la fuente de un ajuste: el frontend solo manda el id; la URL sale del catálogo, nunca del mensaje

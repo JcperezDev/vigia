@@ -254,7 +254,7 @@ public sealed class Telemetry : IDisposable
     public IEnumerable<string> Dump()
     {
         lock (_lock)
-            foreach (var h in _closed ? Enumerable.Empty<IHardware>() : _pc.Hardware.SelectMany(All))
+            foreach (var h in _closed ? Enumerable.Empty<IHardware>() : _pc.Hardware.SelectMany(All).Concat(_cpuLate?.Hardware.SelectMany(All) ?? Enumerable.Empty<IHardware>()))
             {
                 h.Update();
                 foreach (var s in h.Sensors) yield return $"{h.HardwareType}|{h.Name}|{s.SensorType}|{s.Name}|{s.Value}";

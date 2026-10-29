@@ -6,8 +6,8 @@ namespace Vigia;
 
 /// <summary>
 /// PawnIO es el driver con el que LibreHardwareMonitor lee los grados del procesador. Sin él sale 0 °C.
-/// Vigía trae el instalador oficial firmado (drivers\PawnIO_setup.exe, sin tocar). Solo se instala si el usuario dice
-/// que sí en Monitor (es un driver de kernel), nunca con un juego abierto y solo si no estaba ya.
+/// Vigía trae el instalador oficial firmado (drivers\PawnIO_setup.exe, sin tocar). Puente prepara la dependencia
+/// durante instalación/actualización elevada, nunca al abrir Monitor ni con un juego abierto.
 /// Al desinstalar Vigía se quita únicamente si lo puso Vigía; un PawnIO de otra aplicación no se toca.
 /// Sin PawnIO todo funciona igual salvo los grados del procesador.
 /// </summary>
@@ -34,15 +34,17 @@ static class Pawn
     public static bool InstallIfMissing(out string? error, bool asked = false)
     {
         error = null;
-        if (Installed() || !File.Exists(Setup)) return false;
+        if (Installed()) return false;
+        if (AutoStart.Busy()) { error = "Hay un juego abierto: la preparación de sensores queda aplazada."; return false; }
+        if (!File.Exists(Setup)) { error = "Falta el componente oficial de sensores en la instalación. Usa Reparar."; return false; }
         // si ya falló una vez, no insistir en cada arranque: una vez por semana como mucho
         if (!asked && Load() is { Ok: false } last && DateTimeOffset.UtcNow - last.At < TimeSpan.FromDays(7)) return false;
         try
         {
             var code = RunPinned(Setup, "-install -silent", Sha256, TimeSpan.FromMinutes(2), out var why);
             if (code is null) { error = why; Save(false, error); return false; }
-            var ok = Installed();
-            if (!ok) error = $"El instalador de PawnIO terminó con código {code}.";
+            var ok = code == 0 && Installed();
+            if (!ok) error = $"La preparación de sensores terminó con código {code}; dependencia no confirmada. Usa Reparar.";
             Save(ok, error);
             return ok;
         }
@@ -76,7 +78,7 @@ static class Pawn
 
     static void Save(bool ok, string? error)
     {
-        try { Directory.CreateDirectory(Path.GetDirectoryName(Mark)!); File.WriteAllText(Mark, JsonSerializer.Serialize(new State(true, ok, DateTimeOffset.UtcNow, error))); } catch { }
+        try { Directory.CreateDirectory(Path.GetDirectoryName(Mark)!); File.WriteAllText(Mark, JsonSerializer.Serialize(new State(ok || Load()?.ByVigia == true, ok, DateTimeOffset.UtcNow, error))); } catch { }
     }
 
     /// <summary>
