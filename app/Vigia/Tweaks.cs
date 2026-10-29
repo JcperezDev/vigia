@@ -51,7 +51,9 @@ public static class Tweaks
     {
         if (CatalogOverride is not null) return CatalogOverride().Select(ToDef).ToList();
         if (_all is not null) return _all;
-        var root = JsonNode.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "tweaks.json")))!.AsArray();
+        // el catálogo va dentro del ejecutable: un tweaks.json suelto junto al .exe no se lee (lo podría cambiar código sin privilegios)
+        using var res = typeof(Tweaks).Assembly.GetManifestResourceStream("Vigia.tweaks.json") ?? throw new InvalidOperationException("Falta el catálogo de ajustes dentro de Vigía.");
+        var root = JsonNode.Parse(res)!.AsArray();
         return _all = root.Select(n => ToDef(n!.AsObject())).ToList();
     }
 
@@ -668,6 +670,8 @@ public static class Tweaks
         var all = All().ToList();
         Check(all.Count > 0 && all.Select(d => d.Id).Distinct().Count() == all.Count, $"catálogo: {all.Count} ajustes sin ids repetidos");
         Check(all.All(d => Statuses.Contains(d.Status)), "todos con un estado válido");
+        Check(typeof(Tweaks).Assembly.GetManifestResourceStream("Vigia.tweaks.json") is not null && !File.Exists(Path.Combine(AppContext.BaseDirectory, "tweaks.json")),
+            "catálogo dentro del ejecutable, sin tweaks.json suelto"); 
         Check(all.Where(d => d.Retired).All(d => d.Status == "deprecated"), $"retirados en «deprecated» ({all.Count(d => d.Retired)})");
         Check(all.All(d => d.Source.Length == 0 || Support.IsSourceAllowed(d.Source)), $"fuentes oficiales con HTTPS ({all.Count(d => d.Source.Length > 0)})");
         var plan = Simple.Build(new Simple.Answers(Games: true, Laptop: false, Privacy: true)).Stages.SelectMany(s => s.Tweaks).ToList();
