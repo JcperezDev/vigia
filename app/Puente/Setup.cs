@@ -738,17 +738,31 @@ static partial class Program
     {
         // las pruebas no tocan el Programador de tareas del PC: la «tarea» es un XML exportado en su carpeta temporal
         if (Layout.Test) return File.Exists(TestTaskFile) ? File.ReadAllText(TestTaskFile) : null;
+        // Primero el archivo de la tarea (UTF-16 con BOM; Puente corre con permisos y puede leerlo). «schtasks /xml» por
+        // tubería no sale en UTF-16 sino en la página de códigos de la consola: leído como Unicode era basura, la tarea
+        // vieja no se reconocía y se quedaba (con privilegios máximos y apuntando a la carpeta vieja ya borrada).
+        try
+        {
+            var f = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "Tasks", "Vigia", "Iniciar Vigia");
+            if (File.Exists(f)) return File.ReadAllText(f);
+        }
+        catch { }
         try
         {
             using var p = Process.Start(new ProcessStartInfo(Native.Sys("schtasks.exe"), $"/query /tn \"{LegacyTask}\" /xml")
-            { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true, StandardOutputEncoding = Encoding.Unicode });
+            { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true });
             if (p is null) return null;
-            var xml = p.StandardOutput.ReadToEnd();
+            using var ms = new MemoryStream();
+            p.StandardOutput.BaseStream.CopyTo(ms);
             p.WaitForExit(15_000);
-            return p.ExitCode == 0 ? xml : null;
+            return p.ExitCode == 0 ? DecodeToolOutput(ms.ToArray()) : null;
         }
         catch { return null; }
     }
+
+    /// <summary>Salida de una herramienta de Windows: UTF-16 si lo parece (BOM o ceros), si no bytes de consola.</summary>
+    internal static string DecodeToolOutput(byte[] b) =>
+        b.Length >= 2 && ((b[0] == 0xFF && b[1] == 0xFE) || b[1] == 0) ? Encoding.Unicode.GetString(b).TrimStart('\uFEFF') : Encoding.Latin1.GetString(b);
 
     static string? TaskExe(string xml) => Regex.Match(xml, @"<Command>\s*""?([^""<]+?)""?\s*</Command>") is { Success: true } m ? Environment.ExpandEnvironmentVariables(m.Groups[1].Value) : null;
 

@@ -172,9 +172,24 @@ public static class AutoStart
     [System.Runtime.InteropServices.DllImport("shell32.dll")] static extern int SHQueryUserNotificationState(out int state);
     public static bool Busy()
     {
+        // Sin escritorio (sesión 0: servicio o instalación desatendida) Windows contesta «ocupado» siempre y no hay
+        // ventana delante que mirar: ahí cuenta si corre un juego conocido. Antes eso aplazaba siempre los sensores.
+        if (System.Diagnostics.Process.GetCurrentProcess().SessionId == 0) return KnownGameRunning();
         if (SHQueryUserNotificationState(out var s) == 0 && s is 2 /* busy: pantalla completa */ or 3 /* D3D a pantalla completa */ or 4 /* presentación */ or 7 /* app UWP a pantalla completa */)
             return true;
         return Borderless();
+    }
+
+    internal static bool KnownGameRunning()
+    {
+        foreach (var n in Fps.Known.Keys)
+        {
+            var ps = System.Diagnostics.Process.GetProcessesByName(n);
+            var any = ps.Length > 0;
+            foreach (var p in ps) p.Dispose();
+            if (any) return true;
+        }
+        return false;
     }
 
     // «Ventana a pantalla completa» (Fortnite, Valorant, CS2…): Windows no la cuenta como pantalla completa,
