@@ -52,7 +52,8 @@ public static class Updates
         {
             var ui = Path.Combine(AppContext.BaseDirectory, "wwwroot");
             if (!File.Exists(Path.Combine(ui, "index.html")) || !File.Exists(Path.Combine(ui, "app.js"))) return 10;
-            foreach (var l in new[] { "es", "en", "pt", "fr", "de" })
+            // el español es el idioma base (los textos de la interfaz): no tiene archivo propio, solo los otros cuatro
+            foreach (var l in new[] { "en", "pt", "fr", "de" })
                 if (!File.Exists(Path.Combine(ui, "i18n", l + ".json"))) return 11;
             if (Tweaks.List().Count == 0) return 12;
             if (AppCatalog.Catalog is null) return 13;
@@ -111,6 +112,8 @@ public static class Updates
         Check(TryParseTag("1.2.3-rc.1", out _, out var p4) && p4, "1.2.3-rc.1 es de prueba");
         Check(!TryParseTag("latest", out _, out _) && !TryParseTag("", out _, out _) && !TryParseTag(null, out _, out _) && !TryParseTag("1.2.3.4.5", out _, out _), "versiones raras se rechazan sin excepción");
         Check(TryParseTag("0.20.18", out var n, out _) && TryParseTag("0.20.9", out var o, out _) && n > o, "0.20.18 > 0.20.9 (no por texto)");
+        // la misma comprobación que hace Puente antes de activar una versión, sobre esta compilación de verdad
+        { var ic = InstallCheck(); Check(ic == 0, "--install-check de esta compilación = 0 (devolvió " + ic + ")"); }
         // Puente: la firma se comprueba sobre bytes en memoria; nada sin firma válida, vacío o gigante
         var fake = System.Text.Encoding.UTF8.GetBytes("MZ no es Puente");
         Check(!PuenteSigOk(fake, ""), "Puente sin firma: no");
