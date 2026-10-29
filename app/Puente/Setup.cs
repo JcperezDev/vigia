@@ -307,17 +307,35 @@ static partial class Program
         var target = Layout.VersionDir(m.Version);
         var aside = Aside(target);
         if (Directory.Exists(aside)) DeleteTree(aside, quiet: true);   // de un corte viejo que Recover ya no necesitaba
-        if (Directory.Exists(target))
+        var closed = false;
+        try
         {
-            // la misma versión (reparar): se aparta y se guarda hasta que la nueva pase la prueba;
-            // si está abierta, primero se cierra Vigía
-            // si el servicio de sensores no se paró, sigue usando esta carpeta: no se aparta (Puente no mata un servicio)
-            if (cur == m.Version && !CloseVigia(waitPid))
-                throw new InvalidOperationException("el servicio Sensores de Vigía no se detuvo a tiempo; no se tocó nada. Inténtalo de nuevo en un momento.");
-            Journal.Write("install", m.Version, cur, "apartando");
-            MoveDir(target, aside);
+            if (Directory.Exists(target))
+            {
+                // la misma versión (reparar): se aparta y se guarda hasta que la nueva pase la prueba;
+                // si está abierta, primero se cierra Vigía
+                // si el servicio de sensores no se paró, sigue usando esta carpeta: no se aparta (Puente no mata un servicio)
+                if (cur == m.Version)
+                {
+                    closed = true;
+                    if (!CloseVigia(waitPid))
+                        throw new InvalidOperationException("el servicio Sensores de Vigía no se detuvo a tiempo; no se tocó nada. Inténtalo de nuevo en un momento.");
+                }
+                Journal.Write("install", m.Version, cur, "apartando");
+                MoveDir(target, aside);
+            }
+            MoveDir(stage, target);
         }
-        MoveDir(stage, target);
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            // un archivo de la versión en uso estaba abierto por otro programa: se deja todo como estaba
+            if (!Directory.Exists(target) && Directory.Exists(aside)) MoveDir(aside, target);
+            DeleteTree(stage, quiet: true);
+            Journal.Clear();
+            if (closed && Native.IsAdmin && !Layout.Test) StartSensors();
+            Log("reparación: un archivo estaba en uso (" + e.Message + ")");
+            throw new InvalidOperationException("otro programa tiene abierto un archivo de Vigía; no se cambió nada. Ciérralo (o reinicia) y vuelve a intentarlo.");
+        }
 
         Journal.Write("install", m.Version, cur, "verificando");
         Ui.Show($"Comprobando Vigía {m.Version}", "Viendo que abre bien antes de cambiar nada.", double.NaN);
@@ -327,6 +345,7 @@ static partial class Program
             if (Directory.Exists(aside)) { DeleteTree(target, quiet: true); MoveDir(aside, target); }   // vuelve tal cual estaba
             else if (cur != m.Version) DeleteTree(target, quiet: true);
             Journal.Clear();
+            if (closed && Native.IsAdmin && !Layout.Test) StartSensors();
             throw new InvalidOperationException("la versión nueva no arrancó bien en este PC, así que se dejó la que tenías.");
         }
 

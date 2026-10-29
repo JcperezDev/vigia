@@ -18,7 +18,9 @@ assert un.index('RemoveSensors();') < un.index('CloseVigia(null);'), 'uninstall 
 close = s[s.index('static bool CloseVigia'):]
 assert close.index('StopSensors();') < close.index('GetProcessesByName'), 'service must release version files before replacing them'
 assert 'return sensorsStopped;' in close and 'SessionId == 0' in close, 'CloseVigia reports a stuck service and never kills it'
-assert 'if (cur == m.Version && !CloseVigia(waitPid))' in s, 'repair must not move a folder the service still uses'
+rep = s[s.index('var aside = Aside(target);'):s.index('Journal.Write("install", m.Version, cur, "verificando");')]
+assert 'if (!CloseVigia(waitPid))' in rep and rep.index('CloseVigia(waitPid)') < rep.index('MoveDir(target, aside)'), 'repair must not move a folder the service still uses'
+assert 'StartSensors();' in rep[rep.index('catch'):], 'a failed repair must bring the sensor service back'
 assert 'static bool StopSensors()' in sv and 'SvcState(' in sv, 'stop waits for STOPPED by state number, not by localized label'
 assert 'if (!StopSensors())' in sv, 'service is not repointed while the old copy still runs'
 assert 'Layout.Under(exe, Layout.Root)' in sv, 'service may only point at the protected install'
