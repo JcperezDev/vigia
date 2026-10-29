@@ -22,14 +22,16 @@ public static class Simple
 
     public static Plan Build(Answers a)
     {
-        var perf = new List<string> { "priority-separation", "browsers-bg", "startup-delay", "end-task" };
-        if (!a.Laptop) perf.AddRange(["power-ultimate", "hibernate-off"]);
-        if (a.Games) perf.AddRange(["mmcss-games", "gpu-high", "windowed-opt", "hags", "game-mode", "mouse-raw", "accessibility-keys"]);
+        var perf = new List<string> { "priority-separation", "browsers-bg", "widgets-off", "startup-delay", "end-task" };
+        // el plan primero: los dos de energía de después se guardan en el plan activo
+        if (!a.Laptop) perf.AddRange(["power-ultimate", "usb-suspend-off", "pcie-aspm-off", "hibernate-off"]);
+        // HAGS no va aquí: en algunas gráficas y drivers congela la imagen. Queda en Ajustes, para quien lo quiera.
+        if (a.Games) perf.AddRange(["mmcss-games", "gpu-high", "windowed-opt", "vrr-windowed", "game-mode", "mouse-raw", "accessibility-keys"]);
         if (a.Games && !a.Xbox) perf.Add("game-dvr-off");
         if (a.Visual) perf.AddRange(["transparency-off", "animations-off"]);
 
         var priv = new List<string> { "suggestions-off", "background-apps" };
-        if (a.Privacy) priv.AddRange(["telemetry-off", "telemetry-tasks", "activity-off", "ad-id-off", "firefox-telemetry", "wer-off"]);
+        if (a.Privacy) priv.AddRange(["start-web-off", "recall-off", "telemetry-off", "telemetry-tasks", "activity-off", "ad-id-off", "firefox-telemetry", "wer-off"]);
 
         var svc = new List<string> { "services-unused", "smb1-off", "update-control" };
         if (!a.Printer) svc.Add("print-off");
@@ -105,7 +107,9 @@ public static class Simple
                         break;
                     case "memory":
                         setMemAuto(plan.MemAuto);
-                        var mr = Memory.Free(new MemOptions());
+                        // Suave: justo después de quitar apps y cambiar ajustes, vaciar la memoria de todos los procesos y
+                        // combinar páginas dejaba el PC congelado un rato. Solo la caché en espera de baja prioridad.
+                        var mr = Memory.Free(new MemOptions(WorkingSets: false, Modified: false, Standby: true, StandbyLowOnly: true, FileCache: false, Combine: false));
                         freed = mr.FreedMb;
                         detail = (plan.MemAuto ? "Se liberará sola al llegar al 60 %. " : "") + $"{mr.FreedMb:0} MB liberados ahora.";
                         break;

@@ -521,7 +521,7 @@
   // «Aplicar todo»: los de riesgo bajo que faltan. Fuera la impresión (rompe imprimir) y, en laptop, lo que gasta batería.
   let twLaptop = false;
   const twAll = () => tweaks.filter((t) => t.risk === 'bajo' && !t.blocked && t.state !== 'applied' && t.state !== 'na'
-    && !['print-off', 'boot-info'].includes(t.id) && !(twLaptop && ['power-ultimate', 'hibernate-off'].includes(t.id)));
+    && !['print-off', 'boot-info', 'hags'].includes(t.id) && !(twLaptop && ['power-ultimate', 'hibernate-off', 'usb-suspend-off', 'pcie-aspm-off'].includes(t.id)));
   function twAllCard() {
     const n = twAll().length;
     // los de riesgo medio no entran en «Aplicar todo»: si quedan, se dice dónde están

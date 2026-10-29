@@ -130,9 +130,23 @@ public static partial class Rig
         var txt = Run(smi, "-q -d MEMORY");
         int fb = Total(txt, "FB Memory Usage"), bar = Total(txt, "BAR1 Memory Usage");
         if (fb == 0 || bar == 0) return new("rebar", "info", title, "No se pudo leer de la tarjeta gráfica.", how, null, null);
-        return bar >= fb * 0.9
-            ? new("rebar", "ok", title, "Activado.", null, null, null)
-            : new("rebar", "warn", title, $"Apagado: el procesador solo ve {bar} MB de la memoria de la tarjeta a la vez. Algunos juegos van más fluidos con él.", how, null, null);
+        // Apagado, la ventana se queda en 256 MB. Con cualquier tamaño mayor ya está funcionando, aunque algunas placas
+        // lo dejen en 8 GB en vez de toda la memoria: eso no es «apagado».
+        if (bar > 256) return new("rebar", "ok", title, "Activado.", null, null, null);
+        // 256 MB: puede estar en Enabled en la BIOS y aun así no usarse. Decir por qué, no «actívalo».
+        var gpu = Run(smi, "--query-gpu=name --format=csv,noheader").Trim();
+        var m = Regex.Match(gpu, @"RTX\s*(?:A\d+|(\d)\d{2,3})", RegexOptions.IgnoreCase);
+        var gen = m.Success && m.Groups[1].Success ? int.Parse(m.Groups[1].Value) : 0;   // 2 = RTX 20, 3 = RTX 30...
+        if (gpu.Length > 0 && gen is > 0 and < 3 || Regex.IsMatch(gpu, @"\bGTX\b|\bGT\s?\d", RegexOptions.IgnoreCase))
+            return new("rebar", "ok", title, $"Tu {gpu.Replace("NVIDIA ", "")} no lo admite (NVIDIA lo trae desde las RTX 30), aunque la BIOS lo tenga activado. No hay nada que hacer.", null, null, null);
+        if (!Bios.Uefi())
+            return new("rebar", "warn", title, "No funciona: Windows arranca en modo antiguo (Legacy/CSM). Aunque la BIOS lo tenga en Enabled, así no se puede usar.",
+                "Para usarlo hay que pasar el disco a GPT y arrancar en UEFI sin CSM. No lo hagas sin copia de seguridad.", null, null);
+        var rtx30 = gen == 3
+            ? " " + "Con RTX 30, si la tarjeta es de los primeros lotes, a veces hace falta actualizar la BIOS de la tarjeta desde la web de su fabricante."
+            : "";
+        return new("rebar", "warn", title, "La tarjeta no lo está usando: el procesador solo ve 256 MB de su memoria a la vez. Algunos juegos van más fluidos con él.",
+            $"Si en la BIOS ya está en Enabled, revisa que «Above 4G» también lo esté y que CSM esté apagado ({BiosReBar(board)}).{rtx30} Después apaga el PC del todo y vuelve a encender.", null, null);
     }
 
     static int Total(string txt, string section)

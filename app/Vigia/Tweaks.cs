@@ -109,6 +109,7 @@ public static class Tweaks
             var t = Task((string)op["task"]!);
             return t is null ? null : (bool)t.Enabled == (bool)op["enabled"]!;
         }
+        if (op["power"] is not null) return PowerAc(op) is { } v ? v == (uint)op["ac"]! : null;
         return (string?)op["special"] switch
         {
             "power-ultimate" => CpuAwake(),
@@ -284,6 +285,7 @@ public static class Tweaks
                 o[i.ToString()] = new JsonObject { ["start"] = Snap(k, "Start"), ["delayed"] = Snap(k, "DelayedAutostart") };
             }
             else if (op["task"] is not null && Task((string)op["task"]!) is { } t) o[i.ToString()] = new JsonObject { ["enabled"] = (bool)t.Enabled };
+            else if (op["power"] is not null && Active() is { } pg && PowerAc(op) is { } pv) o[i.ToString()] = new JsonObject { ["scheme"] = pg.ToString(), ["ac"] = pv };
             else if ((string?)op["special"] == "power-ultimate") o[i.ToString()] = new JsonObject { ["active"] = ActiveScheme() };
             else if ((string?)op["special"] == "hibernate-off") o[i.ToString()] = new JsonObject { ["on"] = Matches(op) == false };
             else if ((string?)op["special"] == "dynamictick") o[i.ToString()] = new JsonObject { ["set"] = Matches(op) == true };
@@ -305,6 +307,7 @@ public static class Tweaks
             if (RegRead(k, "Start").value is not null) SvcStart((string)op["svc"]!, (long)op["start"]!);
         }
         else if (op["task"] is not null && Task((string)op["task"]!) is { } t) t.Enabled = (bool)op["enabled"]!;
+        else if (op["power"] is not null) { if (Active() is { } pg) PowerSetAc(pg, op, (uint)op["ac"]!); }
         else switch ((string?)op["special"])
         {
             case "power-ultimate":
@@ -350,6 +353,11 @@ public static class Tweaks
             }
         }
         else if (op["task"] is not null && s is not null && Task((string)op["task"]!) is { } t) t.Enabled = (bool)s["enabled"]!;
+        else if (op["power"] is not null && s is not null)
+        {
+            // al plan donde estaba; si ese plan ya no existe (p. ej. el de Vigía se borró), no hay nada que devolver
+            if (Guid.TryParse((string?)s["scheme"], out var sg)) try { PowerSetAc(sg, op, (uint)s["ac"]!); } catch { }
+        }
         else switch ((string?)op["special"])
         {
             case "power-ultimate":
@@ -509,6 +517,26 @@ public static class Tweaks
     // Así cuentan Alto rendimiento, Máximo rendimiento y los planes propios (de la placa o de otro programa).
     [DllImport("powrprof.dll")] static extern uint PowerGetActiveScheme(IntPtr root, out IntPtr guid);
     [DllImport("powrprof.dll")] static extern uint PowerReadACValueIndex(IntPtr root, ref Guid scheme, ref Guid sub, ref Guid setting, out uint value);
+    [DllImport("powrprof.dll")] static extern uint PowerWriteACValueIndex(IntPtr root, ref Guid scheme, ref Guid sub, ref Guid setting, uint value);
+    [DllImport("powrprof.dll")] static extern uint PowerSetActiveScheme(IntPtr root, ref Guid scheme);
+
+    /// <summary>Valor enchufado de un ajuste del plan activo. «power»: "subgrupo/ajuste".</summary>
+    static uint? PowerAc(JsonObject op)
+    {
+        if (Active() is not { } g) return null;
+        var p = ((string)op["power"]!).Split('/');
+        Guid sub = new(p[0]), set = new(p[1]);
+        return PowerReadACValueIndex(IntPtr.Zero, ref g, ref sub, ref set, out var v) == 0 ? v : null;
+    }
+    static void PowerSetAc(Guid scheme, JsonObject op, uint value)
+    {
+        var p = ((string)op["power"]!).Split('/');
+        Guid sub = new(p[0]), set = new(p[1]);
+        var r = PowerWriteACValueIndex(IntPtr.Zero, ref scheme, ref sub, ref set, value);
+        if (r != 0) throw new Exception("Windows no dejó cambiar el plan de energía.");
+        // el cambio no cuenta hasta que el plan se vuelve a activar
+        if (Active() is { } a && a == scheme) PowerSetActiveScheme(IntPtr.Zero, ref scheme);
+    }
     [DllImport("powrprof.dll", CharSet = CharSet.Unicode)] static extern uint PowerReadFriendlyName(IntPtr root, ref Guid scheme, IntPtr sub, IntPtr setting, byte[]? buf, ref uint size);
     [DllImport("kernel32.dll")] static extern IntPtr LocalFree(IntPtr p);
     static Guid? Active()
@@ -629,6 +657,19 @@ public static class Tweaks
             Check((string?)RegRead(K, "lista").value == "SwapEffectUpgradeEnable=1;VRROptimizeEnable=0;", $"lista restaurada ({RegRead(K, "lista").value})");
             Check(!LoadBackup().ContainsKey("st"), "copia eliminada tras revertir");
             Check(Revert(["st"]).Results[0].Error is not null, "revertir sin copia avisa en vez de inventar");
+
+            // ajuste del plan de energía: «apagar la pantalla tras…» (inofensivo), +60 s y de vuelta
+            var vop = new JsonObject { ["power"] = "7516b95f-f776-4464-8c53-06167f40cc99/3c0bc021-c8a8-4e07-a973-6b14cbcb2b7e", ["ac"] = 0 };
+            if (PowerAc(vop) is { } was)
+            {
+                vop["ac"] = was + 60;
+                CatalogOverride = () => [new JsonObject { ["id"] = "stp", ["group"] = "t", ["title"] = "t", ["detail"] = "t", ["tested"] = true, ["ops"] = new JsonArray(vop.DeepClone()) }];
+                var pa = Apply(["stp"]);
+                Check(pa.Ok && PowerAc(vop) == was + 60, $"plan de energía: aplicar ({PowerAc(vop)})");
+                var pr = Revert(["stp"]);
+                Check(pr.Ok && PowerAc(vop) == was, $"plan de energía: vuelve al valor de antes ({PowerAc(vop)} = {was})");
+            }
+            else Check(false, "plan de energía: no se pudo leer");
         }
         catch (Exception e) { Check(false, $"excepción: {e}"); }
         finally
