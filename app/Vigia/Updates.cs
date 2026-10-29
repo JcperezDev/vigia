@@ -106,6 +106,22 @@ public static class Updates
         Check(TryParseTag("1.2.3-rc.1", out _, out var p4) && p4, "1.2.3-rc.1 es de prueba");
         Check(!TryParseTag("latest", out _, out _) && !TryParseTag("", out _, out _) && !TryParseTag(null, out _, out _) && !TryParseTag("1.2.3.4.5", out _, out _), "versiones raras se rechazan sin excepción");
         Check(TryParseTag("0.20.18", out var n, out _) && TryParseTag("0.20.9", out var o, out _) && n > o, "0.20.18 > 0.20.9 (no por texto)");
+        // Puente: la firma se comprueba sobre bytes en memoria; nada sin firma válida, vacío o gigante
+        var fake = System.Text.Encoding.UTF8.GetBytes("MZ no es Puente");
+        Check(!PuenteSigOk(fake, ""), "Puente sin firma: no");
+        Check(!PuenteSigOk(fake, "esto no es base64!"), "Puente con firma rota: no");
+        Check(!PuenteSigOk(fake, Convert.ToBase64String(new byte[64])), "Puente con firma de otra cosa: no");
+        Check(!PuenteSigOk([], Convert.ToBase64String(new byte[64])), "Puente vacío: no");
+        Check(!PuenteSigOk(new byte[MaxPuenteBytes + 1], Convert.ToBase64String(new byte[64])), "Puente demasiado grande: no");
+        using (var k = System.Security.Cryptography.ECDsa.Create(System.Security.Cryptography.ECCurve.NamedCurves.nistP256))
+        {   // clave de usar y tirar, solo para ver que una firma buena sí pasa y que cambiar un byte la rompe
+            var pub = Convert.ToBase64String(k.ExportSubjectPublicKeyInfo());
+            var good = Convert.ToBase64String(k.SignData(fake, System.Security.Cryptography.HashAlgorithmName.SHA256));
+            Check(PuenteSigOk(fake, good, pub), "Puente con firma buena: sí");
+            var bad = (byte[])fake.Clone(); bad[^1] ^= 1;
+            Check(!PuenteSigOk(bad, good, pub), "Puente con un byte cambiado: no");
+            Check(!PuenteSigOk(fake, good), "firma de otra clave contra la clave de Vigía: no");
+        }
         return string.Join(Environment.NewLine, log);
     }
 
@@ -145,46 +161,58 @@ public static class Updates
 
     /// <summary>Si falta Puente, lo baja de GitHub y comprueba la firma antes de dejarlo en su carpeta. Devuelve null si está listo.</summary>
     /// <param name="fresh">Para actualizar: se baja y se comprueba otra vez aunque ya exista, así nunca se abre un Puente
-    /// que alguien haya cambiado en su carpeta (es del usuario y Vigía corre como administrador).</param>
+    /// que alguien haya cambiado en su carpeta (en la carpeta antigua de AppData cualquier programa tuyo puede escribir).</param>
+    /// <remarks>La firma se comprueba sobre los bytes en memoria y a disco solo van esos mismos bytes: entre comprobar y
+    /// usar no hay un archivo en %TEMP% que otro programa pueda cambiar. Con tope de tamaño para no llenar la memoria.</remarks>
     public static async Task<string?> EnsurePuenteAsync(string? dest = null, bool fresh = false)
     {
         if (dest is null && Protected) return File.Exists(PuentePath) ? null : "Falta Puente en la carpeta de Vigía. Vuelve a instalar Vigía con Puente.";
         dest ??= PuentePath;
         if (!fresh && File.Exists(dest)) return null;
         var dir = Path.GetDirectoryName(dest)!;
-        var tmp = Path.Combine(Path.GetTempPath(), $"vigia-puente-{Guid.NewGuid():N}.exe");
+        var tmp = dest + ".nuevo";
         try
         {
-            using var http = new HttpClient { Timeout = TimeSpan.FromMinutes(5) };
+            using var http = new HttpClient { Timeout = TimeSpan.FromMinutes(5), MaxResponseContentBufferSize = MaxPuenteBytes };
             http.DefaultRequestHeaders.UserAgent.ParseAdd("Vigia/" + Current);
+            byte[] exe = [];
             string sig = "";
             for (int i = 1; ; i++)   // si se corta la conexión, se intenta hasta 3 veces
             {
                 try
                 {
-                    await File.WriteAllBytesAsync(tmp, await http.GetByteArrayAsync(PuenteUrl));
+                    exe = await http.GetByteArrayAsync(PuenteUrl);
                     sig = await http.GetStringAsync(PuenteUrl + ".sig");
                     break;
                 }
                 catch (Exception e) when (i < 3 && Friendly(e) != e.Message) { await Task.Delay(TimeSpan.FromSeconds(3 * i)); }
             }
-            using (var ec = System.Security.Cryptography.ECDsa.Create())
-            {
-                ec.ImportSubjectPublicKeyInfo(Convert.FromBase64String(PublicKey), out _);
-                byte[] s;
-                try { s = Convert.FromBase64String(sig.Trim()); } catch (FormatException) { return "La firma de Puente no es válida."; }
-                using var fs = File.OpenRead(tmp);
-                if (!ec.VerifyData(fs, s, System.Security.Cryptography.HashAlgorithmName.SHA256)) return "La firma de Puente no coincide: no lo instalé.";
-            }
+            if (!PuenteSigOk(exe, sig)) return "La firma de Puente no coincide: no lo instalé.";
             // nunca se cambia un Puente por uno más viejo, aunque esté firmado (una versión vieja puede tener fallos ya arreglados)
+            Directory.CreateDirectory(dir);
+            await File.WriteAllBytesAsync(tmp, exe);
             if (File.Exists(dest) && FileVer(tmp) is { } got && FileVer(dest) is { } have && got < have)
                 return $"El Puente publicado ({got}) es más viejo que el que tienes ({have}); no lo cambié.";
-            Directory.CreateDirectory(dir);
+            // lo que queda en disco tiene que ser exactamente lo que se comprobó
+            if (!File.ReadAllBytes(tmp).AsSpan().SequenceEqual(exe)) return "Puente cambió en disco antes de usarlo: no lo instalé.";
             File.Move(tmp, dest, true);
             return null;
         }
         catch (Exception e) { return $"No pude bajar Puente: {Friendly(e)}"; }
         finally { try { File.Delete(tmp); } catch { } }
+    }
+
+    /// <summary>Puente pesa unos pocos MB; nada de lo que se publique debería pasar de esto.</summary>
+    internal const long MaxPuenteBytes = 64L * 1024 * 1024;
+
+    internal static bool PuenteSigOk(byte[] exe, string sig, string? publicKey = null)
+    {
+        if (exe.Length == 0 || exe.Length > MaxPuenteBytes) return false;
+        byte[] s;
+        try { s = Convert.FromBase64String(sig.Trim()); } catch (FormatException) { return false; }
+        using var ec = System.Security.Cryptography.ECDsa.Create();
+        ec.ImportSubjectPublicKeyInfo(Convert.FromBase64String(publicKey ?? PublicKey), out _);
+        return ec.VerifyData(exe, s, System.Security.Cryptography.HashAlgorithmName.SHA256);
     }
 
     static Version? FileVer(string path)
