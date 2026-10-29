@@ -2001,6 +2001,7 @@
     else if (type === 'memFreed') renderFreed(payload);
     else if (type === 'settings') {
       cfg = payload.cfg;
+      send({ cmd: 'wallGet' });
       $('st-auto').checked = cfg.updateCheck;
       if (typeof payload.autoStart === 'boolean') $('st-boot').checked = payload.autoStart;
       if (cfg.lang && $('st-lang').value !== cfg.lang) { $('st-lang').value = cfg.lang; applyLang(cfg.lang); }
@@ -2019,7 +2020,7 @@
     else if (type === 'usbDone') usbDone(payload);
     else if (type === 'isoDl') isoDl(payload);
     else if (type === 'tweaksDone') renderTweaksDone(payload);
-    else if (type === 'bloat') { renderBloat(payload); send({ cmd: 'wallGet' }); }
+    else if (type === 'bloat') { renderBloat(payload); }
     else if (type === 'wall') renderWall(payload);
     else if (type === 'wallDone') { $('wall-result').textContent = payload.ok ? '' : payload.message; $('wall-result').classList.toggle('bad', !payload.ok); }
     else if (type === 'simplePlan') smPlan(payload);
