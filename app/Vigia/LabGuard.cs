@@ -4,10 +4,14 @@ namespace Vigia;
 
 /// <summary>Los comandos de consola que cambian el sistema sin preguntar (--lab, --simple-run, --startup-offall) son para la
 /// máquina virtual de pruebas. Piden las dos cosas: VIGIA_LAB=1 (o lab.flag) y que el equipo sea de verdad una VM de Hyper-V.
-/// Así un «Vigia --lab apply all» escrito por error en un PC normal no hace nada.</summary>
+/// Así un «Vigia --lab apply all» escrito por error en un PC normal no hace nada. Lo mismo para lo que el laboratorio
+/// relaja en la interfaz (Apps de riesgo medio): VIGIA_LAB=1 o lab.flag solos, en un PC normal, no desbloquean nada.</summary>
 static class LabGuard
 {
-    public static bool Allowed => Tweaks.Lab && IsVm(Read("Manufacturer"), Read("Model"));
+    public static bool Allowed => Tweaks.Lab && OnVm.Value;
+
+    // El fabricante y el modelo no cambian mientras Vigía está abierta: se leen una vez.
+    static readonly Lazy<bool> OnVm = new(() => IsVm(Read("Manufacturer"), Read("Model")));
 
     public const string Refusal = "Solo en la máquina virtual de pruebas (VIGIA_LAB=1 y una VM de Hyper-V). No se cambió nada.";
 

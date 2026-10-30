@@ -10,6 +10,9 @@ static class Program
 {
     internal static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
+    // Órdenes de consola (pruebas, soporte y laboratorio). Las que abren la interfaz (--tray, --snap, --bench) no están aquí.
+    internal static readonly HashSet<string> ConsoleVerbs = ["--apps-history", "--apps-plan", "--apps-restore", "--apps-run", "--apps-scan", "--autostart", "--backup-restore", "--backups", "--bios", "--broker", "--crashes", "--display-test", "--drift", "--fortnite", "--fps-probe", "--install-check", "--iso", "--lab", "--msdl-probe", "--optimize", "--original", "--probe", "--procs", "--puente-get", "--rates", "--restore-point", "--rig", "--sec", "--selftest", "--sensor-publish", "--sensor-service", "--setup-sensors", "--simple-plan", "--simple-run", "--startup", "--startup-offall", "--startup-set", "--suggest", "--tray-dump", "--tweaks-lab", "--undo-retired", "--usb", "--wallpaper"];
+
     [STAThread]
     static int Main(string[] args)
     {
@@ -114,7 +117,7 @@ static class Program
             return 0;
         }
         // «Abrir Vigía al iniciar Windows» por consola, solo en laboratorio: Vigia.exe --autostart <on|off|review> <salida.json>
-        if (args.Length >= 3 && args[0] == "--autostart" && Tweaks.Lab)
+        if (args.Length >= 3 && args[0] == "--autostart" && LabGuard.Allowed)
         {
             object res = args[1] switch
             {
@@ -187,7 +190,7 @@ static class Program
             File.WriteAllText(args[1], JsonSerializer.Serialize(Simple.Build(ans), new JsonSerializerOptions(Json) { WriteIndented = true }));
             return 0;
         }
-        if (args.Length >= 2 && args[0] == "--msdl-probe" && Environment.GetEnvironmentVariable("VIGIA_LAB") == "1")
+        if (args.Length >= 2 && args[0] == "--msdl-probe" && LabGuard.Allowed)
         {
             ApplicationConfiguration.Initialize();
             return IsoDownloadProbe.Run(args[1]);
@@ -395,6 +398,13 @@ static class Program
             using var f = new MainForm();
             File.WriteAllText(args[1], MainForm.Dump(f));
             return 0;
+        }
+        // Una orden de consola que llegó hasta aquí vino incompleta o no está permitida en este equipo (las de laboratorio
+        // exigen la VM): se rechaza sin abrir la interfaz ni tocar nada, en vez de arrancar Vigía como si se hubiera hecho doble clic.
+        if (args.Length >= 1 && ConsoleVerbs.Contains(args[0]))
+        {
+            Console.Error.WriteLine($"{args[0]}: faltan datos o es solo para la máquina virtual de pruebas. No se cambió nada.");
+            return 2;
         }
         // Una sola ventana: si ya está abierta, no abrir otra
         using var mutex = new Mutex(true, @"Local\Vigia.SingleInstance", out var first);

@@ -42,7 +42,7 @@ public static class Debloat
         var inv = Inventory(force);
         if (!inv.Ok) return new { ok = false, error = inv.Error, apps = Array.Empty<AppView>(), win32 = Array.Empty<AppView>(), history = History(inv) };
         AppHistory.Reconcile(inv);
-        var apps = AppClassifier.Classify(inv, AppHistory.RemovedNames(), Tweaks.Lab);
+        var apps = AppClassifier.Classify(inv, AppHistory.RemovedNames(), LabGuard.Allowed);
         var (added, gone) = AppHistory.Compare(inv);
         return new
         {
@@ -62,11 +62,11 @@ public static class Debloat
         }).ToList();
     }
 
-    public static Plan Preview(PlanRequest req) => AppPlanner.Build(Host, Inventory(force: true), req, Tweaks.Lab);
+    public static Plan Preview(PlanRequest req) => AppPlanner.Build(Host, Inventory(force: true), req, LabGuard.Allowed);
 
     public static ExecResult Run(PlanRequest req, string token, Action<ExecStep>? progress)
     {
-        try { return AppPlanner.Execute(Host, req, token, progress, NewToken(), Tweaks.Lab, BackupEnabled); }
+        try { return AppPlanner.Execute(Host, req, token, progress, NewToken(), LabGuard.Allowed, BackupEnabled); }
         finally { Forget(); }
     }
 
@@ -118,7 +118,7 @@ public static class Debloat
         {
             mine.TryGetValue(id, out var p);
             return new BloatApp(id, a.Name, a.Detail, a.Risk, p is not null, p?.Version,
-                a.Risk != "bajo" && !Tweaks.Lab ? "Primero hay que probarlo en la máquina virtual." : null, a.Category == "useful");
+                a.Risk != "bajo" && !LabGuard.Allowed ? "Primero hay que probarlo en la máquina virtual." : null, a.Category == "useful");
         })).ToList();
     }
 
@@ -139,7 +139,7 @@ public static class Debloat
             keys.Add((p.FullName, false));
         }
         if (keys.Count == 0) return res;
-        var plan = AppPlanner.Build(Host, inv, new PlanRequest("safe", keys), Tweaks.Lab);
+        var plan = AppPlanner.Build(Host, inv, new PlanRequest("safe", keys), LabGuard.Allowed);
         foreach (var bad in plan.Items.Where(i => !i.Ok)) res.Add(new(bad.Name, false, bad.Problem));
         var good = plan.Items.Where(i => i.Ok).ToList();
         if (good.Count == 0) return res;
