@@ -221,6 +221,70 @@ Si eliges rotar, lo único que cambia en este repositorio es pegar la clave **p�
 `app/Puente/Program.cs` y `app/Vigia/Updates.cs` antes de compilar 0.21.0, y cambiar la prueba
 «esta versión no trae claves de relevo». La privada nueva se crea directamente en `vigia-firma` (B.4 con `--genkey`).
 
+## Comprobación y análisis adicional (30-10-2026) — sin abrir la clave
+
+Metadatos de hoy (`Get-Item`, `Get-Acl`; no se leyó el contenido):
+
+| Dato | Valor |
+| --- | --- |
+| Tamaño / creada / modificada (UTC) | 240 bytes · 27-10-2026 23:03:06 · 27-10-2026 23:03:06 (sin cambios) |
+| ACL del archivo | heredada: `CodexSandboxUsers` ReadAndExecute · SYSTEM, Administradores, `Pickle OS` control total |
+| ACL de `.vigia` | `CodexSandboxUsers` ReadAndExecute **explícita** |
+| ACL del perfil | SYSTEM, Administradores, `Pickle OS` (+ dos SID de capacidad de apps con solo `ExecuteFile`) |
+| Procesos de cuentas `CodexSandbox*` ahora | 0 |
+| UAC en el host | **`EnableLUA = 0`** (desactivado) |
+| Administradores locales | `Administrator`, **`Pickle OS`** |
+
+### Lo que cambia del diseño B: una cuenta de firma en este mismo PC no basta
+
+Con `Pickle OS` como administrador y UAC desactivado, **todo** proceso de esa cuenta (Hermes, subagentes, compilaciones,
+Codex fuera del sandbox) corre con permisos de administrador. Un administrador puede tomar posesión de los archivos de
+otra cuenta, leer su memoria mientras firma, instalar algo que se ejecute en su sesión o cambiar `Puente.exe` antes de
+que esa cuenta lo use. DPAPI de `vigia-firma` impide copiar el `.dpapi` y descifrarlo en frío, pero **no** protege
+mientras la cuenta de firma inicia sesión en una máquina que controla un administrador comprometido.
+
+Por eso el orden recomendado queda así:
+
+1. **Equipo de firma separado y sin red** (otro PC, o una VM que solo arranca para firmar, con disco cifrado, sin
+   carpetas compartidas y sin agentes): recibe `out\<versión>` por USB, ejecuta `Puente.exe --sign-release` y devuelve
+   los cuatro `.sig`. El `Puente.exe` que firma se copia una vez, con su SHA-256 anotado, y no se actualiza desde este PC.
+2. **Token hardware** (PIV P-256): la clave no se puede exportar. Necesita una ruta CNG/PKCS#11 en `--sign-release`
+   que **no está implementada** (no hay token para probarla).
+3. **Cuenta de firma local (B)**: solo es aceptable si la cuenta de desarrollo deja de ser administradora o vuelve a tener
+   UAC activo. Así se reduce el riesgo, pero esa cuenta no queda aislada de verdad.
+
+Activar UAC o quitarle el administrador a `Pickle OS` es un cambio del Windows principal: **no se hizo** y necesita
+tu autorización.
+
+### Si alguien ya tuviera la clave actual
+
+* Podría firmar un `vigia-manifest.json`, un zip y un `Puente.exe` que las instalaciones 0.20.x y 0.21.x aceptarían
+  **si se los entregan**. Puente y Vigía solo descargan de `github.com/JcperezDev/vigia` y con HTTPS, así que para llegar
+  por actualización automática también necesitaría publicar en ese repositorio (o sea, tu cuenta de GitHub).
+  Por fuera (`Puente.exe --offline <carpeta>` o un `Vigia-Setup.exe` de otra web) sí funcionaría.
+* El relevo de claves (`NextKeys`) **no lo detiene durante la transición**: mientras una versión confíe en la clave
+  vieja, lo firmado con ella sigue valiendo. Por eso la ventana se cierra cuando los usuarios estén en una versión que
+  ya no confía en la vieja (paso 5 del procedimiento de rotación), no antes.
+* No hay revocación remota (no hay servidor, a propósito). La revocación es «una versión nueva que ya no confía en la
+  clave»; las instalaciones que nunca actualizan siguen confiando en ella.
+
+### Instalaciones con actualizadores antiguos
+
+| Instalación | Qué pasa si se rota con relevo | Cómo se recupera |
+| --- | --- | --- |
+| 0.20.17 (Puente 1.x/2.0.0, solo conoce la clave vieja) | Acepta 0.21.0 firmada con la vieja, que trae la nueva en `NextKeys` | Actualiza normal; desde ahí confía en las dos y después solo en la nueva |
+| 0.20.x que se salta 0.21.0 y llega a 0.21.1+ (firmada con la nueva) | Rechaza (falla seguro: no instala, no rompe lo que hay) | Instalar a mano `Vigia-Setup.exe` de la página de releases; los datos de `%LOCALAPPDATA%\Vigia` se conservan (migración probada en VigiaLab) |
+| Cualquiera, si la clave vieja se usó para un paquete malicioso fuera de GitHub | Lo aceptaría vía `--offline` | Aviso en README y notas; subir `minVersion` en la versión puente; reinstalar desde GitHub |
+
+### ¿Hace falta rotar?
+
+La ventana de exposición no se puede cerrar con pruebas (no hay auditoría de archivos y la fecha de acceso se pisa),
+la clave tiene tres días y solo hay una versión pública firmada con ella (0.20.17). La rotación cuesta poco **ahora**:
+0.21.0 aún no se publicó y puede ser la versión puente. Recomendación técnica: **rotar con relevo en 0.21.0**, con la
+clave nueva creada directamente en el equipo de firma (opción 1). Es una decisión tuya; no se ejecutó nada.
+
+Estado: **`SIGNING_BLOCKED`** (sin cambios).
+
 ## Próximo paso
 
 Tu decisión sobre la entrada de Codex en `.vigia`. Mientras tanto `release.sh` no firmará con la clave actual (eso es lo
