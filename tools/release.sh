@@ -67,6 +67,17 @@ MV=$(grep -o 'assemblyIdentity version="[0-9.]*"' app/Vigia/app.manifest | grep 
 [ "$MV" = "$V.0" ] || { echo "app/Vigia/app.manifest dice $MV y Vigia.csproj $V: pon la misma versión."; exit 1; }
 # Puente y Vigía tienen que confiar en las mismas claves públicas (la actual y las de relevo), y todas válidas
 node tools/signing/preparar-relevo.js comprobar >/dev/null || { node tools/signing/preparar-relevo.js comprobar; echo "Las claves de confianza de Puente y Vigía no cuadran: no se publica."; exit 1; }
+# Puente solo se sustituye si la versión del manifiesto es MAYOR que la instalada (Setup.cs, PlacePuente: compara
+# versiones; el SHA-256 solo se comprueba en el archivo descargado). Si su código cambió desde la última versión
+# publicada con el mismo número, las instalaciones se quedarían con el Puente viejo sin avisar: no se publica.
+LAST_TAG=$(git describe --tags --abbrev=0 --match 'v[0-9]*' 2>/dev/null || true)
+PV_NOW=$(sed -n 's|.*<Version>\(.*\)</Version>.*|\1|p' app/Puente/Puente.csproj | head -1)
+if [ -n "$LAST_TAG" ]; then
+  PV_LAST=$(git show "$LAST_TAG:app/Puente/Puente.csproj" 2>/dev/null | sed -n 's|.*<Version>\(.*\)</Version>.*|\1|p' | head -1)
+  if [ "$PV_NOW" = "$PV_LAST" ] && ! git diff --quiet "$LAST_TAG" HEAD -- app/Puente; then
+    echo "Puente $PV_NOW cambió desde $LAST_TAG pero tiene el mismo número: sube <Version> en app/Puente/Puente.csproj."; exit 1
+  fi
+fi
 # versión mínima segura que anuncia el manifiesto (vacío = la que trae Puente compilada). Nunca más nueva que V.
 MIN_VERSION="${VIGIA_MIN_VERSION:-}"
 if [ "$MOCK" = 0 ] && [ "$DRY" != 1 ]; then
