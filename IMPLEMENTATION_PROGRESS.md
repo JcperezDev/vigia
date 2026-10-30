@@ -8,6 +8,8 @@ Pruebas de referencia ahora (`048de17`): selftest **344/0** · UI de Apps **44/0
 
 ## Validación real — 29 de octubre
 
+> Histórico de la mañana. Después se activó Hyper-V (autorizado) y la VM sí corrió: ver «Cierre 2026-10-29 (VigiaLab)» al final y `VM_VALIDATION_REPORT.md` (28 pruebas VM_VALIDATED). `HARDWARE_TESTED` sigue sin nada nuevo.
+
 - `IMPLEMENTED` + `UNIT_TESTED`: firma separada (`fe5f5f2`); privacidad opcional (`9f83671`); candado de comandos de laboratorio (`ffe469e`).
 - Clave real: `--key-check` recompilado devuelve **3**, confirma lectura heredada para `CodexSandboxUsers`. No se modificó ni rotó. Posible exposición, no evidencia de lectura.
 - `BLOCKED`: Hyper-V no arranca: `hypervisorlaunchtype Off`, `HypervisorPresent=False`. No se cambia el arranque del anfitrión.
@@ -67,22 +69,23 @@ Pruebas de referencia ahora (`048de17`): selftest **344/0** · UI de Apps **44/0
 | Requisito | Estado | Dónde / nota |
 |---|---|---|
 | P0 Inicio sin tarea elevada (Run de HKCU) | ✅ | `AutoStart.cs`; Puente quita la tarea vieja solo si es de Vigía |
-| P0 Vigía como usuario + ayudante bajo demanda con lista cerrada | 🟢 VM_VALIDATED salvo el clic de UAC | `Elevation.cs`, `AdminOps.cs`; en VigiaLab: `asInvoker`, Run sin privilegios, 8/8 rechazos del ayudante (argumentos, otra imagen, otra cuenta, tubería ajena, carpeta escribible, usuario estándar) |
+| P0 Vigía como usuario + ayudante bajo demanda con lista cerrada | ✅ VM_VALIDATED | `Elevation.cs`, `AdminOps.cs`; UAC real en la consola de VigiaLab (Sí/No; se cierra solo a los 10 min sin pedidos); en VigiaLab: `asInvoker`, Run sin privilegios, 8/8 rechazos del ayudante (argumentos, otra imagen, otra cuenta, tubería ajena, carpeta escribible, usuario estándar) |
 | P0 Clasificar todas las operaciones (41 admin / 48 usuario) | ✅ | `docs/PRIVILEGES.md` |
 | P0 Lecturas sin permisos no inventan resultados | ✅ | Diagnóstico, Seguridad, Salud, Limpieza |
 | P0 Copias como dato no confiable (esquema, destinos, HMAC) | ✅ | `BackupGuard.cs` |
-| P1 Instalación en `%ProgramFiles%\Vigia` con ACL mínimas | 🟡 | `app/Puente/Layout.cs`; probado con usuario simulado, falta cuenta estándar real |
-| P1 Migrador desde `%LOCALAPPDATA%\Programs` conservando datos | 🟡 | `app/Puente/Setup.cs`; probado en `%TEMP%`, falta 0.20.17 real en VM |
+| P1 Instalación en `%ProgramFiles%\Vigia` con ACL mínimas | ✅ VM_VALIDATED | `app/Puente/Layout.cs`; ACL leídas en VigiaLab y cuenta `estandar` real |
+| P1 Migrador desde `%LOCALAPPDATA%\Programs` conservando datos | ✅ VM_VALIDATED | `app/Puente/Setup.cs`; 0.20.17 → 0.21.0 en VigiaLab con datos conservados |
 | P1 Anti-downgrade (app y Puente) con piso de seguridad | ✅ | `estado.json`, `EnsurePuenteAsync` |
 | P1 TOCTOU cerrado | ✅ | `.descargas` solo-admin; firma en memoria en Vigía |
-| P1 Recuperación (diario, `--repair`, `--rollback`) | 🟡 | probado con cortes simulados; falta apagado real |
-| P1 Desinstalación limpia que deja tus datos | 🟡 | probado en `%TEMP%`; falta VM |
+| P1 Recuperación (diario, `--repair`, `--rollback`) | 🟡 | proceso matado y archivo bloqueado probados en VM; falta apagado real a mitad |
+| P1 Desinstalación limpia que deja tus datos | ✅ VM_VALIDATED | VigiaLab, tras `048de17` |
 | P2 `release.sh` borrador → verificar → publicar | ✅ | probado contra mock; nunca contra GitHub real; cada archivo del borrador se compara byte a byte, no solo por tamaño |
 | Revisión extra del instalador (programas de Windows con ruta fija, un Puente a la vez, reparar sin perder la versión buena, mínima segura guardada aunque falle) | ✅ | `Tweaks.Sys`/`Native.Sys`; `Acl.Lock` en instalar/revertir/desinstalar; Puente 64/0 |
 | Copias de juegos: solo el archivo de Fortnite se repone | ✅ | `BackupGuard.FileTarget`; selftest 302/0 |
-| P2 Clave de firma protegida | ⛔ | legible por `CodexSandboxUsers` y sin cifrar; necesita tu OK (`docs/SIGNING.md`) |
+| P2 Clave de firma protegida | ⛔ `SIGNING_BLOCKED` | legible por `CodexSandboxUsers` y sin cifrar; sin evidencia de lectura; necesita tu OK (`SECURITY_KEY_REVIEW.md`) |
+| P2 Relevo de claves (confiar en la actual y en la siguiente) | ✅ | `c160702`; lista vacía hoy; probado con claves de prueba |
 | P2 Procedimiento de rotación | ✅ | documentado, no ejecutado |
-| P3 Debloat bajo la arquitectura nueva | 🟡 | `appsScan/appsPreview` sin permisos, `appsRun/Restore` con ayudante; falta VM |
+| P3 Debloat bajo la arquitectura nueva | ✅ VM_VALIDATED | quitar, recuperar, aprovisionamiento y casos negativos en VigiaLab |
 | P3 Cinco idiomas | ✅ | 0 errores |
 | Publicar 0.21.0 / merge / push | ⛔ | necesita tu autorización |
 
@@ -114,5 +117,6 @@ Dato real de solo lectura de este PC: la RAM va a 5600 MT/s siendo de 6000 → E
 - ✅ Migración 0.20.17 → 0.21.0, ACL de Program Files, usuario estándar, actualización, downgrade, rollback, reparación (también con archivo bloqueado), dos Puentes, desinstalación: probado en VM.
 - ✅ Servicio de sensores en VM: arranque como SYSTEM, parar/arrancar, relanzado tras caída, sin PawnIO, suplantación del mapa rechazada. Temperaturas: 🟡 solo en hardware físico.
 - ✅ Debloat V2 en VM: quitar, historial, recuperar, aprovisionamiento en Avanzado, casos negativos.
-- ⛔ clic de UAC en VM (consola) · clave de firma (rotación tuya) · migración real en tu PC, publicar, merge, push.
+- ✅ UAC en VM (consola): aviso real, No/Sí, cierre por inactividad del ayudante (`97b9c29`), ventana en negro tras arrancar con Windows (`14b506d`). Suite s17: 352/0, 76/0, 31/0.
+- ⛔ clave de firma (`SIGNING_BLOCKED`, permisos y rotación tuyos) · revisión externa del servicio SYSTEM · migración real en tu PC, publicar, merge, push.
 - «Fable» = JITA, no Vigía. Detalle y siguiente paso: `FINAL_VALIDATION_REPORT.md`.

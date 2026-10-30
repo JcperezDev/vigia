@@ -1,20 +1,20 @@
 # Vigía — informe final de validación (rama `debloat-v2`)
-Fecha: 2026-10-29 · **Estado: NOT READY para publicar** (motivos en «Bloqueos»).
+Fecha: 2026-10-29 (actualizado 23:10) · **Estado: NOT READY para publicar** (motivos en «Bloqueos»).
 Solo commits locales: sin push, merge ni release. La instalación principal del PC no se tocó.
 
 ## Commits
 - Commit inicial de esta tanda: `ed66d5c` (BIOS solo lectura).
-- Creados: `791fdc9` sensores más robustos (los siete arreglos de la revisión) · `4dbe8c8` install-check sin `es.json` · `1894d15` migración de la tarea vieja y sesión 0 · `1af5284` servicio como SYSTEM · `61a102f` reparación con archivo abierto · `bf0a2f8` idiomas (85 mensajes) · `6014411` Apps por consola solo en VM · `03ad4c4` PawnIO al desinstalar · `048de17` carpeta vacía al desinstalar · `e0cde22` este informe · `17ad7e8` ayudante probado en VM y juegos evaluados · `81ac14c` privacidad aplicada y revertida en VM (`--tweaks-lab`).
-- Archivos de código tocados: `app/Puente/Setup.cs`, `app/Puente/SensorService.cs`, `app/Puente/Program.cs`, `app/Vigia/SensorHost.cs`, `Elevation.cs`, `AutoStart.cs`, `Telemetry.cs`, `Updates.cs`, `Program.cs`, `wwwroot/i18n/*`, `tools/i18n-extract.js`, `tools/i18n-check.js`, `tools/i18n-add-mensajes.js`, `tools/sensor-install-contract-test.py`.
+- Creados: `791fdc9` sensores más robustos (los siete arreglos de la revisión) · `4dbe8c8` install-check sin `es.json` · `1894d15` migración de la tarea vieja y sesión 0 · `1af5284` servicio como SYSTEM · `61a102f` reparación con archivo abierto · `bf0a2f8` idiomas (85 mensajes) · `6014411` Apps por consola solo en VM · `03ad4c4` PawnIO al desinstalar · `048de17` carpeta vacía al desinstalar · `e0cde22` este informe · `17ad7e8` ayudante probado en VM y juegos evaluados · `81ac14c` privacidad aplicada y revertida en VM (`--tweaks-lab`) · `7ece97d` informe · `c160702` relevo de claves · `881d769` reauditoría de la clave (`SIGNING_BLOCKED`) · `cf20c0f` ayudante con cierre por inactividad y motivo visible al cancelar UAC · `04f5ffb` las lecturas de sensores ya no mantienen vivo el ayudante; `SENSOR_SERVICE_AUDIT.md` · `97b9c29` tampoco la memoria automática; aviso de temperatura; compatibilidad y anti-rollback de la firma · `14b506d` ventana en negro al abrir tras arrancar con Windows.
+- Archivos de código tocados: `app/Puente/Setup.cs`, `app/Puente/SensorService.cs`, `app/Puente/Program.cs`, `app/Vigia/SensorHost.cs`, `Elevation.cs`, `AutoStart.cs`, `Telemetry.cs`, `Updates.cs`, `Program.cs`, `wwwroot/i18n/*`, `tools/i18n-extract.js`, `tools/i18n-check.js`, `tools/i18n-add-mensajes.js`, `tools/sensor-install-contract-test.py`, `AdminOps.cs`, `Tray.cs`, `wwwroot/app.js`, `tools/puente-test.js`.
 
 ## Pruebas automáticas (código actual, compilado de cero)
-Última tanda: `17ad7e8` + `--tweaks-lab` (= el commit siguiente), suite `s11`, Fortnite cerrado. Mismas cifras que en `048de17`:
+Última tanda: suite `s17` sobre `97b9c29` + el cambio de `14b506d` (2026-10-29 22:47), sin juegos abiertos:
 
 | Comando | Resultado |
 |---|---|
 | `dotnet build` Vigía / Puente / Puente-test (Release win-x64) | rc 0, 0 warnings, 0 errores |
-| `Vigia.exe --selftest` con `VIGIA_DATA` aislado | **344 OK / 0 FAIL** (incluye las 7 de juegos que antes faltaban por tener Fortnite abierto) |
-| `node tools/puente-test.js` | 74 / 0 |
+| `Vigia.exe --selftest` con `VIGIA_DATA` aislado | **352 OK / 0 FAIL** |
+| `node tools/puente-test.js` | 76 / 0 (incluye relevo de claves) |
 | `node tools/release-test.js` (GitHub simulado) | 31 / 0 |
 | `python -I tools/sensor-install-contract-test.py` | OK |
 | `node tools/i18n-check.js` | en/pt/fr/de: 2433 claves, 0 errores, 0 distintas |
@@ -23,7 +23,7 @@ Solo commits locales: sin push, merge ni release. La instalación principal del 
 El baseline 302/64/27 que pedías se superó: las pruebas crecieron con el trabajo nuevo y ninguna se quitó.
 
 ## Pruebas en VM (reales, no simuladas)
-Detalle en `VM_VALIDATION_REPORT.md`. 23 pruebas; 21 completas y 2 (UAC del ayudante, token de admin al iniciar sesión) validadas salvo el punto que necesita escritorio. Comprobado después: privacidad (aplicar y revertir), ayudante `--broker` (8 rechazos e IPC), migración 0.20.17 → 0.21.0, ACL, usuario estándar, servicio, suplantación del mapa, servicio sin driver, Debloat (quitar, recuperar, aprovisionamiento, casos negativos), firmas malas, paquete incompleto, actualización cortada, downgrade, reparación, archivo bloqueado, rollback, dos Puentes, desinstalación. La prueba de UAC está bloqueada (necesita escritorio) y el inicio sin administrador quedó parcial. **La VM no tiene sensores: ninguna temperatura física se validó en la VM.**
+Detalle en `VM_VALIDATION_REPORT.md`. 28 pruebas, todas VM_VALIDATED (varias tras arreglo). UAC real en la consola de la VM: abrir Vigía no pide UAC; una operación administrativa saca el aviso en el escritorio seguro; «No» deja la interfaz sin elevar y la página explica por qué; «Sí» levanta el ayudante y la interfaz sigue sin elevar; el ayudante se cierra solo a los 10 min sin pedidos aunque Monitor siga leyendo (antes no); tras reiniciar, Vigía abre sin pantalla negra (antes sí). También: privacidad (aplicar y revertir), ayudante `--broker` (8 rechazos e IPC), migración 0.20.17 → 0.21.0, ACL, usuario estándar, servicio, suplantación del mapa, servicio sin driver, Debloat (quitar, recuperar, aprovisionamiento, casos negativos), firmas malas, paquete incompleto, actualización cortada, downgrade, reparación, archivo bloqueado, rollback, dos Puentes, desinstalación. **La VM no tiene sensores: ninguna temperatura física se validó en la VM.**
 
 ## Seguridad del servicio «Sensores de Vigía»
 - **¿Hace falta LocalSystem?** Sí. PawnIO solo atiende a administradores y SYSTEM; en este PC la lectura salió sin admin = nada y con admin = 62,63 °C. Alternativas de menos privilegio: LocalService o NetworkService no pueden abrir el driver; una cuenta virtual necesitaría estar en Administradores, que no es menos. Dejar a Vigía elevada todo el tiempo sería peor. Se queda LocalSystem, reducido al mínimo:
@@ -54,11 +54,12 @@ Probado en Windows real (VM): inventario AppX/Win32/aprovisionadas/dependencias,
 - Selftest antiguo: escribió dos copias en tus datos reales (16:43, «juegos» y «restauración»). Apuntan a un `GameUserSettings.ini` falso de `%TEMP%`, no al de Fortnite. Tus ajustes de prueba (`HKCU\Software\Vigia\SelfTest`) no quedaron. Desde `791fdc9` el selftest se aísla solo.
 
 ## Bloqueos (necesitan tu intervención o hardware)
-1. Clave de firma: rotación y custodia (bloquea publicar).
-2. El clic de UAC en VM (consola de Hyper-V). Los rechazos del ayudante y su IPC ya se probaron en VM (8/8).
+1. Clave de firma: `SIGNING_BLOCKED`. Quitar la lectura de `CodexSandboxUsers`, sacar la clave de esta cuenta y decidir la rotación (bloquea publicar). Relevo de claves ya en el código.
+2. UAC con un usuario estándar (pide la contraseña de un administrador; no se tecleó ninguna). Con administrador ya está probado en VM.
 3. Temperaturas reales con el servicio: hardware físico autorizado.
 4. Migración real en tu PC, publicar 0.21.0, merge y push: autorización.
-5. Revisión de seguridad independiente del servicio SYSTEM antes de instalarlo en equipos de usuarios.
+5. Revisión de seguridad independiente del servicio SYSTEM antes de instalarlo en equipos de usuarios (`SENSOR_SERVICE_AUDIT.md`: EXTERNAL_AUDIT_PENDING).
+7. Cambios de comportamiento a aprobar: el ayudante se cierra tras 10 min sin uso; el aviso dice «Temperatura de CPU no disponible.».
 6. Hyper-V: sigue en `Auto`. Para volver: `bcdedit /set {current} hypervisorlaunchtype off` y reiniciar (respaldo en `scratch/p7/bcd-respaldo.bcd`). No lo cambié.
 
 ## Versión
