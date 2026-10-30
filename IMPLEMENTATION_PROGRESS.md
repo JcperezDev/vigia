@@ -197,3 +197,14 @@ Fuentes: Prompt 4 (Program Files y ayudante), Prompt 5 (firma, sensores, validac
 | Permisos peligrosos de `AppData`/`Temp` y del perfil | 🟡 documentados, corrección limitada propuesta | `SECURITY_KEY_REVIEW.md` «Permisos fuera de .vigia» |
 | Candidato 0.21.0 (archivos, SHA-256, manifiesto, changelog, Puente, cinco idiomas, sin drivers, servicio ni claves) | ✅ sin firmar | `RELEASE_CANDIDATE_0.21.0.md` |
 | Hyper-V | sin tocar (`Auto`) | NEEDS_OWNER_APPROVAL para revertir |
+
+## Ubicación y relevo desde 0.20.17 — 30-10 (noche) — `1ea871f` / `fea4ae0`
+
+- **Aviso «Location has been turned off»:** causa = Sugerencias de red de 0.20.17 (`WlanQueryInterface` con
+  current_connection y `WlanGetNetworkBssList`), lanzadas solas a los 20 s de abrir. Arreglo y pruebas en
+  `LOCATION_PRIVACY_FIX.md`. Pendiente: confirmar en un equipo con Wi‑Fi conectado (este PC no tiene ninguno).
+- **Puente:** se sustituye solo si la versión del manifiesto es mayor (Setup.cs 466); el SHA‑256 se comprueba en
+  lo descargado. `release.sh` ya no deja publicar un Puente cambiado con el mismo número.
+- **Relevo desde 0.20.17** en VigiaLab con claves de laboratorio: fila 40 de `VM_VALIDATION_REPORT.md`.
+- Pruebas sobre `fea4ae0`: selftest 371/0, location-test 25/0, Puente 76/0, release 31/0, firma 39/0, i18n 2435 claves.
+- Sigue **NOT READY · SIGNING_BLOCKED** (clave real sin custodia resuelta).
