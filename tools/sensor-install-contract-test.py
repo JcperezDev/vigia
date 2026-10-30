@@ -57,6 +57,8 @@ for d in ('app', 'tools'):
         if any(x in dp for x in ('\\bin', '/bin', '\\obj', '/obj', 'node_modules')): continue
         for f in fs:
             fp = Path(dp) / f
-            if fp.suffix in ('.cs', '.js', '.ps1', '.sh', '.py', '.csproj', '.json') and fp.name != 'sensor-install-contract-test.py':
+            if fp.suffix in ('.cs', '.js', '.ps1', '.sh', '.py', '.csproj', '.json') and fp.name not in ('sensor-install-contract-test.py', 'labguard-host-test.js'):  # la prueba lo pone para demostrar que no salta nada
                 assert 'LAB_ALLOW_GAME' not in fp.read_text(encoding='utf-8', errors='ignore'), f'{fp}: lab-only switch leaked into the product'
+lg = (root / 'tools/labguard-host-test.js').read_text(encoding='utf-8')
+assert lg.count("LAB_ALLOW_GAME: '1'") == 1 and lg.count('LAB_ALLOW_GAME') == 2, 'the host test only sets it, to prove it bypasses nothing'
 print('OK: installer/monitor sensor contract')
