@@ -154,30 +154,53 @@ public static class Elevation
     /// Se atienden, pero no cuentan como uso: si contaran, el ayudante no se cerraría nunca (visto en VigiaLab).</summary>
     internal static readonly HashSet<string> Background = ["telemetry", "memAuto", "undoRetired", "ping"];
 
-    internal static async Task Loop(Stream pipe, SemaphoreSlim gate, CancellationToken ct)
+    /// <summary>Quien atiende cada pedido. Las pruebas lo cambian para simular una tarea larga sin tocar el sistema.</summary>
+    internal delegate Task Runner(string cmd, JsonObject msg, Action<string, object?> emit);
+
+    internal static Task Loop(Stream pipe, SemaphoreSlim gate, CancellationToken ct) => Loop(pipe, gate, ct, null);
+
+    // Comportamiento previsto: el ayudante se cierra tras IdleLimit sin pedidos de la persona. El plazo cuenta desde que
+    // terminó lo último que pidió (no desde que empezó), nunca corta una tarea en marcha y las lecturas automáticas
+    // (Background) no lo renuevan. La lectura de la tubería no se cancela al vencer el plazo: así no se pierde medio mensaje.
+    internal static async Task Loop(Stream pipe, SemaphoreSlim gate, CancellationToken ct, Runner? run)
     {
+        run ??= (c, m, e) => AdminOps.Run(c, m, e);
         var running = new List<Task>();   // solo lo que pidió la persona
         var all = new List<Task>();
-        var lastUse = DateTime.UtcNow;
+        long lastUse = DateTime.UtcNow.Ticks;   // lo actualizan también las tareas al terminar
+        DateTime LastUse() => new(Interlocked.Read(ref lastUse), DateTimeKind.Utc);
+        void Touch() => Interlocked.Exchange(ref lastUse, DateTime.UtcNow.Ticks);
+        Task<string?> next = ReadLineAsync(pipe, ct);
         while (!ct.IsCancellationRequested)
         {
-            string? line;
-            using (var idle = CancellationTokenSource.CreateLinkedTokenSource(ct))
+            running.RemoveAll(t => t.IsCompleted);
+            if (!next.IsCompleted)
             {
-                running.RemoveAll(t => t.IsCompleted);
-                if (running.Count > 0) lastUse = DateTime.UtcNow;   // hay algo en marcha (un USB, una ISO): no se corta a medias
-                var left = IdleLimit - (DateTime.UtcNow - lastUse);
-                idle.CancelAfter(left > TimeSpan.Zero ? left : TimeSpan.Zero);
-                try { line = await ReadLineAsync(pipe, idle.Token); }
-                catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+                if (running.Count > 0)
                 {
-                    running.RemoveAll(t => t.IsCompleted);
-                    if (running.Count > 0) continue;
+                    // hay algo en marcha (un USB, una ISO): se espera a que llegue un pedido o a que termine
+                    await Task.WhenAny(next, Task.WhenAny(running));
+                    continue;
+                }
+                var left = IdleLimit - (DateTime.UtcNow - LastUse());
+                if (left > TimeSpan.Zero)
+                {
+                    using var timer = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                    var delay = Task.Delay(left, timer.Token);
+                    if (await Task.WhenAny(next, delay) != next) { continue; }
+                    timer.Cancel();
+                }
+                else
+                {
                     UiMessage.Note("ayudante: sin pedidos en un rato, me cierro (lo próximo vuelve a pedir permiso)");
                     break;
                 }
             }
+            string? line;
+            try { line = await next; }
+            catch (OperationCanceledException) { break; }
             if (line is null) break;   // la interfaz se cerró
+            next = ReadLineAsync(pipe, ct);
             int id; string cmd; JsonObject msg;
             try
             {
@@ -195,22 +218,24 @@ public static class Elevation
                 continue;
             }
             msg["cmd"] = cmd;
-            running.RemoveAll(t => t.IsCompleted);
             all.RemoveAll(t => t.IsCompleted);
+            var mine = !Background.Contains(cmd);
+            if (mine) Touch();
             var job = Task.Run(async () =>
             {
                 string? err = null;
                 try
                 {
-                    await AdminOps.Run(cmd, msg, (t, p) =>
+                    await run(cmd, msg, (t, p) =>
                         WriteLineAsync(pipe, gate, "{\"id\":" + id + ",\"ev\":" + JsonSerializer.Serialize(t) + ",\"payload\":" + JsonSerializer.Serialize(p, Program.Json) + "}")
                             .GetAwaiter().GetResult());
                 }
                 catch (Exception e) { err = e is ArgumentException ? "Datos no válidos." : e.Message; }
+                finally { if (mine) Touch(); }   // el plazo empieza cuando termina, no cuando empezó
                 try { await WriteLineAsync(pipe, gate, JsonSerializer.Serialize(new { id, end = true, error = err })); } catch { }
             }, CancellationToken.None);
             all.Add(job);
-            if (!Background.Contains(cmd)) { running.Add(job); lastUse = DateTime.UtcNow; }
+            if (mine) running.Add(job);
         }
         try { await Task.WhenAll(all).WaitAsync(TimeSpan.FromSeconds(5)); } catch { }
     }
@@ -224,6 +249,8 @@ public static class Elevation
         static Broker? _current;
         static readonly SemaphoreSlim StartGate = new(1, 1);
         public static bool Alive => _current is { _dead: false };
+        /// <summary>El ayudante abierto, o null. Nunca abre uno nuevo: para lo que la interfaz manda sola, que no debe sacar UAC.</summary>
+        public static Broker? Existing => _current is { _dead: false } c ? c : null;
 
         readonly NamedPipeServerStream _pipe;
         readonly Process _proc;
@@ -537,6 +564,42 @@ public static class InstallTrust
             Check(loop3.Wait(TimeSpan.FromSeconds(2)) && sw3.Elapsed < TimeSpan.FromSeconds(4) && n3 >= 4,
                 $"ayudante: los pedidos de fondo (sensores) no lo mantienen elevado ({n3} pedidos, {sw3.Elapsed.TotalSeconds:0.0} s)");
             srv3.Dispose(); drain.Wait(TimeSpan.FromSeconds(2));
+            // una tarea pedida por la persona que dura más que el plazo no se corta, y el plazo empieza al terminarla
+            Elevation.IdleLimit = TimeSpan.FromMilliseconds(600);
+            using var srv4 = new global::System.IO.Pipes.NamedPipeServerStream(pn + "d", global::System.IO.Pipes.PipeDirection.InOut, 1, global::System.IO.Pipes.PipeTransmissionMode.Byte, global::System.IO.Pipes.PipeOptions.Asynchronous);
+            using var cli4 = new global::System.IO.Pipes.NamedPipeClientStream(".", pn + "d", global::System.IO.Pipes.PipeDirection.InOut, global::System.IO.Pipes.PipeOptions.Asynchronous);
+            var acc4 = srv4.WaitForConnectionAsync();
+            cli4.Connect(5000); acc4.GetAwaiter().GetResult();
+            var jobEnd = DateTime.MinValue; var jobDone = false;
+            Elevation.Runner slow = async (c, m, e) => { await Task.Delay(1500); jobEnd = DateTime.UtcNow; jobDone = true; };
+            var loop4 = Elevation.Loop(cli4, new SemaphoreSlim(1, 1), CancellationToken.None, slow);
+            var drain4 = Task.Run(async () => { try { while (await Elevation.ReadLineAsync(srv4, CancellationToken.None) is not null) { } } catch { } });
+            srv4.Write(global::System.Text.Encoding.UTF8.GetBytes("{\"id\":1,\"cmd\":\"usbList\",\"msg\":{}}\n")); srv4.Flush();
+            var ended4 = loop4.Wait(TimeSpan.FromSeconds(8));
+            var after = DateTime.UtcNow - jobEnd;
+            Check(ended4 && jobDone && after >= TimeSpan.FromMilliseconds(450),
+                $"ayudante: una tarea más larga que el plazo termina entera y el plazo cuenta desde que acaba ({after.TotalMilliseconds:0} ms después)");
+            srv4.Dispose(); drain4.Wait(TimeSpan.FromSeconds(2));
+            // con una tarea en marcha, un pedido que llega en dos trozos a ambos lados del plazo se atiende entero
+            // (antes la lectura se cancelaba al vencer el plazo y se perdía la primera mitad)
+            Elevation.IdleLimit = TimeSpan.FromMilliseconds(400);
+            using var srv5 = new global::System.IO.Pipes.NamedPipeServerStream(pn + "e", global::System.IO.Pipes.PipeDirection.InOut, 1, global::System.IO.Pipes.PipeTransmissionMode.Byte, global::System.IO.Pipes.PipeOptions.Asynchronous);
+            using var cli5 = new global::System.IO.Pipes.NamedPipeClientStream(".", pn + "e", global::System.IO.Pipes.PipeDirection.InOut, global::System.IO.Pipes.PipeOptions.Asynchronous);
+            var acc5 = srv5.WaitForConnectionAsync();
+            cli5.Connect(5000); acc5.GetAwaiter().GetResult();
+            Elevation.Runner mixed = (c, m, e) => m["slow"] is null ? Task.CompletedTask : Task.Delay(1500);
+            var loop5 = Elevation.Loop(cli5, new SemaphoreSlim(1, 1), CancellationToken.None, mixed);
+            var answers5 = new global::System.Collections.Concurrent.ConcurrentQueue<string>();
+            var drain5 = Task.Run(async () => { try { while (await Elevation.ReadLineAsync(srv5, CancellationToken.None) is { } l) answers5.Enqueue(l); } catch { } });
+            srv5.Write(global::System.Text.Encoding.UTF8.GetBytes("{\"id\":1,\"cmd\":\"usbList\",\"msg\":{\"slow\":1}}\n")); srv5.Flush();
+            var msg5 = global::System.Text.Encoding.UTF8.GetBytes("{\"id\":7,\"cmd\":\"usbList\",\"msg\":{}}\n");
+            Thread.Sleep(250); srv5.Write(msg5, 0, 10); srv5.Flush();
+            Thread.Sleep(350); srv5.Write(msg5, 10, msg5.Length - 10); srv5.Flush();
+            var ended5 = loop5.Wait(TimeSpan.FromSeconds(8));
+            drain5.Wait(TimeSpan.FromSeconds(1));
+            Check(ended5 && answers5.Any(l => l.Contains("\"id\":7") && l.Contains("\"end\":true")) && answers5.Any(l => l.Contains("\"id\":1") && l.Contains("\"end\":true")),
+                "ayudante: con una tarea en marcha, un pedido partido en dos trozos se atiende entero y luego se cierra solo");
+            srv5.Dispose();
             // todo lo que Program.cs manda sin que la persona pulse nada (sensores, liberación automática, deshacer retirados)
             Check(new[] { "telemetry", "memAuto", "undoRetired" }.All(Elevation.Background.Contains), "ayudante: los pedidos automáticos de la interfaz no cuentan como uso");
         }

@@ -23,4 +23,9 @@
     <DefineConstants>$(DefineConstants);PUENTE_TEST</DefineConstants>
     <AssemblyName>Puente-test</AssemblyName>
   </PropertyGroup>
+  <!-- Servicio SYSTEM «Sensores de Vigía»: fuera de la versión pública hasta que pase una revisión externa
+       (SENSOR_SERVICE_AUDIT.md). Solo las compilaciones de laboratorio lo activan con -p:SensorService=true. -->
+  <PropertyGroup Condition="'$(SensorService)' == 'true'">
+    <DefineConstants>$(DefineConstants);SENSOR_SERVICE</DefineConstants>
+  </PropertyGroup>
 </Project>

@@ -22,7 +22,8 @@ static class Program
         if (args.Length >= 1 && args[0] == "--broker") return Elevation.RunBroker(args);
         // Lo usa Puente antes de activar una versión nueva: ¿están sus piezas y se pueden leer? Solo lee; no abre ventanas.
         // Servicio «Sensores de Vigía» (lo instala Puente; solo SYSTEM). --sensor-publish es la prueba sin servicio.
-        if (args.Length == 1 && args[0] == "--sensor-service") return SensorHost.RunService();
+        // En la versión pública no existe: rc 2 como cualquier orden desconocida.
+        if (args.Length == 1 && args[0] == "--sensor-service") return SensorHost.Enabled ? SensorHost.RunService() : 2;
         if (args.Length == 2 && args[0] == "--sensor-publish" && int.TryParse(args[1], out var pubSecs)) return SensorHost.RunTest(pubSecs);
         if (args.Length >= 1 && args[0] == "--setup-sensors")
         {
@@ -745,7 +746,10 @@ sealed partial class MainForm : Form
             string? err;
             try
             {
-                var b = await Elevation.Broker.EnsureAsync();
+                // lo automático (sensores, memoria, deshacer retirados) solo usa un ayudante ya abierto: si acaba de cerrarse
+                // por inactividad, no se vuelve a pedir UAC sin que la persona haya pulsado nada
+                var b = Elevation.Background.Contains(cmd) ? Elevation.Broker.Existing : await Elevation.Broker.EnsureAsync();
+                if (b is null) return;
                 err = await b.RunAsync(cmd, msg, (t, p) => { try { BeginInvoke(() => { seen.Add(t); OnBrokerEvent(t, p); }); } catch { } });
             }
             catch (Elevation.Denied d) { err = d.Message; }

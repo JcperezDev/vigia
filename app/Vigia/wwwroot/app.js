@@ -32,6 +32,8 @@
     p.classList.toggle('na', v == null);
     p.classList.toggle('warm', v != null && v >= 70 && v < 85);
     p.classList.toggle('hot', v != null && v >= 85);
+    const unit = p.querySelector('small');
+    if (unit) unit.hidden = v == null;   // sin lectura: «N/D», nunca «N/D °C» ni 0 °C
   }
 
   function render(s) {
@@ -41,6 +43,7 @@
     const c = s.cpu;
     $('cpu-name').textContent = c.name;
     setTemp($('cpu-temp'), c.temp);
+    $('cpu-temp-na').hidden = c.temp != null;
     $('cpu-load').textContent = fmt(c.load, 0, ' %');
     $('cpu-clock').textContent = fmt(c.clockGhz, 2, ' GHz');
     $('cpu-cores').textContent = `${c.cores} / ${c.threads}`;

@@ -90,8 +90,14 @@ if [ "$SKIP_BUILD" = 0 ]; then
 # ---------------------------------------------------------------- 1. compilar
 rm -rf "out/$V"; mkdir -p "out/$V"
 echo "== 1. compilar Vigía $V y Puente"
-"$DOTNET" publish app/Vigia/Vigia.csproj -c Release -r win-x64 --self-contained true -o "$OUT/Vigia" -v quiet -nologo
-"$DOTNET" publish app/Puente/Puente.csproj -c Release -o "$OUT/puente" -v quiet -nologo
+# El servicio SYSTEM «Sensores de Vigía» queda fuera de la versión pública hasta su revisión externa
+# (SENSOR_SERVICE_AUDIT.md): se fija en false aunque haya una variable SensorService en el entorno.
+unset SensorService
+"$DOTNET" publish app/Vigia/Vigia.csproj -c Release -r win-x64 --self-contained true -o "$OUT/Vigia" -v quiet -nologo -p:SensorService=false
+"$DOTNET" publish app/Puente/Puente.csproj -c Release -o "$OUT/puente" -v quiet -nologo -p:SensorService=false
+# sin el servicio, --sensor-service es una orden desconocida (rc 2); con él, fuera de SYSTEM daría 3
+set +e; "$OUT/Vigia/Vigia.exe" --sensor-service < /dev/null > /dev/null 2>&1; SVC_RC=$?; set -e
+[ "$SVC_RC" = 2 ] || { echo "La compilación incluye el servicio de sensores (rc $SVC_RC). No se publica."; exit 1; }
 cp "$P" "$OUT/Puente.exe"
 
 # ---------------------------------------------------------------- 2. pruebas

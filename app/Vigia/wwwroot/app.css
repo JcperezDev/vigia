@@ -76,6 +76,7 @@ h2 { margin: 0; font-size: 13px; font-weight: 500; color: var(--fg-2); }
 .big.warm { color: var(--amber); }
 .big.hot { color: var(--hot); }
 .big.na { color: var(--fg-3); }
+.na-why { margin: 0; font-size: .8rem; color: var(--fg-3); }
 dl { margin: 0; display: flex; gap: 22px; flex-wrap: wrap; }
 dl div { min-width: 0; }
 dt { font-size: 11px; color: var(--fg-3); }

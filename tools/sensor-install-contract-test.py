@@ -29,4 +29,32 @@ assert 'SensorHost.ReadCpu()' in t and '!Elevated' in t, 'unprivileged Vigía mu
 assert 'IsSystem) return 3' in h and 'InstallTrust.Problem(AppContext.BaseDirectory)' in h, 'service entrypoint must refuse non-SYSTEM/untrusted folders'
 assert 'TrustedOwner(h)' in h and '(A;;GR;;;AU)' in h and 'GA;;;SY' in h, 'shared memory: SYSTEM writes, users only read'
 assert 'Pipe' not in h and 'Socket' not in h, 'sensor service must not accept commands'
+# Versión pública sin el servicio SYSTEM (revisión externa pendiente): solo el laboratorio lo activa.
+for proj in ('app/Vigia/Vigia.csproj', 'app/Puente/Puente.csproj'):
+    x = (root / proj).read_text(encoding='utf-8-sig')
+    assert "Condition=\"'$(SensorService)' == 'true'\"" in x and 'SENSOR_SERVICE' in x, proj + ': the service must be opt-in'
+    assert x.count(';SENSOR_SERVICE<') == 1 and x.index(';SENSOR_SERVICE<') > x.index("Condition=\"'$(SensorService)' == 'true'\""), proj + ': SENSOR_SERVICE defined outside the opt-in group'
+assert '#if SENSOR_SERVICE\n            InstallSensors(exe);' in prep and '#else' in prep and 'RemoveSensors();' in prep[prep.index('#else'):], 'public setup must not register the service and must remove a lab one'
+assert 'SensorHost.Enabled' in t and 'SensorHost.ReadCpu()' in t[t.index('SensorHost.Enabled') - 80:t.index('SensorHost.Enabled') + 120], 'public Vigía must not read the shared memory'
+assert '#if SENSOR_SERVICE\n    public static readonly bool Enabled = true;' in h, 'SensorHost.Enabled follows the build flag'
+assert 'SensorHost.Enabled ? SensorHost.RunService() : 2' in p, '--sensor-service is an unknown command in the public build'
+rel = (root / 'tools/release.sh').read_text(encoding='utf-8')
+assert 'unset SensorService' in rel and rel.count('-p:SensorService=false') == 2 and '[ "$SVC_RC" = 2 ]' in rel, 'release build pins the service off and checks it'
+assert 'SensorService=true' not in rel, 'release must never enable the service'
+# Sin lectura fiable: siempre «Temperatura de CPU no disponible», nunca un número.
+assert 'NoTempAdmin' in t and 'NoTempCpu' in t and 'v > 1 && v < 150' in t, 'no reading must be explained, never 0 °C'
+js = (root / 'app/Vigia/wwwroot/app.js').read_text(encoding='utf-8')
+assert "$('cpu-temp-na').hidden = c.temp != null;" in js and 'unit.hidden = v == null' in js, 'UI shows «no disponible» and hides °C without a reading'
+assert 'id="cpu-temp-na"' in (root / 'app/Vigia/wwwroot/index.html').read_text(encoding='utf-8')
+# Ayudante: lo automático nunca abre uno nuevo (no saca UAC sin que la persona pulse nada)
+assert 'Elevation.Background.Contains(cmd) ? Elevation.Broker.Existing : await Elevation.Broker.EnsureAsync()' in p, 'background commands must not start the helper'
+# El permiso de laboratorio para seguir con un juego abierto no existe en el producto
+import os
+for d in ('app', 'tools'):
+    for dp, _, fs in os.walk(root / d):
+        if any(x in dp for x in ('\\bin', '/bin', '\\obj', '/obj', 'node_modules')): continue
+        for f in fs:
+            fp = Path(dp) / f
+            if fp.suffix in ('.cs', '.js', '.ps1', '.sh', '.py', '.csproj', '.json') and fp.name != 'sensor-install-contract-test.py':
+                assert 'LAB_ALLOW_GAME' not in fp.read_text(encoding='utf-8', errors='ignore'), f'{fp}: lab-only switch leaked into the product'
 print('OK: installer/monitor sensor contract')

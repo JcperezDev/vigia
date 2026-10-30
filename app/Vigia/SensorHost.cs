@@ -15,6 +15,12 @@ namespace Vigia;
 public static class SensorHost
 {
     public const string ServiceName = "VigiaSensores";
+    /// <summary>¿Esta compilación usa el servicio? Fuera de la versión pública hasta la revisión externa (SENSOR_SERVICE_AUDIT.md).</summary>
+#if SENSOR_SERVICE
+    public static readonly bool Enabled = true;
+#else
+    public static readonly bool Enabled = false;
+#endif
     public const string MapName = @"Global\VigiaSensores";
     const string TestPrefix = @"Local\VigiaSensoresTest";
     const uint Magic = 0x31534756;            // "VGS1"
@@ -269,6 +275,15 @@ public static class SensorHost
         void Check(bool ok, string what) => log.Add($"{(ok ? "OK  " : "FAIL")} {what}");
         var name = $"{TestPrefix}Self{Environment.ProcessId}";
         Check(ReadCpu(name, DateTime.UtcNow).Item1 == Share.Missing, "sin servicio: «no activo», nunca 0 °C");
+        // sin lectura fiable siempre se explica, y empieza por «Temperatura de CPU no disponible» salvo los casos con causa propia
+        Check(Telemetry.CpuTempWhy(true, true, false, null) == Telemetry.NoTempAdmin && Telemetry.NoTempAdmin.StartsWith("Temperatura de CPU no disponible"),
+            "sin permisos y sin servicio: «Temperatura de CPU no disponible» con el motivo");
+        Check(Telemetry.CpuTempWhy(true, true, true, null) == Telemetry.NoTempCpu && Telemetry.CpuTempWhy(false, true, true, null) == Telemetry.NoTempCpu,
+            "con permisos pero sin dato válido (o sin procesador detectado): «Temperatura de CPU no disponible»");
+        Check(Telemetry.CpuTempWhy(true, false, false, null).Contains("PawnIO"), "sin el driver se dice que falta PawnIO");
+        Check(Telemetry.CpuTempWhy(true, true, false, Share.Missing) == Explain(Share.Missing), "con el servicio de laboratorio se dice su estado");
+        Check(Telemetry.CpuTempWhy(true, true, false, Share.Ok) == Telemetry.NoTempAdmin, "nunca queda sin explicar");
+        log.Add($"INFO servicio de sensores en esta compilación: {(Enabled ? "sí (laboratorio)" : "no (versión pública)")}");
         if (!Elevation.IsAdmin) { Check(true, "(publicar se prueba solo con administrador)"); return string.Join(Environment.NewLine, log); }
         using (var pub = Create(name, out var err))
         {

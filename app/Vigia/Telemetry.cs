@@ -106,6 +106,17 @@ public sealed class Telemetry : IDisposable
 
     static bool PawnIoInstalled() => Pawn.Installed();
 
+    internal const string NoTempAdmin = "Temperatura de CPU no disponible. Sin permisos de administrador Windows no deja leer los grados del procesador; se ven mientras el ayudante de Vigía está abierto.";
+    internal const string NoTempCpu = "Temperatura de CPU no disponible. Este procesador no entrega una lectura válida.";
+
+    /// <summary>Por qué no hay grados del procesador. Nunca null: sin lectura válida siempre se explica.</summary>
+    internal static string CpuTempWhy(bool cpuFound, bool pawn, bool elevated, SensorHost.Share? share) =>
+        !cpuFound ? NoTempCpu
+        : !pawn ? "Para ver los grados del procesador hace falta el driver PawnIO, que no está instalado en este PC."
+        : share is { } s && SensorHost.Explain(s) is { } e ? e
+        : !elevated ? NoTempAdmin
+        : NoTempCpu;
+
     static double? S(IHardware h, SensorType t, params string[] names)
     {
         foreach (var n in names)
@@ -159,12 +170,11 @@ public sealed class Telemetry : IDisposable
                 }
             // Sin permisos el driver no se puede abrir: los grados los publica el servicio «Sensores de Vigía».
             SensorHost.Share? share = null;
-            if (temp is null && !Elevated) { (var st, temp) = SensorHost.ReadCpu(); share = st; }
+            if (temp is null && !Elevated && SensorHost.Enabled) { (var st, temp) = SensorHost.ReadCpu(); share = st; }
             // Sin el driver PawnIO, LibreHardwareMonitor deja los sensores del procesador en 0: mejor decir por qué que mostrar 0 °C.
             // El motivo se recalcula en cada lectura: si el servicio pasa de «sin dato» a «no responde», el aviso cambia con él.
-            string? why = temp is not null || cpuH is null ? null
-                : !PawnIoInstalled() ? "Para ver los grados del procesador hace falta el driver PawnIO, que no está instalado en este PC."
-                : share is { } s ? SensorHost.Explain(s) : null;
+            // Sin lectura fiable nunca hay número: la tarjeta queda en N/D y aquí se dice por qué.
+            string? why = temp is not null ? null : CpuTempWhy(cpuH is not null, PawnIoInstalled(), Elevated, share);
             if (why != _cpuTempWhy)
             {
                 if (_cpuTempWhy is { } old) _notes.Remove(old);

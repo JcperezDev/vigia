@@ -518,7 +518,13 @@ static partial class Program
             Log(p.ExitCode == 0 ? "sensores: dependencia presente; lectura física pendiente de comprobar"
                 : p.ExitCode == 4 ? "sensores: aplazado por juego abierto; reintentar con Reparar"
                 : "sensores: preparación falló, código " + p.ExitCode + "; usar Reparar");
+#if SENSOR_SERVICE
             InstallSensors(exe);   // aunque se aplace PawnIO: sin driver el servicio solo informa que no hay dato
+#else
+            // Versión pública: el servicio SYSTEM queda fuera hasta su revisión externa (SENSOR_SERVICE_AUDIT.md).
+            // Si una compilación de laboratorio lo dejó registrado, se quita: no debe quedar nada apuntando a otra versión.
+            RemoveSensors();
+#endif
         }
         catch (Exception e) { Log("sensores: " + e.Message); }
     }
