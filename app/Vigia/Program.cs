@@ -11,7 +11,7 @@ static class Program
     internal static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
     // Órdenes de consola (pruebas, soporte y laboratorio). Las que abren la interfaz (--tray, --snap, --bench) no están aquí.
-    internal static readonly HashSet<string> ConsoleVerbs = ["--apps-history", "--apps-plan", "--apps-restore", "--apps-run", "--apps-scan", "--autostart", "--backup-restore", "--backups", "--bios", "--broker", "--broker-hold", "--crashes", "--display-test", "--drift", "--fortnite", "--fps-probe", "--install-check", "--iso", "--lab", "--msdl-probe", "--optimize", "--original", "--probe", "--procs", "--puente-get", "--rates", "--restore-point", "--rig", "--sec", "--selftest", "--sensor-publish", "--sensor-service", "--setup-sensors", "--simple-plan", "--simple-run", "--startup", "--startup-offall", "--startup-set", "--suggest", "--tray-dump", "--tweaks-lab", "--undo-retired", "--usb", "--wallpaper"];
+    internal static readonly HashSet<string> ConsoleVerbs = ["--apps-history", "--apps-plan", "--apps-restore", "--apps-run", "--apps-scan", "--autostart", "--backup-restore", "--backups", "--bios", "--broker", "--broker-hold", "--crashes", "--display-test", "--drift", "--fortnite", "--fps-probe", "--geo-probe", "--install-check", "--iso", "--lab", "--msdl-probe", "--optimize", "--original", "--probe", "--procs", "--puente-get", "--rates", "--restore-point", "--rig", "--sec", "--selftest", "--sensor-publish", "--sensor-service", "--setup-sensors", "--simple-plan", "--simple-run", "--startup", "--startup-offall", "--startup-set", "--suggest", "--tray-dump", "--tweaks-lab", "--undo-retired", "--usb", "--wallpaper", "--wifi-check"];
 
     [STAThread]
     static int Main(string[] args)
@@ -195,6 +195,13 @@ static class Program
             File.WriteAllText(args[1], JsonSerializer.Serialize(Simple.Build(ans), new JsonSerializerOptions(Json) { WriteIndented = true }));
             return 0;
         }
+        if (args.Length >= 2 && args[0] == "--geo-probe")   // diagnóstico: la interfaz no puede obtener la ubicación
+        {
+            ApplicationConfiguration.Initialize();
+            return LocationGuard.Probe(args[1]);
+        }
+        if (args.Length >= 2 && args[0] == "--wifi-check")   // diagnóstico: lectura de Wi-Fi sin ubicación, sin datos de red
+            return LocationGuard.WifiCheck(args[1]);
         if (args.Length >= 2 && args[0] == "--msdl-probe" && LabGuard.Allowed)
         {
             ApplicationConfiguration.Initialize();
@@ -541,6 +548,8 @@ sealed partial class MainForm : Form
         core.NewWindowRequested += (_, e) => e.Handled = true;
         core.DownloadStarting += (_, e) => { e.Cancel = true; e.Handled = true; };
         core.WebMessageReceived += OnMessage;
+        // la interfaz no pide ubicación, cámara ni nada: si algo lo intentara, se deniega sin mostrar nada (LocationGuard)
+        LocationGuard.Harden(core, "interfaz");
         // en capturas no sale la bienvenida (salvo que se pida con --snap … welcome / tour-N)
         if (_snapPath is not null) await core.AddScriptToExecuteOnDocumentCreatedAsync("window.__vigiaSnap = true;");
         core.Navigate("https://app.vigia/index.html");

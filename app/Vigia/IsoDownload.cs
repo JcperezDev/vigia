@@ -47,6 +47,8 @@ sealed partial class MainForm
         core.NavigationStarting += (_, e) => { if (!IsMicrosoft(e.Uri)) e.Cancel = true; };
         core.NewWindowRequested += (_, e) => { e.Handled = true; if (IsMicrosoft(e.Uri)) core.Navigate(e.Uri); };
         core.DownloadStarting += (_, e) => OnMsDownload(win, e);
+        // la web de Microsoft podría pedir ubicación u otros permisos: Vigía no los da
+        LocationGuard.Harden(core, "microsoft");
         core.Navigate($"https://www.microsoft.com/{locale}/software-download/windows11");
     }
 

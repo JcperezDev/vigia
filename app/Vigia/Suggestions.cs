@@ -11,7 +11,8 @@ namespace Vigia;
 /// <summary>Fix: lo que Vigía puede arreglar con un botón ("tweak:id", "hz:pantalla:hz", "trim", "sched"). Null si no se puede desde Windows.</summary>
 public sealed record Suggestion(string Id, string Level, string Title, IReadOnlyList<string> Why, IReadOnlyList<string> Do, string? Go, IReadOnlyList<string> Facts, string? Fix = null, string? FixLabel = null);
 public sealed record PingStats(string Target, int Sent, int Lost, double? Avg, double? Min, double? Max, double? Jitter);
-public sealed record WifiFacts(string Ssid, int Quality, int? Rssi, double? FreqGhz, string Band, string Phy, double RxMbps, int SameChannel);
+/// <summary>Lo que se sabe del Wi-Fi conectado sin pedir ubicación: sin nombre de la red, sin BSSID y sin redes vecinas.</summary>
+public sealed record WifiFacts(int Quality, int? Rssi, double? FreqGhz, string Band, string Phy, double RxMbps);
 public sealed record NetFacts(string Kind, string Adapter, long LinkMbps, WifiFacts? Wifi, PingStats? Gateway, PingStats? Internet, IReadOnlyList<string> SpareEthernet);
 public sealed record SuggestReport(IReadOnlyList<Suggestion> Items, NetFacts? Net, long Ts);
 
@@ -105,11 +106,9 @@ public static class Suggestions
 
             if (w is { Band: "2,4 GHz" })
                 res.Add(new("net-5ghz", "info", "Estás en la banda de 2,4 GHz",
-                    w.SameChannel > 0
-                        ? ["Es la banda más llena: la comparten las redes vecinas, el Bluetooth y hasta el microondas.", $"Redes vecinas en tu mismo canal ahora mismo: {w.SameChannel}.", "La de 5 GHz da más velocidad y menos espera."]
-                        : ["Es la banda más llena: la comparten las redes vecinas, el Bluetooth y hasta el microondas.", "La de 5 GHz da más velocidad y menos espera."],
+                    ["Es la banda más llena: la comparten las redes vecinas, el Bluetooth y hasta el microondas.", "La de 5 GHz da más velocidad y menos espera."],
                     ["Si tu router tiene 5 GHz, conéctate a esa red (a veces se llama igual con «5G» al final).", "Llega menos lejos, así que sirve si estás cerca del router."], null,
-                    [$"Banda: {w.Band}", $"Redes en el mismo canal: {w.SameChannel}"]));
+                    [$"Banda: {w.Band}"]));
         }
         else if (n.Kind == "ethernet")
         {
@@ -154,9 +153,9 @@ public static class Suggestions
 
         var tGw = gwIp is null ? Task.FromResult<PingStats?>(null) : Task.Run<PingStats?>(() => PingMany(gwIp.ToString(), 20));
         var tNet = Task.Run<PingStats?>(() => { var p = PingMany("1.1.1.1", 20); return p.Lost == p.Sent ? PingMany("8.8.8.8", 20) : p; });
-        WifiFacts? wifi = kind == "wifi" ? Wlan.Read(main.Id) : null;
-        Task.WaitAll(tGw, tNet);
         var link = main.Speed > 0 ? main.Speed / 1_000_000 : 0;
+        WifiFacts? wifi = kind == "wifi" ? Wlan.Read(main.Id, link) : null;
+        Task.WaitAll(tGw, tNet);
         return new(kind, main.Description, link, wifi, tGw.Result, tNet.Result, spare);
     }
 
@@ -187,71 +186,91 @@ public static class Suggestions
 
     [DllImport("iphlpapi.dll")] static extern int GetBestInterface(uint dwDestAddr, out uint pdwBestIfIndex);
 
-    /// <summary>Señal, banda y redes vecinas con la API nativa de Wi-Fi (no depende del idioma de Windows, a diferencia de netsh).</summary>
-    static class Wlan
+    /// <summary>
+    /// Señal y banda del Wi-Fi conectado con la API nativa (no depende del idioma de Windows, a diferencia de netsh),
+    /// SIN pedir ubicación. Desde Windows 11 24H2, WlanQueryInterface con current_connection, WlanGetNetworkBssList,
+    /// WlanGetAvailableNetworkList y WlanScan dan el BSSID (sirve para ubicar el equipo), así que Windows exige permiso de
+    /// ubicación y, si está apagada, avisa «Location has been turned off» señalando a la app. Aquí solo se usan
+    /// consultas sin BSSID: calidad en tiempo real, RSSI y canal. Por eso ya no se sabe el nombre de la red ni cuántas
+    /// redes vecinas comparten canal: no hacen falta para recomendar cable o 5 GHz.
+    /// </summary>
+    internal static class Wlan
     {
         [DllImport("wlanapi.dll")] static extern uint WlanOpenHandle(uint ver, IntPtr res, out uint neg, out IntPtr h);
         [DllImport("wlanapi.dll")] static extern uint WlanCloseHandle(IntPtr h, IntPtr res);
         [DllImport("wlanapi.dll")] static extern uint WlanQueryInterface(IntPtr h, ref Guid g, int op, IntPtr res, out uint size, out IntPtr data, out int type);
-        [DllImport("wlanapi.dll")] static extern uint WlanGetNetworkBssList(IntPtr h, ref Guid g, IntPtr ssid, int bssType, [MarshalAs(UnmanagedType.Bool)] bool sec, IntPtr res, out IntPtr list);
         [DllImport("wlanapi.dll")] static extern void WlanFreeMemory(IntPtr p);
 
-        const int OpCurrentConnection = 7, OpRssi = 0x10000102;
+        // wlan_intf_opcode_channel_number, _realtime_connection_quality (Windows 11 24H2+) y _rssi
+        public const int OpChannel = 8, OpRealtime = 19, OpRssi = 0x10000102;
+        /// <summary>Las únicas consultas permitidas. Ninguna está en la lista de Microsoft que exige ubicación.</summary>
+        public static readonly int[] Allowed = [OpRealtime, OpRssi, OpChannel];
 
-        public static WifiFacts? Read(string ifaceId)
+        public static WifiFacts? Read(string ifaceId, double linkMbps)
         {
             if (!Guid.TryParse(ifaceId, out var g)) return null;
-            if (WlanOpenHandle(2, IntPtr.Zero, out _, out var h) != 0) return null;
-            try
-            {
-                if (WlanQueryInterface(h, ref g, OpCurrentConnection, IntPtr.Zero, out _, out var p, out _) != 0) return null;
-                string ssid; int quality, phy; uint rx; byte[] bssid = new byte[6];
-                try
-                {
-                    // WLAN_CONNECTION_ATTRIBUTES: estado(4) modo(4) perfil(512) | SSID: largo(4) bytes(32) | tipo(4) BSSID(6)+2 | phy(4) idx(4) calidad(4) rx(4) tx(4)
-                    var len = Math.Min(32, Marshal.ReadInt32(p, 520));
-                    var sb = new byte[len]; Marshal.Copy(p + 524, sb, 0, len);
-                    ssid = System.Text.Encoding.UTF8.GetString(sb);
-                    Marshal.Copy(p + 560, bssid, 0, 6);
-                    phy = Marshal.ReadInt32(p, 568);
-                    quality = Marshal.ReadInt32(p, 576);
-                    rx = (uint)Marshal.ReadInt32(p, 580);
-                }
-                finally { WlanFreeMemory(p); }
-
-                int? rssi = null;
-                if (WlanQueryInterface(h, ref g, OpRssi, IntPtr.Zero, out _, out var pr, out _) == 0) { rssi = Marshal.ReadInt32(pr); WlanFreeMemory(pr); }
-
-                double? freq = null; var same = 0;
-                if (WlanGetNetworkBssList(h, ref g, IntPtr.Zero, 3, false, IntPtr.Zero, out var pl) == 0)
-                {
-                    try
-                    {
-                        // WLAN_BSS_LIST: tamaño(4) n(4), luego WLAN_BSS_ENTRY de 360 bytes; BSSID en +40, frecuencia (kHz) en +92
-                        var count = Marshal.ReadInt32(pl, 4);
-                        var entries = new List<(byte[] b, int f)>();
-                        for (var i = 0; i < count; i++)
-                        {
-                            var e = pl + 8 + i * 360;
-                            var b = new byte[6]; Marshal.Copy(e + 40, b, 0, 6);
-                            entries.Add((b, Marshal.ReadInt32(e, 92)));
-                        }
-                        var mine = entries.FirstOrDefault(x => x.b.SequenceEqual(bssid));
-                        if (mine.b is not null && mine.f > 0)
-                        {
-                            freq = mine.f / 1_000_000.0;
-                            same = entries.Count(x => x.f == mine.f && !x.b.SequenceEqual(bssid));
-                        }
-                    }
-                    finally { WlanFreeMemory(pl); }
-                }
-                var band = freq is null ? "" : freq < 3 ? "2,4 GHz" : freq < 5.925 ? "5 GHz" : "6 GHz";
-                var phyName = phy switch { 7 => "Wi-Fi 4", 8 => "Wi-Fi 5", 10 => "Wi-Fi 6", 11 => "Wi-Fi 7", _ => "" };
-                return new(ssid, quality, rssi, freq, band, phyName, rx / 1000.0, same);
-            }
+            if (WlanOpenHandle(2, IntPtr.Zero, out _, out var h) != 0) { LocationGuard.Trace("wifi: el servicio WLAN no contesta"); return null; }
+            try { return FromQueries(op => Query(h, g, op), linkMbps); }
             catch { return null; }
             finally { WlanCloseHandle(h, IntPtr.Zero); }
         }
+
+        static (uint rc, byte[]? data) Query(IntPtr h, Guid g, int op)
+        {
+            // barrera: una consulta nueva tiene que pasar por la lista (y por la prueba) antes de usarse
+            if (Array.IndexOf(Allowed, op) < 0) throw new InvalidOperationException("consulta Wi-Fi no permitida: " + op);
+            var rc = WlanQueryInterface(h, ref g, op, IntPtr.Zero, out var size, out var p, out _);
+            if (rc != 0 || p == IntPtr.Zero) return (rc, null);
+            try { var b = new byte[Math.Min((int)size, 4096)]; Marshal.Copy(p, b, 0, b.Length); return (0, b); }
+            finally { WlanFreeMemory(p); }
+        }
+
+        /// <summary>Arma los datos con las respuestas de <paramref name="q"/>. Separado de la API para probarlo sin Wi-Fi.</summary>
+        public static WifiFacts? FromQueries(Func<int, (uint rc, byte[]? data)> q, double linkMbps)
+        {
+            int? quality = null, rssi = null; double? freq = null; var phy = "";
+            // WLAN_REALTIME_CONNECTION_QUALITY: phy(4) calidad(4) rx(4) tx(4) mlo(4) enlaces(4) | enlace: id(1)+3 frecuencia MHz(4) ancho(4) rssi(4) …
+            var (rcRt, rt) = q(OpRealtime);
+            if (rt is { Length: >= 40 })
+            {
+                phy = PhyName(BitConverter.ToInt32(rt, 0));
+                if (BitConverter.ToInt32(rt, 4) is var lq and >= 0 and <= 100) quality = lq;
+                if (BitConverter.ToInt32(rt, 20) >= 1)
+                {
+                    if (BitConverter.ToInt32(rt, 28) is var mhz and >= 2400 and <= 7200) freq = mhz / 1000.0;
+                    if (BitConverter.ToInt32(rt, 36) is var r and < 0 and > -120) rssi = r;
+                }
+            }
+            var rcRssi = "-"; var rcCh = "-";
+            if (rssi is null)
+            {
+                var (rc, d) = q(OpRssi); rcRssi = rc.ToString();
+                if (d is { Length: >= 4 } && BitConverter.ToInt32(d, 0) is var r and < 0 and > -120) rssi = r;
+            }
+            if (freq is null)
+            {
+                var (rc, d) = q(OpChannel); rcCh = rc.ToString();
+                if (d is { Length: >= 4 }) freq = ChannelGhz(BitConverter.ToInt32(d, 0));
+            }
+            // misma escala que Windows: 0 % = -100 dBm, 100 % = -50 dBm
+            quality ??= rssi is { } x ? Math.Clamp(2 * (x + 100), 0, 100) : null;
+            LocationGuard.Trace($"wifi: lectura sin ubicación (tiempo real rc={rcRt}, rssi rc={rcRssi}, canal rc={rcCh}, datos={(quality is null ? "no" : "sí")})");
+            if (quality is null) return null;
+            var band = freq is null ? "" : freq < 3 ? "2,4 GHz" : freq < 5.925 ? "5 GHz" : "6 GHz";
+            return new(quality.Value, rssi, freq, band, phy, linkMbps);
+        }
+
+        /// <summary>Canal → GHz. Solo cuando falta la calidad en tiempo real (Windows anterior a 24H2): ahí 6 GHz es raro
+        /// y sus canales 1–233 se confundirían con 2,4 GHz, así que se tratan como 2,4/5 GHz.</summary>
+        public static double? ChannelGhz(int ch) => ch switch
+        {
+            >= 1 and <= 13 => 2.407 + 0.005 * ch,
+            14 => 2.484,
+            >= 32 and <= 177 => 5.0 + 0.005 * ch,
+            _ => null
+        };
+
+        static string PhyName(int phy) => phy switch { 7 => "Wi-Fi 4", 8 => "Wi-Fi 5", 10 => "Wi-Fi 6", 11 => "Wi-Fi 7", _ => "" };
     }
 
     // ======================= RAM =======================
@@ -486,8 +505,46 @@ public static class Suggestions
     // ======================= prueba =======================
 
     /// <summary>Solo para capturas y pruebas (VIGIA_FAKE_NET=wifi): un Wi-Fi inestable inventado.</summary>
-    static NetFacts FakeWifi() => new("wifi", "Wi-Fi", 0, new("casa", 54, -72, 2.437, "2,4 GHz", "Wi-Fi 6", 144, 5),
+    static NetFacts FakeWifi() => new("wifi", "Wi-Fi", 0, new(54, -72, 2.437, "2,4 GHz", "Wi-Fi 6", 144),
         new("192.168.0.1", 20, 2, 9.4, 2, 87, 14.2), new("1.1.1.1", 20, 2, 41, 31, 132, 19.5), ["Realtek Gaming 2.5GbE Family Controller"]);
+
+    /// <summary>Regresión del aviso «Location has been turned off»: la lectura de Wi-Fi solo hace consultas sin BSSID,
+    /// lee bien las respuestas y la traza no lleva nada que ubique el equipo. Con respuestas inventadas, sin Wi-Fi real.</summary>
+    static List<string> WlanSelfTest()
+    {
+        var res = new List<string>();
+        void Ok(bool c, string what) => res.Add($"{(c ? "OK  " : "FAIL")} ubicación: {what}");
+        // las consultas que Microsoft dice que exigen ubicación nunca están permitidas
+        Ok(!Wlan.Allowed.Contains(7), "current_connection (BSSID) no está entre las consultas Wi-Fi");
+        Ok(Wlan.Allowed.All(o => o is Wlan.OpRealtime or Wlan.OpRssi or Wlan.OpChannel), "solo tiempo real, RSSI y canal");
+
+        byte[] Rt(int phy, int q, int mhz, int rssi)
+        {
+            var b = new byte[64];
+            BitConverter.GetBytes(phy).CopyTo(b, 0); BitConverter.GetBytes(q).CopyTo(b, 4); BitConverter.GetBytes(1).CopyTo(b, 20);
+            BitConverter.GetBytes(mhz).CopyTo(b, 28); BitConverter.GetBytes(rssi).CopyTo(b, 36); return b;
+        }
+        var asked = new List<int>();
+        var traceBefore = File.Exists(LocationGuard.LogPath) ? File.ReadAllText(LocationGuard.LogPath).Length : 0;
+        var f = Wlan.FromQueries(op => { asked.Add(op); return op == Wlan.OpRealtime ? (0u, Rt(10, 70, 5180, -61)) : (0u, null); }, 1201);
+        Ok(f is { Quality: 70, Rssi: -61, Band: "5 GHz", Phy: "Wi-Fi 6", RxMbps: 1201 }, "Windows 24H2+: calidad, RSSI y banda de la consulta en tiempo real");
+        Ok(asked.SequenceEqual([Wlan.OpRealtime]), "con tiempo real no hace falta nada más");
+        var log = File.Exists(LocationGuard.LogPath) ? File.ReadAllText(LocationGuard.LogPath)[traceBefore..] : "";
+        Ok(log.Contains("wifi: lectura sin ubicación") && !log.Contains("5180") && !log.Contains("5,18") && !log.Contains("-61"),
+            "la traza dice qué se pidió, sin frecuencia ni señal");
+
+        asked.Clear();
+        f = Wlan.FromQueries(op => { asked.Add(op); return op switch { Wlan.OpRssi => (0u, BitConverter.GetBytes(-75)), Wlan.OpChannel => (0u, BitConverter.GetBytes(6)), _ => (50u, (byte[]?)null) }; }, 144);
+        Ok(f is { Quality: 50, Rssi: -75, Band: "2,4 GHz" }, "Windows anterior: RSSI y canal 6 → 50 %, 2,4 GHz");
+        Ok(asked.SequenceEqual([Wlan.OpRealtime, Wlan.OpRssi, Wlan.OpChannel]), "y solo pregunta lo permitido");
+
+        // si Windows niega algo (5 = acceso denegado) no se insiste ni se pide permiso: sin datos de Wi-Fi y ya
+        asked.Clear();
+        f = Wlan.FromQueries(op => { asked.Add(op); return (5u, null); }, 0);
+        Ok(f is null && asked.Count == 3, "con acceso denegado devuelve sin datos y no reintenta");
+        Ok(Wlan.ChannelGhz(36) is > 5.17 and < 5.19 && Wlan.ChannelGhz(14) is 2.484 && Wlan.ChannelGhz(0) is null, "canales → GHz");
+        return res;
+    }
 
     /// <summary>Comprueba las reglas de red con mediciones inventadas.</summary>
     public static string SelfTest()
@@ -500,12 +557,12 @@ public static class Suggestions
             ok &= pass; lines.Add($"{(pass ? "OK  " : "FAIL")} {name}: {string.Join(",", got)}");
         }
         PingStats Pg(int lost, double avg, double max, double jit) => new("x", 20, lost, avg, Math.Min(avg, 1), max, jit);
-        var goodW = new WifiFacts("casa", 90, -48, 5.5, "5 GHz", "Wi-Fi 6", 866, 0);
+        var goodW = new WifiFacts(90, -48, 5.5, "5 GHz", "Wi-Fi 6", 866);
         Check("wifi inestable", new("wifi", "w", 0, goodW, Pg(2, 6, 80, 12), Pg(2, 30, 120, 18), ["Realtek 2.5GbE"]), "net-cable");
         Check("wifi señal débil", new("wifi", "w", 0, goodW with { Quality = 40, Rssi = -78 }, Pg(0, 3, 6, 1), Pg(0, 20, 25, 2), []), "net-cable");
         Check("wifi estable", new("wifi", "w", 0, goodW, Pg(0, 3, 6, 1), Pg(0, 20, 25, 2), []), "net-ok");
         Check("wifi bien, internet mal", new("wifi", "w", 0, goodW, Pg(0, 3, 6, 1), Pg(3, 40, 300, 30), []), "net-isp");
-        Check("wifi 2,4 GHz", new("wifi", "w", 0, goodW with { Band = "2,4 GHz", SameChannel = 6 }, Pg(0, 3, 6, 1), Pg(0, 20, 25, 2), []), "net-5ghz");
+        Check("wifi 2,4 GHz", new("wifi", "w", 0, goodW with { Band = "2,4 GHz" }, Pg(0, 3, 6, 1), Pg(0, 20, 25, 2), []), "net-5ghz");
         Check("cable a 100 Mbps", new("ethernet", "e", 100, null, Pg(0, 0.4, 1, 0.1), Pg(0, 20, 25, 2), []), "net-link");
         Check("cable estable", new("ethernet", "e", 1000, null, Pg(0, 0.4, 1, 0.1), Pg(0, 20, 25, 2), []), "net-ok");
         Check("cable con pérdidas", new("ethernet", "e", 1000, null, Pg(3, 0.4, 1, 0.1), Pg(3, 20, 25, 2), []), "net-lan");
@@ -513,6 +570,7 @@ public static class Suggestions
         var cable = Network(new("wifi", "w", 0, goodW, Pg(2, 6, 80, 12), Pg(2, 30, 120, 18), ["Realtek 2.5GbE"]))[0];
         var why = cable.Why.Any(x => x.Contains("2 de 20 respuestas")) && cable.Do.Any(x => x.Contains("Realtek 2.5GbE"));
         ok &= why; lines.Add($"{(why ? "OK  " : "FAIL")} el motivo dice lo medido y el puerto libre");
+        foreach (var l in WlanSelfTest()) { ok &= l.StartsWith("OK"); lines.Add(l); }
         lines.Add(ok ? "PASS" : "FAIL");
         return string.Join(Environment.NewLine, lines);
     }

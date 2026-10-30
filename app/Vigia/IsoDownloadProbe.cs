@@ -28,6 +28,7 @@ static class IsoDownloadProbe
                 var env = await CoreWebView2Environment.CreateAsync(null, data);
                 await web.EnsureCoreWebView2Async(env);
                 var core = web.CoreWebView2;
+                LocationGuard.Harden(core, "sonda");
                 var got = new TaskCompletionSource<bool>();
                 core.NavigationStarting += (_, e) => L("nav " + e.Uri[..Math.Min(e.Uri.Length, 120)]);
                 core.DownloadStarting += (_, e) =>
