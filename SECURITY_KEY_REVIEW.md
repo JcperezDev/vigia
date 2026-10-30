@@ -101,6 +101,19 @@ no reconozcas), se puede **no rotar** y dejarlo como riesgo aceptado. Si prefier
 6. Si hubiera señales de abuso: en N subir `minVersion` del manifiesto a N, avisar en el README y en las notas para que
    quien instale a mano baje Puente de nuevo.
 
+### Compatibilidad y protección contra volver atrás (ya en el código)
+
+- **Instalaciones antiguas (0.20.x):** su Puente solo conoce la clave actual. Por eso la versión puente N va firmada con
+  la vieja; si se saltara ese paso, un 0.20.x rechazaría N+1 (falla seguro: no instala, no se rompe) y habría que
+  instalar a mano.
+- **Puente nunca baja de versión:** si el Puente instalado es más nuevo que el del manifiesto, se queda
+  (`Setup.cs`, `have >= m.PuenteVersion`). Un manifiesto viejo firmado no puede traer de vuelta un Puente vulnerable.
+- **Vigía nunca baja de versión por manifiesto:** un manifiesto más viejo que la versión más alta instalada se rechaza
+  («un manifiesto viejo no puede volver atrás»), probado en VigiaLab (0.21.1 → 0.21.0, rc 1, sin cambios). Volver a
+  la anterior solo existe como acción local y explícita del usuario sobre una carpeta ya verificada.
+- **Revocación lógica:** quitar una clave de `PublicKey`/`NextKeys` en una versión nueva hace que esa versión deje de
+  aceptar lo firmado con ella. No hay revocación remota (no hay servidor; es a propósito).
+
 ## Reauditoría (29-10-2026, tarde) — sin abrir la clave
 
 | Comprobación | Resultado | Evidencia |

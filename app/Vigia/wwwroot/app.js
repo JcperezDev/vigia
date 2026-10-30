@@ -152,7 +152,7 @@
     line('ct', css('--amber'), true);
     if (!pts.some((p) => p.ct != null)) {
       ctx.fillStyle = css('--fg-3'); ctx.font = '13px Plex, sans-serif';
-      ctx.fillText(window.vigiaI18n.t('Temperatura de CPU no disponible en modo estándar.'), padL + 12, padT + 20);
+      ctx.fillText(window.vigiaI18n.t('Temperatura de CPU no disponible.'), padL + 12, padT + 20);
     }
   }
 

@@ -2118,7 +2118,7 @@
  "Temp",
  "Temperatura",
  "Temperatura {0} °C por encima del aviso ({1} °C).",
- "Temperatura de CPU no disponible en modo estándar.",
+ "Temperatura de CPU no disponible.",
  "Temperatura y carga",
  "Temperature",
  "Temperature|Composite Temperature",

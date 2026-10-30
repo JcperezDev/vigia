@@ -47,7 +47,7 @@ compartida, y quien la valida es el lector (la interfaz sin privilegios), no el 
 | Sin Vigía abierta | No toca el hardware |
 | PawnIO | Monitor nunca lo instala; lo instala el instalador con su UAC, solo si falta y sin juego abierto. Al desinstalar solo se da por quitado si su desinstalador oficial terminó bien |
 
-## 4. Pruebas (VigiaLab, Windows 11 Enterprise Evaluation 26100, 2026-10-29)
+## 4. Pruebas (VigiaLab, Windows 11 Enterprise Evaluation, build 26300, 2026-10-29)
 Hechas — ver `VM_VALIDATION_REPORT.md`: instalación (#2, #7), inicio, parada y reinicio (#7), caída y relanzado por el SCM
 (#7), permisos del servicio para usuario estándar (#5), suplantación del nombre por otra cuenta (#8), driver ausente
 (#9), actualización y vuelta atrás con el servicio (#16, #20), reparación con archivo bloqueado (#19), desinstalación

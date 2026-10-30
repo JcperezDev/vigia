@@ -152,7 +152,7 @@ public static class Elevation
 
     /// <summary>Pedidos que la interfaz manda sola cada pocos segundos mientras el ayudante vive (sensores con permisos).
     /// Se atienden, pero no cuentan como uso: si contaran, el ayudante no se cerraría nunca (visto en VigiaLab).</summary>
-    internal static readonly HashSet<string> Background = ["telemetry", "ping"];
+    internal static readonly HashSet<string> Background = ["telemetry", "memAuto", "undoRetired", "ping"];
 
     internal static async Task Loop(Stream pipe, SemaphoreSlim gate, CancellationToken ct)
     {
@@ -537,6 +537,8 @@ public static class InstallTrust
             Check(loop3.Wait(TimeSpan.FromSeconds(2)) && sw3.Elapsed < TimeSpan.FromSeconds(4) && n3 >= 4,
                 $"ayudante: los pedidos de fondo (sensores) no lo mantienen elevado ({n3} pedidos, {sw3.Elapsed.TotalSeconds:0.0} s)");
             srv3.Dispose(); drain.Wait(TimeSpan.FromSeconds(2));
+            // todo lo que Program.cs manda sin que la persona pulse nada (sensores, liberación automática, deshacer retirados)
+            Check(new[] { "telemetry", "memAuto", "undoRetired" }.All(Elevation.Background.Contains), "ayudante: los pedidos automáticos de la interfaz no cuentan como uso");
         }
         catch (Exception e) { Check(false, "ayudante sin pedidos: " + e.GetType().Name + " " + e.Message); }
         finally { Elevation.IdleLimit = oldIdle; }
