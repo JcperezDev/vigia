@@ -285,6 +285,90 @@ clave nueva creada directamente en el equipo de firma (opción 1). Es una decisi
 
 Estado: **`SIGNING_BLOCKED`** (sin cambios).
 
+## Aislamiento definitivo y relevo: herramientas listas (30-10-2026) — NO ejecutadas sobre la clave real
+
+Nada de esto tocó la clave real ni `~/.vigia`. Todo se probó con claves de prueba creadas y borradas en una carpeta
+temporal: `node tools/signing/signing-test.js out/puente-test/Puente-test.exe` → **36 OK / 0 FAIL**.
+
+### Hallazgo nuevo (solo permisos, sin abrir nada)
+
+| Carpeta | Entrada de `CodexSandboxUsers` |
+| --- | --- |
+| `C:\Users\Pickle OS` | ninguna |
+| `AppData` | lectura y ejecución, **explícita** (heredan `Local`, `Roaming` y todo lo de dentro) |
+| `AppData\Local\Temp` | **Modificar**, explícita; además un SID sin nombre `S-1-5-21-…-3224999056` con Modificar |
+| `.vigia` | lectura y ejecución, explícita (lo ya conocido) |
+
+En el equipo existen las cuentas locales `CodexSandboxOffline` y `CodexSandboxOnline` (habilitadas). Por eso quitar
+solo la entrada explícita de `.vigia` **no bastaba**: si algún día la clave pasa por `AppData` o `Temp`, ese grupo la
+podría leer por herencia. La herramienta nueva corta la herencia en la carpeta de la clave. Lo de `AppData` y `Temp`
+(que afecta a otros programas) no se toca: es decisión tuya.
+
+### 1. Corregir permisos de `.vigia` (reversible) — `tools/signing/quitar-acceso-sandbox.ps1`
+
+En tu consola, sin agentes abiertos:
+
+```powershell
+cd C:\Users\Pickle OS\work\vigia
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\signing\quitar-acceso-sandbox.ps1 -Puente app\Puente\bin\Release\net10.0\win-x64\Puente.exe
+```
+
+Qué hace: guarda una copia de los permisos actuales (`vigia-acl-antes-<fecha>.acl`, al lado de `.vigia`), corta la
+herencia de `.vigia`, deja solo tu cuenta, SYSTEM y Administradores, hace que lo de dentro herede solo de ahí, comprueba
+que no queda ninguna otra cuenta y termina con `Puente --key-check` (mira permisos, no abre la clave). No lee, no copia
+ni cambia la clave. Códigos: 0 bien · 1 error · 3 la clave sigue abierta a alguien.
+Volver atrás: `… quitar-acceso-sandbox.ps1 -Deshacer <archivo .acl>`.
+Probado (claves de prueba): antes → `--key-check` rc 3; después → rc 0; los bytes de la clave no cambian; un permiso
+nuevo en la carpeta de arriba ya no llega; deshacer devuelve el rc 3; no pisa una copia que ya existe.
+
+**Esto reduce el riesgo pero no lo cierra**: con UAC desactivado (`EnableLUA = 0`) y tu cuenta administradora,
+cualquier programa que corra como tú puede leer la clave. Por eso el paso 2.
+
+### 2. Aislamiento definitivo: la clave sale de este PC — `tools/signing/firmar-fuera.ps1`
+
+1. Equipo de firma: otro PC, o un portátil o USB arrancable, **sin red** y sin agentes ni herramientas de desarrollo.
+2. Copia allí `Puente.exe` desde un candidato y apunta su SHA-256 (`Get-FileHash`) en papel o en el móvil.
+3. **Si apruebas rotar (recomendado):** genera allí la clave nueva (`Puente.exe --genkey C:\VigiaFirma\release-key.pem`,
+   que imprime la clave **pública**) y cífrala (`Puente.exe --protect-key … release-key.dpapi`; borra el `.pem`).
+   **Si no rotas:** mueve la clave actual a ese equipo (USB que después formateas) y bórrala de `~/.vigia`. Esto es
+   mover la clave real: solo con tu autorización.
+4. En el PC de desarrollo: `VIGIA_RELEASE_SIGN=fuera bash tools/release.sh "<notas>"` → carpeta `out\<versión>` sin firmar.
+5. Llévala al equipo de firma y ejecuta
+   `firmar-fuera.ps1 -Version E:\<versión> -Clave C:\VigiaFirma\release-key.dpapi -Puente C:\VigiaFirma\Puente.exe -HuellaPuente <SHA-256>`.
+   Se niega si `Puente.exe` no es el anotado (rc 4), si hay red (rc 5), si la clave está dentro de la carpeta que vuelve
+   al PC de desarrollo, o si la clave tiene permisos de más (rc 3). Si lo firmado no cuadra con la clave de confianza de
+   ese Puente, borra las firmas. Deja `firmas-<versión>.txt` con las cuatro huellas, sin nada de la clave.
+6. Devuelve solo los cuatro `.sig` y el `.txt`; publica con `release.sh` (tu paso). Compara huellas antes.
+
+### 3. Rotación escalonada sin dejar fuera a nadie — `tools/signing/preparar-relevo.js`
+
+* `node tools/signing/preparar-relevo.js anadir <clave pública nueva>`: pone la nueva en `NextKeys` de Puente **y** de
+  Vigía a la vez. Esa versión (la «puente», p. ej. 0.21.0) **se firma con la clave actual**, así que 0.20.17 la acepta.
+* `node tools/signing/preparar-relevo.js promover` (en una versión posterior, cuando la mayoría haya actualizado): la
+  nueva pasa a ser la única de confianza; esa versión se firma con la nueva.
+* `release.sh` ahora corre `preparar-relevo.js comprobar` y **no publica** si Puente y Vigía no confían en las mismas
+  claves o si alguna no es una P-256 válida. `--selftest` también lo comprueba (362/0).
+
+Probado con claves de prueba: la clave nueva entra en las dos listas; claves mal pegadas, RSA, la clave actual como
+relevo o una clave **privada** pegada por error se rechazan sin tocar nada; con dos relevos no promueve; si las listas
+de Puente y Vigía no cuadran, falla; durante el relevo lo firmado con la vieja pasa y, tras promover, ya no.
+
+### Compatibilidad comprobada para la rotación
+
+| Instalación | Versión puente (firmada con la vieja, trae la nueva) | Versión siguiente (firmada con la nueva) |
+| --- | --- | --- |
+| 0.20.17 | la acepta | solo pasando por la puente (o reinstalando `Vigia-Setup.exe`; datos conservados) |
+| La puente instalada | — | la acepta (confía en las dos) |
+
+### Pasos que necesitan tu autorización exacta
+
+1. Ejecutar el paso 1 sobre `~/.vigia` real (o decirme «autorizo quitar-acceso-sandbox en .vigia»).
+2. Elegir: **rotar** (clave nueva en el equipo de firma + `preparar-relevo.js anadir` en 0.21.0) o **mover** la actual.
+3. Decidir sobre las entradas de `CodexSandboxUsers` en `AppData` y `Temp` (afectan a otras herramientas; no se tocan).
+4. Reactivar UAC o no (`EnableLUA = 1` necesita reinicio). Sin UAC, el paso 1 solo es una mejora parcial.
+
+Estado: **`SIGNING_BLOCKED`** hasta que la clave con la que se firme 0.21.0 esté fuera de este PC (o rotada allí).
+
 ## Próximo paso
 
 Tu decisión sobre la entrada de Codex en `.vigia`. Mientras tanto `release.sh` no firmará con la clave actual (eso es lo

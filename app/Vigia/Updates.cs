@@ -131,7 +131,12 @@ public static class Updates
             Check(!PuenteSigOk(fake, good), "firma de otra clave contra la clave de Vigía: no");
             Check(PuenteSigOk(fake, good, [PublicKey, pub]), "relevo de clave: con la vieja y la nueva de confianza, una firma de la nueva pasa");
             Check(!PuenteSigOk(fake, good, [PublicKey]), "sin la clave nueva en la lista, esa misma firma no pasa");
-            Check(NextKeys.Length == 0, "esta versión no trae claves de relevo (no hay rotación en curso)");
+            // claves de relevo: puede no haber ninguna; si las hay, cada una es una clave pública P-256 de verdad y no
+            // repite la actual (tools/signing/preparar-relevo.js las pone igual aquí y en Puente)
+            Check(NextKeys.All(n => n != PublicKey && ValidP256(n)) && NextKeys.Distinct().Count() == NextKeys.Length,
+                NextKeys.Length == 0 ? "esta versión no trae claves de relevo (no hay rotación en curso)"
+                                     : $"claves de relevo válidas ({NextKeys.Length}), distintas de la actual");
+            Check(!ValidP256("no-es-una-clave") && ValidP256(pub), "una clave de relevo mal pegada se detecta");
         }
         return string.Join(Environment.NewLine, log);
     }
@@ -217,6 +222,17 @@ public static class Updates
 
     /// <summary>Puente pesa unos pocos MB; nada de lo que se publique debería pasar de esto.</summary>
     internal const long MaxPuenteBytes = 64L * 1024 * 1024;
+
+    static bool ValidP256(string b64)
+    {
+        try
+        {
+            using var ec = System.Security.Cryptography.ECDsa.Create();
+            ec.ImportSubjectPublicKeyInfo(Convert.FromBase64String(b64), out _);
+            return ec.KeySize == 256;
+        }
+        catch (Exception e) when (e is FormatException or System.Security.Cryptography.CryptographicException) { return false; }
+    }
 
     /// <param name="keys">Solo para la autocomprobación; por defecto la clave de Vigía y las de relevo.</param>
     internal static bool PuenteSigOk(byte[] exe, string sig, IReadOnlyList<string>? keys = null)

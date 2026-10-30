@@ -65,6 +65,8 @@ fi
 V=$(sed -n 's|.*<Version>\(.*\)</Version>.*|\1|p' app/Vigia/Vigia.csproj)
 MV=$(grep -o 'assemblyIdentity version="[0-9.]*"' app/Vigia/app.manifest | grep -o '[0-9][0-9.]*')
 [ "$MV" = "$V.0" ] || { echo "app/Vigia/app.manifest dice $MV y Vigia.csproj $V: pon la misma versión."; exit 1; }
+# Puente y Vigía tienen que confiar en las mismas claves públicas (la actual y las de relevo), y todas válidas
+node tools/signing/preparar-relevo.js comprobar >/dev/null || { node tools/signing/preparar-relevo.js comprobar; echo "Las claves de confianza de Puente y Vigía no cuadran: no se publica."; exit 1; }
 # versión mínima segura que anuncia el manifiesto (vacío = la que trae Puente compilada). Nunca más nueva que V.
 MIN_VERSION="${VIGIA_MIN_VERSION:-}"
 if [ "$MOCK" = 0 ] && [ "$DRY" != 1 ]; then
