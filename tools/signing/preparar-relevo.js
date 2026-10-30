@@ -10,6 +10,10 @@
 //       solo mira que las dos listas sean iguales y que cada clave sea P-256 de verdad (rc 0 bien, 1 mal).
 //
 // La clave pública nueva sale de `Puente.exe --genkey <archivo>` ejecutado en el equipo de firma (lo que imprime).
+//
+// anadir y promover suben además la versión de Puente (app/Puente/Puente.csproj, el último número). Sin eso, una
+// instalación que ya tiene Puente con ese número no lo cambia (Puente solo se sustituye por uno MÁS NUEVO), se queda con
+// la lista de claves vieja y, cuando llegue la versión firmada solo con la clave nueva, rechaza todas las actualizaciones.
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -18,6 +22,19 @@ const crypto = require('crypto');
 const FILES = ['app/Puente/Program.cs', 'app/Vigia/Updates.cs'];
 const RX_PUB = /const string PublicKey = "([^"]*)";/;
 const RX_NEXT = /static readonly string\[\] NextKeys = \[([^\]]*)\];/;
+const PUENTE_PROJ = 'app/Puente/Puente.csproj';
+const RX_PVER = /<Version>(\d+)\.(\d+)\.(\d+)<\/Version>/;
+
+// sube el último número de la versión de Puente; devuelve [antes, después]
+function bumpPuente(root) {
+  const p = path.join(root, PUENTE_PROJ);
+  const src = fs.readFileSync(p, 'utf8');
+  const m = src.match(RX_PVER);
+  if (!m) throw new Error(`${PUENTE_PROJ}: no encuentro <Version>x.y.z</Version>`);
+  const to = `${m[1]}.${m[2]}.${Number(m[3]) + 1}`;
+  fs.writeFileSync(p, src.replace(RX_PVER, `<Version>${to}</Version>`));
+  return [`${m[1]}.${m[2]}.${m[3]}`, to];
+}
 
 function validP256(b64) {
   try {
@@ -91,6 +108,8 @@ function main(argv) {
   }
   const after = problems(read(root));
   if (after.length) { after.forEach(p => console.error(p)); return 1; }
+  const [pv0, pv1] = bumpPuente(root);
+  console.log(`Puente ${pv0} -> ${pv1} (para que las instalaciones cambien su Puente y reciban la lista nueva de claves)`);
   console.log(cmd === 'anadir' ? 'listo: Puente y Vigía confían en la clave actual y en la nueva (firmar esta versión con la ACTUAL)'
     : 'listo: la clave nueva es la única de confianza (firmar esta versión con la NUEVA)');
   return 0;

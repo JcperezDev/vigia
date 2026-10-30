@@ -26,13 +26,16 @@ const pubOf = () => crypto.generateKeyPairSync('ec', { namedCurve: 'prime256v1' 
 console.log('--- claves de confianza (preparar-relevo.js)');
 check(sh('node', [relevo, 'comprobar', repo]).code === 0, 'el repositorio: Puente y Vigía confían en las mismas claves, todas válidas');
 const R = path.join(TMP, 'repo');
-for (const f of ['app/Puente/Program.cs', 'app/Vigia/Updates.cs']) { fs.mkdirSync(path.dirname(path.join(R, f)), { recursive: true }); fs.copyFileSync(path.join(repo, f), path.join(R, f)); }
+for (const f of ['app/Puente/Program.cs', 'app/Vigia/Updates.cs', 'app/Puente/Puente.csproj']) { fs.mkdirSync(path.dirname(path.join(R, f)), { recursive: true }); fs.copyFileSync(path.join(repo, f), path.join(R, f)); }
 const read = f => fs.readFileSync(path.join(R, f), 'utf8');
 const cur = read('app/Puente/Program.cs').match(/const string PublicKey = "([^"]*)"/)[1];
+const pver = () => read('app/Puente/Puente.csproj').match(/<Version>([^<]+)<\/Version>/)[1];
+const pv0 = pver(), bump = (v, n) => v.replace(/\d+$/, x => String(Number(x) + n));
 const B = pubOf();
 let r = sh('node', [relevo, 'anadir', B, R]);
 check(r.code === 0 && read('app/Puente/Program.cs').includes(`NextKeys = ["${B}"]`) && read('app/Vigia/Updates.cs').includes(`NextKeys = ["${B}"]`)
   && read('app/Puente/Program.cs').includes(`PublicKey = "${cur}"`), 'versión puente: la clave nueva entra en NextKeys de Puente y de Vigía; la actual sigue', r.out);
+check(pver() === bump(pv0, 1), `versión puente: Puente sube de ${pv0} a ${bump(pv0, 1)}, así las instalaciones cambian su Puente y reciben la clave nueva`, pver());
 const snap = read('app/Puente/Program.cs');
 r = sh('node', [relevo, 'anadir', B, R]);
 check(r.code === 0 && read('app/Puente/Program.cs') === snap, 'añadir la misma clave dos veces no cambia nada', r.out);
@@ -46,6 +49,7 @@ check(r.code === 1 && read('app/Puente/Program.cs') === snap, 'una clave privada
 const rsa = crypto.generateKeyPairSync('rsa', { modulusLength: 2048 }).publicKey.export({ format: 'der', type: 'spki' }).toString('base64');
 r = sh('node', [relevo, 'anadir', rsa, R]);
 check(r.code === 1, 'una clave pública que no es P-256 (RSA) se rechaza', r.out);
+check(pver() === bump(pv0, 1), 'lo rechazado y lo repetido no vuelven a subir la versión de Puente', pver());
 const C = pubOf();
 r = sh('node', [relevo, 'anadir', C, R]);
 r = sh('node', [relevo, 'promover', R]);
@@ -57,6 +61,7 @@ r = sh('node', [relevo, 'promover', R]);
 check(r.code === 0 && read('app/Puente/Program.cs').includes(`PublicKey = "${B}"`) && read('app/Vigia/Updates.cs').includes(`PublicKey = "${B}"`)
   && read('app/Puente/Program.cs').includes('NextKeys = []') && !read('app/Vigia/Updates.cs').includes(cur),
   'versión siguiente: la nueva pasa a ser la única de confianza y la vieja deja de valer', r.out);
+check(pver() === bump(pv0, 3), 'versión siguiente: Puente vuelve a subir (cada cambio de claves trae un Puente más nuevo)', pver());
 fs.writeFileSync(path.join(R, 'app/Vigia/Updates.cs'), read('app/Vigia/Updates.cs').replace('NextKeys = []', `NextKeys = ["${C}"]`));
 r = sh('node', [relevo, 'comprobar', R]);
 check(r.code === 1 && /distinta/.test(r.out), 'si Puente y Vigía no confían en las mismas claves, comprobar falla', r.out);
