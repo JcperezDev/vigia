@@ -6,8 +6,9 @@ Candidato local, notas, instalación, migración, recuperación y checklist de s
 ## Ejecución verificada hoy (no se reutilizan resultados viejos)
 | Prueba | Resultado |
 |---|---|
-| Suite `s25` sobre `c260497` (2026-10-30 00:27) | builds Vigía/Puente/Puente-test rc 0, 0 warnings · selftest 358/0 · Puente 76/0 · release 31/0 · contrato OK · i18n pt/fr/de 2435 claves 0 errores · Apps 44/0 · Monitor 71/0 · LabGuard en el PC 22/0 · guarda del laboratorio 10/0 · `--sensor-service` rc 2 · 0 claves privadas en logs |
-| Candidato `VIGIA_RELEASE_SIGN=fuera` desde `c82336b` | rc 0 · selftest del empaquetado 358/0 · sin firmar (la clave no se tocó) |
+| Suite `s26` sobre `9459165` (2026-10-30 01:20) | builds Vigía/Puente/Puente-test rc 0, 0 warnings · selftest 361/0 · Puente 76/0 · release 31/0 · contrato OK · i18n pt/fr/de 2435 claves 0 errores · Apps 44/0 · Monitor 71/0 · LabGuard PC 24/0 · guarda 10/0 · `--sensor-service` rc 2 · 0 claves en logs |
+| Candidato `VIGIA_RELEASE_SIGN=fuera` desde `9459165` | rc 0 · selftest del empaquetado 361/0 · sin firmar (la clave no se tocó) · zip sin claves ni servicio |
+| VigiaLab 30-10 (filas 33–34) | tarea administrativa de 11 min con UAC real: sin cortes, cierre 600 s tras el fin, re-pedido y «No» limpios · `estandar`: ayudante rc 3, Program Files denegado, 0 procesos |
 | VigiaLab 0.21.8 (clave de laboratorio) | servicio quitado antes de PawnIO; abre sin UAC; Monitor «N/D» sin °C (fila 32) |
 
 ## Por qué no está lista

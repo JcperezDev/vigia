@@ -1,33 +1,34 @@
 # Vigía — informe final de validación (rama `debloat-v2`)
-Fecha: 2026-10-30 (actualizado 00:45) · **Estado: NOT READY · `SIGNING_BLOCKED`** (motivos en «Bloqueos»). Candidato local sin firmar: `RELEASE_CANDIDATE_0.21.0.md`.
+Fecha: 2026-10-30 (actualizado 01:45) · **Estado: NOT READY · `SIGNING_BLOCKED`** (motivos en «Bloqueos»). Candidato local sin firmar rehecho sobre `9459165`: `RELEASE_CANDIDATE_0.21.0.md`.
 Solo commits locales: sin push, merge ni release. La instalación principal del PC no se tocó.
 
 ## Commits
-- Commit inicial de esta tanda: `ed66d5c` (BIOS solo lectura).
+- Tanda del 30-10 (desde `558c662`): `50ef8fb` labHold y `--broker-hold` (solo VigiaLab) · `b7519e6` notas y aviso de temperatura sin promesas (5 idiomas) · `68839d2` revisión de la clave (metadatos de hoy, UAC del PC desactivado) · `acd5ef0` fuera `fpsStart`/`fpsCancel` del ayudante · `9459165` README y PRODUCT · más el commit de este informe.
+- Tanda anterior: commit inicial `ed66d5c` (BIOS solo lectura).
 - Creados: `791fdc9` sensores más robustos (los siete arreglos de la revisión) · `4dbe8c8` install-check sin `es.json` · `1894d15` migración de la tarea vieja y sesión 0 · `1af5284` servicio como SYSTEM · `61a102f` reparación con archivo abierto · `bf0a2f8` idiomas (85 mensajes) · `6014411` Apps por consola solo en VM · `03ad4c4` PawnIO al desinstalar · `048de17` carpeta vacía al desinstalar · `e0cde22` este informe · `17ad7e8` ayudante probado en VM y juegos evaluados · `81ac14c` privacidad aplicada y revertida en VM (`--tweaks-lab`) · `7ece97d` informe · `c160702` relevo de claves · `881d769` reauditoría de la clave (`SIGNING_BLOCKED`) · `cf20c0f` ayudante con cierre por inactividad y motivo visible al cancelar UAC · `04f5ffb` las lecturas de sensores ya no mantienen vivo el ayudante; `SENSOR_SERVICE_AUDIT.md` · `97b9c29` tampoco la memoria automática; aviso de temperatura; compatibilidad y anti-rollback de la firma · `14b506d` ventana en negro al abrir tras arrancar con Windows · `34d03df` UAC real en VM · `bfa46c2` plazo del ayudante desde el último pedido, servicio fuera de la versión pública, temperatura no disponible · `dd36490` Puente 2.0.1 · `3aec484` Puente quita el servicio antes de PawnIO; Monitor descarta 0 °C y fuera de rango; prueba del Monitor · `3629a2c` contrato · `9db877f` LabGuard en Apps/`--autostart`/`--msdl-probe` y órdenes incompletas sin abrir la app · `c260497` contrato de `LAB_ALLOW_GAME` · `c82336b` informes de clave y revisión externa.
 - Archivos de código tocados: `app/Puente/Setup.cs`, `app/Puente/SensorService.cs`, `app/Puente/Program.cs`, `app/Vigia/SensorHost.cs`, `Elevation.cs`, `AutoStart.cs`, `Telemetry.cs`, `Updates.cs`, `Program.cs`, `wwwroot/i18n/*`, `tools/i18n-extract.js`, `tools/i18n-check.js`, `tools/i18n-add-mensajes.js`, `tools/sensor-install-contract-test.py`, `AdminOps.cs`, `Tray.cs`, `wwwroot/app.js`, `tools/puente-test.js`.
 
 ## Pruebas automáticas (código actual, compilado de cero)
-Última tanda: suite `s25` sobre `c260497` (2026-10-30 00:27–00:28). Las cifras anteriores son históricas.
+Última tanda: suite `s26` sobre `9459165` (2026-10-30 01:20–01:21), compilado de cero. Las cifras anteriores (s25 y antes) son históricas.
 
 | Comando | Resultado |
 |---|---|
 | `dotnet build` Vigía / Puente / Puente-test (Release win-x64) | rc 0, 0 warnings, 0 errores |
-| `Vigia.exe --selftest` con `VIGIA_DATA` aislado | **358 OK / 0 FAIL** (las suites anteriores decían 359: contaban una línea informativa) |
+| `Vigia.exe --selftest` con `VIGIA_DATA` aislado | **361 OK / 0 FAIL** (358 de la base + labHold rechazado fuera de la VM + FPS fuera del ayudante, por nombre y por la tubería) |
 | `node tools/puente-test.js` | 76 / 0 (incluye relevo de claves) |
 | `node tools/release-test.js` (GitHub simulado) | 31 / 0 |
 | `python -I tools/sensor-install-contract-test.py` | OK |
 | `node tools/i18n-check.js` | pt/fr/de: 2435 claves, 0 errores, 0 distintas |
 | `node tools/ui-apps-test.js` (Chrome sin ventana) | 44 / 0 |
-| `node tools/ui-monitor-test.js` (nueva) | 71 / 0 · cinco idiomas · con el `app.js` anterior: 45 FAIL |
-| `node tools/labguard-host-test.js` en este PC (nueva) | 22 / 0 con `VIGIA_LAB=1` y `LAB_ALLOW_GAME=1` |
+| `node tools/ui-monitor-test.js` | 71 / 0 · cinco idiomas · con el `app.js` anterior: 45 FAIL |
+| `node tools/labguard-host-test.js` en este PC | **24 / 0** (22 de la base + `--broker-hold` rc 3 sin VM y rc 2 con argumentos incompletos), con `VIGIA_LAB=1` y `LAB_ALLOW_GAME=1` |
 | `scratch/lab/test/guard-test.ps1` (guarda de los scripts de VM) | 10 / 0 · con la versión anterior: 10 FAIL |
 | `Vigia.exe --sensor-service` en la compilación pública | rc 2 (no existe) |
 | Logs de la suite con material de clave privada | 0 |
 | Catálogos JSON | todos parsean |
 
 ## Pruebas en VM (reales, no simuladas)
-Detalle en `VM_VALIDATION_REPORT.md`. Las 28 de baseline se conservan; se añadieron 29–32 solo para lo que cambió (servicio fuera, Puente 2.0.1, Monitor, cierre del ayudante con Monitor abierto, nueva solicitud). 32 pruebas, todas VM_VALIDATED (varias tras arreglo). UAC real en la consola de la VM: abrir Vigía no pide UAC; una operación administrativa saca el aviso en el escritorio seguro; «No» deja la interfaz sin elevar y la página explica por qué; «Sí» levanta el ayudante y la interfaz sigue sin elevar; el ayudante se cierra solo a los 10 min sin pedidos aunque Monitor siga leyendo (antes no); tras reiniciar, Vigía abre sin pantalla negra (antes sí). También: privacidad (aplicar y revertir), ayudante `--broker` (8 rechazos e IPC), migración 0.20.17 → 0.21.0, ACL, usuario estándar, servicio, suplantación del mapa, servicio sin driver, Debloat (quitar, recuperar, aprovisionamiento, casos negativos), firmas malas, paquete incompleto, actualización cortada, downgrade, reparación, archivo bloqueado, rollback, dos Puentes, desinstalación. **La VM no tiene sensores: ninguna temperatura física se validó en la VM.**
+Detalle en `VM_VALIDATION_REPORT.md`. Las 28 de base se conservan; 29–32 cubren lo que cambió hasta 0.21.8, y **33–34 son de hoy**: tarea administrativa de 11 min con UAC real y usuario estándar.
 
 ## Seguridad del servicio «Sensores de Vigía»
 **Fuera de la versión pública** hasta la revisión externa (`SENSOR_SERVICE_EXTERNAL_REVIEW.md`, EXTERNAL_AUDIT_PENDING). Lo de abajo es la revisión **interna** de la compilación de laboratorio; no es independiente.
@@ -51,7 +52,7 @@ Probado en Windows real (VM): inventario AppX/Win32/aprovisionadas/dependencias,
 - BIOS: solo lectura (`BiosWatch`), sin ninguna API de escritura de firmware. RAM a 5600 MT/s de 6000 nominal: EXPO probablemente apagado. **No se cambió.** Activarlo es decisión tuya en la BIOS, y después conviene una prueba de memoria.
 
 ## Clave de firma
-`~/.vigia/release-key.pem`: el grupo `CodexSandboxUsers` tiene ReadAndExecute **explícito** sobre `~/.vigia` (revisión de metadatos del 30-10; el informe anterior decía «heredada») → **POSIBLE EXPOSICIÓN (sin evidencia de lectura)**. No se leyó, copió, rotó ni borró. Firmar con esa ACL está bloqueado por código (`--key-check` rc 3). El procedimiento de rotación está en `SECURITY_KEY_REVIEW.md` y necesita tu intervención.
+`~/.vigia/release-key.pem`: el grupo `CodexSandboxUsers` tiene ReadAndExecute **explícito** sobre `~/.vigia` (metadatos revisados otra vez el 30-10: 240 bytes, sin cambios desde el 27-10 23:03 UTC) → **POSIBLE EXPOSICIÓN (sin evidencia de lectura)**. No se leyó, copió, rotó ni borró. Firmar con esa ACL está bloqueado por código (`--key-check` rc 3). Hallazgo nuevo: la cuenta de desarrollo `Pickle OS` es administradora y el PC tiene **UAC desactivado (`EnableLUA = 0`)**, así que cualquier proceso de esa cuenta (agentes incluidos) corre como administrador. Por eso una cuenta de firma en este mismo PC **no aísla** la clave. La custodia recomendada es un equipo de firma separado y sin red (o un token hardware, que necesitaría código nuevo), y rotar con relevo en 0.21.0. Análisis, recuperación de actualizadores viejos y pasos exactos: `SECURITY_KEY_REVIEW.md`. Nada ejecutado.
 
 ## Otros
 - «Fable»: es de JITA (rama `fix/fable-1-v1.5.151` de jita-bot, carpetas `jita-research/fable*`). **No tiene relación con Vigía.**
@@ -60,12 +61,12 @@ Probado en Windows real (VM): inventario AppX/Win32/aprovisionadas/dependencias,
 
 ## Bloqueos (clasificados)
 1. **BLOCKED → NEEDS_OWNER_APPROVAL — clave de firma** (`SIGNING_BLOCKED`, P0). `CodexSandboxUsers` tiene ReadAndExecute explícito sobre `~/.vigia` y la clave está sin cifrar; no hay prueba de lectura, pero no se puede descartar. Retirar el acceso, custodiarla en `vigia-firma` y decidir la rotación: procedimiento exacto en `SECURITY_KEY_REVIEW.md` (A/B/C), sin ejecutar. Cambiar permisos o la clave necesita tu autorización.
-2. **HARDWARE_VALIDATION_PENDING — temperaturas reales.** La VM no tiene sensores. Afecta además a la frase «los grados se ven mientras el ayudante está abierto» de las notas.
-3. **HARDWARE_VALIDATION_PENDING / NEEDS_OWNER_APPROVAL — UAC con usuario estándar en un PC físico** (pide la contraseña de un administrador; no se tecleó ninguna). Con administrador está probado en VM.
+2. **HARDWARE_VALIDATION_PENDING — temperaturas reales.** La VM no tiene sensores. Las notas, el aviso, README y PRODUCT ya no prometen grados con el ayudante abierto (`b7519e6`, `9459165`).
+3. **UAC con usuario estándar — VM_TESTED en parte (fila 34); el resto BLOCKED por credenciales.** Comprobado como `estandar` (no administrador): el ayudante lanzado a mano se niega (rc 3), no puede escribir en Program Files, pedir permisos sin escritorio falla limpio («Para esto Vigía necesita permiso…») y no queda ningún proceso. Falta el aviso con contraseña de administrador desde la sesión de `estandar`: exige teclear una contraseña de administrador, y no hay una forma autorizada de hacerlo sin escribirla en comandos o logs. Lo hace el propietario en la VM o en un PC físico.
 4. **EXTERNAL_AUDIT_PENDING — servicio SYSTEM.** No va en 0.21.0, así que no bloquea esta versión.
 5. **NEEDS_OWNER_APPROVAL:** publicar 0.21.0, merge y push; migración real en tu PC; aprobar los cambios de comportamiento (ayudante a los 10 min, texto de temperatura, servicio fuera del paquete).
 6. Hyper-V sigue en `Auto` (autorizado). Para volver: `bcdedit /set {current} hypervisorlaunchtype off` y reiniciar (respaldo en `scratch/p7/bcd-respaldo.bcd`). No lo cambié.
-7. Probado solo en simulación: que el plazo de 10 min no corte una tarea administrativa real de más de 10 minutos (selftest con plazo de 400 ms). En VM se comprobó el cierre y la nueva solicitud, no una tarea tan larga.
+7. ~~Probado solo en simulación~~ → **VM_TESTED (fila 33).** Una tarea de 11 min por el ayudante real, con UAC real, no se cortó: 23 latidos elevados y 132 lecturas automáticas sin error. El ayudante se cerró **600 s** después del fin; ninguna de las 251 lecturas automáticas renovó el plazo. Se volvió a pedir (otro proceso) y con «No» no quedó nada. Límite: `labHold` es una tarea de prueba que no cambia nada; ejercita el mismo control de vida que una operación real, pero no es una operación de producto.
 
 ## Versión
 **0.21.0** sigue siendo la siguiente versión válida: lo público es 0.20.17 y 0.21.1–0.21.8 solo existieron en VigiaLab con clave de laboratorio. Puente 2.0.1 confía en la misma clave pública y `NextKeys` está vacía: publicarla no corta la actualización ni la recuperación de lo instalado. Candidato, notas, instalación, migración, recuperación y checklist: `RELEASE_CANDIDATE_0.21.0.md`.

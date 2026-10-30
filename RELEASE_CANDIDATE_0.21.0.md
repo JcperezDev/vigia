@@ -1,6 +1,6 @@
 # Candidato local de Vigía 0.21.0 — SIN FIRMAR · SIN PUBLICAR
 
-Fecha: 2026-10-30 · rama `debloat-v2` · commit `c82336b` (código igual a `c260497`, que pasó la suite `s25`).
+Fecha: 2026-10-30 01:25 · rama `debloat-v2` · commit **`9459165`** (el mismo que pasó la suite `s26`). Sustituye al candidato de `c82336b`, que ya no vale: no tenía labHold, ni la retirada de FPS del ayudante, ni las notas corregidas.
 **Estado: NOT READY · `SIGNING_BLOCKED`.** Este candidato sirve para revisarlo. No se puede publicar tal cual: le faltan las firmas, que solo se ponen con la clave de producción en la cuenta de firma (ver `SECURITY_KEY_REVIEW.md`, secciones B y C) y eso necesita tu autorización.
 
 ## Qué se generó
@@ -8,11 +8,13 @@ Fecha: 2026-10-30 · rama `debloat-v2` · commit `c82336b` (código igual a `c26
 
 | Archivo | Tamaño | SHA-256 |
 |---|---|---|
-| `Vigia-0.21.0-win-x64.zip` (343 archivos) | 59 789 222 | `9fb4dd4209fdd37c136a2f3e83f3fba168beda0c5bebc0c810e0edb93c7f667f` |
-| `Puente.exe` (2.0.1) = `Vigia-Setup.exe` | 12 554 293 | `3532a1695ba6f563d66afafca6e69ed9cbae18a9a2c690261078157a971bbba2` |
-| `vigia-manifest.json` | 412 | `8ec0b2752dc7f72e8b81712fffafc7060bdb3e227252349028d267c5d2bd155a` |
+| `Vigia-0.21.0-win-x64.zip` (343 archivos) | 59 797 719 | `da18b708083d2c1c8b20ced1dc42fdf3cc315bf6b8a95a9e461e9bafe58c991a` |
+| `Puente.exe` (2.0.1) = `Vigia-Setup.exe` | 12 554 296 | `ebbcef44e93388cfb33f8a32467a56030bac6d0022cd3fd6d937418dd45d532b` |
+| `vigia-manifest.json` | 412 | `845c47a54ecf87c1f55d2425df386be663d857dcbd6a4a2619041291c0bc3e85` |
 
-Comprobado sobre el candidato: selftest del `Vigia.exe` empaquetado **358 OK / 0 FAIL** (con datos aislados); `zip-test` y `acl-test` de Puente y traducciones dentro de `release.sh`; ningún `.pem`, `.key`, `.dpapi` ni `lab.flag` en el zip; el manifiesto dice `0.21.0` y Puente `2.0.1`. El servicio SYSTEM no va dentro (`release.sh` compila con `-p:SensorService=false` y para si `--sensor-service` no devuelve 2).
+Comprobado sobre el candidato: selftest del `Vigia.exe` empaquetado **361 OK / 0 FAIL** (datos aislados); `zip-test` (7 rutas peligrosas rechazadas) y `acl-test` (7/7) de Puente; traducciones dentro de `i18n.txt`. El zip no lleva `.pem`, `.key`, `dpapi`, `lab.flag` ni el servicio de sensores.
+
+**Lo que este candidato NO probó:** no se instaló tal cual en la VM. Puente solo acepta manifiestos firmados y este va sin firmar; firmarlo necesita la clave de producción. Las pruebas de instalación, migración, reparación, rollback y UAC se hicieron con paquetes de laboratorio del mismo código: 0.21.8 = `3629a2c` y 0.21.9 = `50ef8fb`. De `50ef8fb` a `9459165` solo cambian textos (notas, aviso, README) y se quitan dos órdenes del ayudante; el selftest y las suites lo cubren. Cuando se firme, hay que repetir en la VM la instalación limpia y la migración desde 0.20.17 con el paquete firmado.
 
 Las firmas de laboratorio no se mezclan con este candidato: los paquetes 0.21.1–0.21.8 de VigiaLab se firmaron con una clave ficticia que el Puente público no acepta.
 
@@ -31,9 +33,9 @@ Las firmas de laboratorio no se mezclan con este candidato: los paquetes 0.21.1�
 - Puente pasa tu instalación de antes a la nueva sin perder tus ajustes, copias ni historial, y nunca instala una versión más vieja.
 - Apps: inventario completo con vista previa, historial y forma de recuperar lo que se quitó cuando Windows lo permite.
 - El ayudante con permisos de administrador se cierra solo tras 10 minutos sin que pidas nada; las lecturas automáticas del Monitor no lo mantienen abierto.
-- Sin una lectura fiable del procesador, el Monitor dice «Temperatura de CPU no disponible» y el motivo, en vez de mostrar un número. Como Vigía ya no abre con permisos de administrador, los grados del procesador se ven mientras el ayudante está abierto.
+- Sin una lectura fiable del procesador, el Monitor dice «Temperatura de CPU no disponible» en vez de mostrar un número. La temperatura solo aparece cuando hay una fuente compatible y una lectura válida, y no todos los procesadores son compatibles. El servicio experimental de sensores no forma parte de esta versión.
 
-> ⚠️ La segunda frase del último punto describe lo que hace el código, pero **no está comprobada en un PC físico** (la VM no tiene sensores). Antes de publicar: validarla o quitarla (en los cinco idiomas).
+> Texto corregido en `b7519e6` (cinco idiomas) para no prometer nada sin comprobar en hardware. Falta tu visto bueno al texto.
 
 ## Instalación, migración y recuperación
 Procedimiento completo en `docs/INSTALL.md`:
@@ -44,13 +46,13 @@ Procedimiento completo en `docs/INSTALL.md`:
 ## Checklist de seguridad antes de publicar
 | # | Comprobación | Estado |
 |---|---|---|
-| 1 | Builds Vigía / Puente / Puente-test sin errores ni warnings | ✅ `s25` y candidato |
-| 2 | Suites: selftest 358/0 · Puente 76/0 · release 31/0 · contrato · i18n 0 errores · Apps 44/0 · Monitor 71/0 · LabGuard 22/0 · guarda 10/0 | ✅ `s25` |
-| 3 | Vigía abre sin UAC; UAC solo al pedir algo administrativo; «No» no eleva; «Sí» levanta solo el ayudante | ✅ VM (administrador) · 🟡 usuario estándar en PC físico |
-| 4 | Ayudante: lista cerrada, rechazos 2–7, se cierra a los 10 min, lo automático no lo renueva ni lo reabre, no corta tareas en marcha | ✅ VM y selftest (tarea larga: solo simulada) |
+| 1 | Builds Vigía / Puente / Puente-test sin errores ni warnings | ✅ `s26` y candidato |
+| 2 | Suites: selftest 361/0 · Puente 76/0 · release 31/0 · contrato · i18n 0 errores · Apps 44/0 · Monitor 71/0 · LabGuard 24/0 · guarda 10/0 | ✅ `s26` (`9459165`) |
+| 3 | Vigía abre sin UAC; UAC solo al pedir algo administrativo; «No» no eleva; «Sí» levanta solo el ayudante | ✅ VM (administrador) · ✅ VM `estandar`: rc 3, sin escritura, sin procesos (fila 34) · ⛔ aviso con contraseña de admin desde `estandar`: falta credencial autorizada |
+| 4 | Ayudante: lista cerrada, rechazos 2–7, se cierra a los 10 min, lo automático no lo renueva ni lo reabre, no corta tareas en marcha | ✅ VM fila 33: tarea de 11 min sin cortes, cierre 600 s tras el fin, re-pedido y «No» limpios |
 | 5 | Servicio SYSTEM fuera del paquete público y quitado si estaba | ✅ (`--sensor-service` rc 2; VM filas 29 y 32) |
 | 6 | Program Files no modificable por Users / Authenticated Users / Everyone | ✅ VM |
-| 7 | LabGuard: órdenes de laboratorio no hacen nada fuera de la VM, también con `VIGIA_LAB=1` y `LAB_ALLOW_GAME=1` | ✅ PC 22/0 |
+| 7 | LabGuard: órdenes de laboratorio no hacen nada fuera de la VM, también con `VIGIA_LAB=1` y `LAB_ALLOW_GAME=1` | ✅ PC 24/0 · en la VM el ayudante elevado rechazó `labHold` sin flag |
 | 8 | Sin material de clave privada en logs ni en el paquete | ✅ (0 coincidencias; 0 archivos de clave en el zip) |
 | 9 | Ninguna escritura de firmware; único driver, PawnIO oficial | ✅ auditoría de código |
 | 10 | Clave de firma custodiada fuera de esta cuenta, sin acceso de `CodexSandboxUsers` | ⛔ `SIGNING_BLOCKED` (necesita tu autorización) |

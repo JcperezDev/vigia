@@ -3,8 +3,8 @@
 Actualizado 2026-10-30, rama `debloat-v2` (sin push ni merge). Una línea por requisito.
 Estados: ✅ hecho y probado · 🟡 hecho, falta validación física/VM · ⛔ bloqueado (decisión tuya) · ⬜ pendiente.
 
-Pruebas de referencia ahora (suite `s25` sobre `c260497`, 2026-10-30 00:27–00:28): selftest **358 OK / 0 FAIL** · Puente **76/0** · `release.sh` **31/0** ·
-contrato de sensores OK · traducciones pt/fr/de **2435 claves, 0 errores** · interfaz Apps **44/0** · interfaz Monitor **71/0** · LabGuard en el PC **22/0** · guarda del laboratorio **10/0** · `--sensor-service` en la compilación pública rc 2 · material de clave privada en logs **0** · VigiaLab **32** pruebas reales (`VM_VALIDATION_REPORT.md`). Cifras anteriores de este archivo son históricas.
+Pruebas de referencia ahora (suite `s26` sobre `9459165`, 2026-10-30 01:20–01:21): selftest **361 OK / 0 FAIL** · Puente **76/0** · `release.sh` **31/0** ·
+contrato de sensores OK · traducciones pt/fr/de **2435 claves, 0 errores** · interfaz Apps **44/0** · interfaz Monitor **71/0** · LabGuard en el PC **24/0** · guarda del laboratorio **10/0** · `--sensor-service` en la compilación pública rc 2 · material de clave privada en logs **0** · VigiaLab **34** pruebas reales (`VM_VALIDATION_REPORT.md`). Las cifras de más abajo son históricas (s25 y antes).
 
 ## Validación real — 29 de octubre
 
@@ -135,3 +135,41 @@ Dato real de solo lectura de este PC: la RAM va a 5600 MT/s siendo de 6000 → E
 - ✅ 30-10: LabGuard también para lo que el laboratorio relaja en Apps (riesgo medio), `--autostart` y `--msdl-probe`; una orden de consola incompleta o solo de laboratorio sale con rc 2 en vez de abrir Vigía (`9db877f`). Antes, `--apps-run` incompleto arrancaba la app normal.
 - ✅ 30-10: la cifra «359» de la suite contaba una línea informativa en minúscula; son **358** pruebas. Conteo de la suite corregido.
 - 🟡 Nota de la 0.21.0 «los grados del procesador se ven mientras el ayudante está abierto»: es lo que hace el código, sin validar en hardware físico (HARDWARE_VALIDATION_PENDING). Validarla o quitar esa frase antes de publicar.
+
+
+## Matriz única de requisitos — cierre del 30-10-2026
+
+Fuentes: Prompt 4 (Program Files y ayudante), Prompt 5 (firma, sensores, validación) y `/goal` del 30-10 (secciones 3–23). Estados: los del `/goal`. «Commit» es el último que tocó el requisito. Las pruebas citadas son de `s26` (`9459165`) o de las filas VM indicadas.
+
+| ID | Requisito | Estado | Archivo / commit | Evidencia | Plataforma | Bloqueo / acción restante |
+|---|---|---|---|---|---|---|
+| R01 | Vigía abre como usuario (`asInvoker`); UAC solo al pedir algo administrativo | VM_TESTED | `app.manifest`, `Elevation.cs` · `3a59be2` | VM filas 22–28, 33 | VM 26300 | Validación física con tu UAC: NEEDS_USER_APPROVAL |
+| R02 | Ayudante con lista cerrada; rechazos 2–7 | VM_TESTED | `AdminOps.cs`, `Elevation.cs` · `acd5ef0` | selftest 361/0; VM fila 34 (rc 3 como `estandar`) | VM | — |
+| R03 | Ayudante se cierra a los 10 min sin pedidos; lo automático no cuenta (3A) | VM_TESTED | `Elevation.cs` (`IdleLimit`, `Background`) | Windows real 0.21.4 (10 min 2 s); VM fila 33 (`idleS 600`, 251 lecturas) | VM | — |
+| R04 | No cortar una tarea administrativa de más de 10 min (sección 5) | VM_TESTED | `AdminOps.cs` `labHold`, `LabBrokerHold.cs` · `50ef8fb` | VM fila 33: 660 s, 23 latidos elevados, cierre 600 s tras el fin | VM | Límite: tarea de prueba, no operación de producto |
+| R05 | Volver a pedir el ayudante; «No» de UAC no deja procesos | VM_TESTED | `Elevation.cs` | VM filas 28, 33 | VM | — |
+| R06 | UAC con usuario estándar (sección 6) | VM_TESTED (parcial) | — | VM fila 34 | VM | Aviso con contraseña de admin desde `estandar`: BLOCKED (credencial autorizada) |
+| R07 | Temperatura no disponible: sin 0 °C, negativos, ≥150 ni dato viejo (3B) | UNIT_TESTED + VM_TESTED | `app.js` `realTemp`, `Telemetry.cs` · `3aec484` | Monitor 71/0 (inversa 45 FAIL); VM fila 32 | VM | Lectura real en Ryzen: HARDWARE_VALIDATION_PENDING |
+| R08 | Notas, aviso, README y PRODUCT sin promesas de temperatura (sección 8) | DONE | `changelog.json`, `i18n/*`, `README*.md`, `PRODUCT.md` · `b7519e6`, `9459165` | i18n 0 errores; contrato OK | — | Tu visto bueno al texto: NEEDS_USER_APPROVAL |
+| R09 | Servicio SYSTEM fuera de 0.21.0; Vigía funciona sin él (3C) | VM_TESTED | `Vigia.csproj`, `Puente.csproj`, `Setup.cs` `RemoveSensors` · `3629a2c` | `--sensor-service` rc 2; zip sin servicio; VM filas 29, 32 | VM | — |
+| R10 | Revisión externa del servicio | EXTERNAL_AUDIT_PENDING | `SENSOR_SERVICE_EXTERNAL_REVIEW.md` | encargo preparado | — | Revisor independiente |
+| R11 | Clave de firma custodiada fuera del agente (P0) | BLOCKED → NEEDS_USER_APPROVAL | `SECURITY_KEY_REVIEW.md` · `68839d2` | metadatos y ACL sin abrir la clave; `--key-check` rc 3 | PC | Retirar `CodexSandboxUsers`, custodia offline, rotación con relevo: tu orden |
+| R12 | Relevo de claves (multi-clave) sin cortar instalaciones viejas | UNIT_TESTED | `Puente/Program.cs` `NextKeys`, `Updates.cs` | Puente 76/0 con claves de prueba | — | Activar con clave nueva: NEEDS_USER_APPROVAL |
+| R13 | Program Files con ACL solo SYSTEM/Admin; datos del usuario conservados | VM_TESTED | `Setup.cs`, `InstallTrust` | VM; `acl-test` 7/7 | VM | Migración real en tu PC: NEEDS_USER_APPROVAL |
+| R14 | Puente: firmas, hashes, downgrade, reparación, rollback, candado, staging | UNIT_TESTED + VM_TESTED | `app/Puente/*` · `dd36490` | Puente 76/0; `zip-test`; VM downgrade rc 1, DLL dañada rc 0, archivo bloqueado rc 1, rollback rc 0, 0.21.9 sin firma válida rechazado | VM | — |
+| R15 | Candidato 0.21.0 local sin firmar | IMPLEMENTED | `out/0.21.0` desde `9459165` | selftest empaquetado 361/0; hashes en `RELEASE_CANDIDATE_0.21.0.md` | — | Firmar e instalar el paquete firmado en VM: NEEDS_USER_APPROVAL |
+| R16 | Debloat V2 (preview, quitar, historial, recuperar) | VM_TESTED | `Debloat.cs`, `AppPlan.cs` · `6014411` | Apps 44/0; VM (quitadas=1 fallos=0; recuperado) | VM | Win32 y aprovisionadas multiusuario solo vista previa; no se quitan sin tu orden |
+| R17 | Privacidad: seis ajustes con fuente Microsoft Learn, fuera de «Aplicar todo» y del modo simple | VM_TESTED | `Tweaks.cs`, `tweaks.json` · `9f83671` | VM aplicar/revertir | VM | Aprobar ajustes: NEEDS_USER_APPROVAL; no se añadieron más (sin fuente nueva) |
+| R18 | LabGuard en el backend; `LAB_ALLOW_GAME` solo quita la pausa | UNIT_TESTED + VM_TESTED | `LabGuard.cs` · `c260497` | LabGuard PC 24/0; guarda 10/0; en la VM el ayudante rechazó `labHold` sin flag | PC + VM | — |
+| R19 | Órdenes de consola incompletas no abren la app | UNIT_TESTED | `Program.cs` `ConsoleVerbs` · `9db877f` | LabGuard PC 24/0 | PC | — |
+| R20 | FPS fuera del ayudante (sin botón) | UNIT_TESTED | `AdminOps.cs` · `acd5ef0` | selftest (2 casos) | — | — |
+| R21 | Perfiles de juego | REJECTED (0.21.0) | `GAME_PROFILE_RESEARCH.md` | Valorant y Marvel Rivals REJECTED; CS2 y Rocket League candidatos sin archivo real | — | Necesita instalación de prueba y tu permiso |
+| R22 | BIOS solo lectura; ninguna escritura de firmware | UNIT_TESTED | `BiosWatch.cs` · `ed66d5c` | selftest (foto rota/manipulada) | — | Escritura: BLOCKED hasta auditoría y recuperación física |
+| R23 | Cinco idiomas completos | UNIT_TESTED | `i18n/*` | 2435 claves, 0 errores | — | — |
+| R24 | Sin secretos en logs ni en el paquete | UNIT_TESTED | `suite.sh` | 0 coincidencias; zip sin claves | — | — |
+| R25 | Ventana negra tras `--tray` | VM_TESTED | `Tray.cs` · `14b506d` | VM tras reinicio | VM | — |
+| R26 | Compatibilidad Win10/11 Home/Pro, AMD/Intel/NVIDIA, portátiles | BLOCKED | — | solo VM Enterprise 26300 | — | Hardware no disponible: HARDWARE_VALIDATION_PENDING |
+| R27 | Mejoras de FPS medidas | REJECTED | — | sin benchmarks válidos; no se afirma nada | — | — |
+| R28 | «Fable» | DONE (no aplica) | — | es de JITA, no de Vigía | — | — |
+| R29 | Host sin cambios no autorizados | DONE | — | 0.20.17 pid 17212 intacto; sin servicio `VigiaSensores`; VM guardada | PC | Hyper-V sigue `Auto` (autorizado; revertir es tu decisión) |
+| R30 | `labHold`/`--broker-hold` en la compilación pública | IMPLEMENTED | `AdminOps.cs`, `Program.cs` | doble guarda (interfaz rc 3 y ayudante rechaza) | PC + VM | Decisión: se quedan compilados porque la guarda está en el backend y está probada; sacarlos con `#if` sería otro binario sin probar en VM |
