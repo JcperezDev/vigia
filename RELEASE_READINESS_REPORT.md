@@ -11,6 +11,8 @@ Candidato local, notas, instalación, migración, recuperación y checklist de s
 | VigiaLab 30-10 (filas 33–34) | tarea administrativa de 11 min con UAC real: sin cortes, cierre 600 s tras el fin, re-pedido y «No» limpios · `estandar`: ayudante rc 3, Program Files denegado, 0 procesos |
 | VigiaLab 0.21.8 (clave de laboratorio) | servicio quitado antes de PawnIO; abre sin UAC; Monitor «N/D» sin °C (fila 32) |
 
+Actualización 30-10 17:40: pruebas afectadas sobre `7202134` (selftest 362/0, release 31/0, contrato OK, firma 36/0 con claves de prueba); VigiaLab filas 35–37; candidato sin firmar `d8e24d9`. Decisiones en `OWNER_DECISIONS_0.21.0.md`.
+
 ## Por qué no está lista
 1. **Clave de firma** (`SIGNING_BLOCKED`, P0): `CodexSandboxUsers` puede leer `~/.vigia` por ACL explícita y la clave está sin cifrar. Sin prueba de lectura, pero tampoco se puede descartar. Retirar el acceso, custodiarla en una cuenta de firma y decidir la rotación necesita tu autorización (`SECURITY_KEY_REVIEW.md`, A/B/C).
 2. **Temperaturas en hardware físico** (HARDWARE_VALIDATION_PENDING): la VM no tiene sensores. Afecta además a una frase de las notas.

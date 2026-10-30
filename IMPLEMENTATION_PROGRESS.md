@@ -173,3 +173,10 @@ Fuentes: Prompt 4 (Program Files y ayudante), Prompt 5 (firma, sensores, validac
 | R28 | «Fable» | DONE (no aplica) | — | es de JITA, no de Vigía | — | — |
 | R29 | Host sin cambios no autorizados | DONE | — | 0.20.17 pid 17212 intacto; sin servicio `VigiaSensores`; VM guardada | PC | Hyper-V sigue `Auto` (autorizado; revertir es tu decisión) |
 | R30 | `labHold`/`--broker-hold` en la compilación pública | IMPLEMENTED | `AdminOps.cs`, `Program.cs` | doble guarda (interfaz rc 3 y ayudante rechaza) | PC + VM | Decisión: se quedan compilados porque la guarda está en el backend y está probada; sacarlos con `#if` sería otro binario sin probar en VM |
+
+## Cierre 30-10 (tarde) — `7202134` / `d8e24d9`
+- Firma: herramientas de aislamiento, firma fuera de este PC y relevo, probadas solo con claves de prueba (36/0). En `release.sh` y el selftest, un control de claves de confianza que deben coincidir. La clave real está intacta. **SIGNING_BLOCKED → NEEDS_OWNER_APPROVAL.**
+- VigiaLab, filas 35–37: migración desde 0.20.17, Puente (firmas, corte, downgrade, reparación, rollback), Monitor sin servicio, usuario estándar. **VM_VALIDATED.** El aviso UAC con contraseña de administrador queda en NEEDS_OWNER_APPROVAL.
+- Sensores: paquete para la revisión externa (**EXTERNAL_AUDIT_PENDING**) y procedimiento para el Ryzen (**HARDWARE_VALIDATION_PENDING**).
+- Decisiones preparadas en `OWNER_DECISIONS_0.21.0.md`: texto de temperatura, seis ajustes de privacidad, UAC del PC, Hyper-V, migración y firma.
+- Candidato `out/0.21.0` sin firmar sobre `d8e24d9`: hashes en `RELEASE_CANDIDATE_0.21.0.md`.

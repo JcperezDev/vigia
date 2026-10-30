@@ -1,6 +1,13 @@
 # Vigía — informe final de validación (rama `debloat-v2`)
-Fecha: 2026-10-30 (actualizado 01:45) · **Estado: NOT READY · `SIGNING_BLOCKED`** (motivos en «Bloqueos»). Candidato local sin firmar rehecho sobre `9459165`: `RELEASE_CANDIDATE_0.21.0.md`.
+Fecha: 2026-10-30 (actualizado 17:40) · **Estado: NOT READY · `SIGNING_BLOCKED`** (motivos en «Bloqueos»). Candidato local sin firmar rehecho sobre el HEAD final de `debloat-v2`: `RELEASE_CANDIDATE_0.21.0.md`.
 Solo commits locales: sin push, merge ni release. La instalación principal del PC no se tocó.
+
+## Cierre 30-10 (tarde) — lo último que se podía hacer sin ti
+- `7202134` **firma:** `tools/signing/quitar-acceso-sandbox.ps1` (deja `.vigia` solo para ti, SYSTEM y Administradores, corta la herencia y se puede deshacer), `firmar-fuera.ps1` (firma en un equipo aparte sin red; se niega si cambió Puente, si hay red o si la clave tiene permisos de más) y `preparar-relevo.js` (rotación escalonada `anadir` → `promover`). `release.sh` y `--selftest` cortan si Puente y Vigía no confían en las mismas claves. **Probado solo con claves de prueba: 36/0.** Sobre la clave real no se ejecutó nada.
+- Hallazgo nuevo (solo permisos): `CodexSandboxUsers` también tiene lectura explícita en `AppData` y Modificar en `AppData\Local\Temp`. No se tocó porque afecta a otras herramientas.
+- Pruebas afectadas por los cambios, sobre `7202134`: selftest **362/0** (+1: «una clave de relevo mal pegada se detecta»), `release-test` **31/0**, contrato de sensores OK y `preparar-relevo comprobar` OK. El resto de suites no cambió (`s26` sigue valiendo).
+- VigiaLab (filas 35–37): migración desde 0.20.17, Puente con firmas malas, corte, downgrade, reparación, archivo abierto y rollback; Monitor sin servicio con «Temperatura de CPU no disponible.»; usuario estándar completo salvo la contraseña de administrador.
+- Sensores: `SENSOR_SERVICE_EXTERNAL_REVIEW.md` con el paquete de entrega (commit, huellas, compilación, preguntas). La auditoría externa **no está hecha**. `SENSOR_RYZEN_VALIDATION.md` explica cómo validar tu Ryzen sin instalar nada. Esa prueba **no se ha hecho**.
 
 ## Commits
 - Tanda del 30-10 (desde `558c662`): `50ef8fb` labHold y `--broker-hold` (solo VigiaLab) · `b7519e6` notas y aviso de temperatura sin promesas (5 idiomas) · `68839d2` revisión de la clave (metadatos de hoy, UAC del PC desactivado) · `acd5ef0` fuera `fpsStart`/`fpsCancel` del ayudante · `9459165` README y PRODUCT · más el commit de este informe.
@@ -60,8 +67,8 @@ Probado en Windows real (VM): inventario AppX/Win32/aprovisionadas/dependencias,
 - Selftest antiguo: escribió dos copias en tus datos reales (16:43, «juegos» y «restauración»). Apuntan a un `GameUserSettings.ini` falso de `%TEMP%`, no al de Fortnite. Tus ajustes de prueba (`HKCU\Software\Vigia\SelfTest`) no quedaron. Desde `791fdc9` el selftest se aísla solo.
 
 ## Bloqueos (clasificados)
-1. **BLOCKED → NEEDS_OWNER_APPROVAL — clave de firma** (`SIGNING_BLOCKED`, P0). `CodexSandboxUsers` tiene ReadAndExecute explícito sobre `~/.vigia` y la clave está sin cifrar; no hay prueba de lectura, pero no se puede descartar. Retirar el acceso, custodiarla en `vigia-firma` y decidir la rotación: procedimiento exacto en `SECURITY_KEY_REVIEW.md` (A/B/C), sin ejecutar. Cambiar permisos o la clave necesita tu autorización.
-2. **HARDWARE_VALIDATION_PENDING — temperaturas reales.** La VM no tiene sensores. Las notas, el aviso, README y PRODUCT ya no prometen grados con el ayudante abierto (`b7519e6`, `9459165`).
+1. **BLOCKED → NEEDS_OWNER_APPROVAL — clave de firma** (`SIGNING_BLOCKED`, P0). `CodexSandboxUsers` tiene ReadAndExecute explícito sobre `~/.vigia` y la clave está sin cifrar; no hay prueba de lectura, pero no se puede descartar. Retirar el acceso, firmar fuera de este PC y decidir la rotación: herramientas probadas con claves de prueba y pasos exactos en `SECURITY_KEY_REVIEW.md` («Aislamiento definitivo y relevo»), sin ejecutar. Cambiar permisos o la clave necesita tu autorización.
+2. **HARDWARE_VALIDATION_PENDING — temperaturas reales.** La VM no tiene sensores. Procedimiento para tu Ryzen: `SENSOR_RYZEN_VALIDATION.md`. Las notas, el aviso, README y PRODUCT ya no prometen grados con el ayudante abierto (`b7519e6`, `9459165`).
 3. **UAC con usuario estándar — VM_TESTED en parte (fila 34); el resto BLOCKED por credenciales.** Comprobado como `estandar` (no administrador): el ayudante lanzado a mano se niega (rc 3), no puede escribir en Program Files, pedir permisos sin escritorio falla limpio («Para esto Vigía necesita permiso…») y no queda ningún proceso. Falta el aviso con contraseña de administrador desde la sesión de `estandar`: exige teclear una contraseña de administrador, y no hay una forma autorizada de hacerlo sin escribirla en comandos o logs. Lo hace el propietario en la VM o en un PC físico.
 4. **EXTERNAL_AUDIT_PENDING — servicio SYSTEM.** No va en 0.21.0, así que no bloquea esta versión.
 5. **NEEDS_OWNER_APPROVAL:** publicar 0.21.0, merge y push; migración real en tu PC; aprobar los cambios de comportamiento (ayudante a los 10 min, texto de temperatura, servicio fuera del paquete).
