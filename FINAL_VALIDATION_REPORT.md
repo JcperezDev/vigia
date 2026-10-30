@@ -1,6 +1,24 @@
 # Vigía — informe final de validación (rama `debloat-v2`)
-Fecha: 2026-10-30 (actualizado 18:00) · **Estado: NOT READY · `SIGNING_BLOCKED`** (motivos en «Bloqueos»). HEAD final `debloat-v2`: el commit de este informe, sobre `c8f0921`. Candidato local sin firmar sobre `c8f0921`: `RELEASE_CANDIDATE_0.21.0.md`.
+Fecha: 2026-10-30 (actualizado noche, 2.ª) · **Estado: NOT READY · `SIGNING_BLOCKED`** (motivos en «Bloqueos»). HEAD `debloat-v2`: el commit de este informe, sobre `6f8e5ff`. Candidato local sin firmar sobre `6f8e5ff`: `RELEASE_CANDIDATE_0.21.0.md`.
 Solo commits locales: sin push, merge ni release. La instalación principal del PC no se tocó.
+
+## Últimas validaciones antes de publicar — 30-10 (noche, 2.ª) — `6ea6126` / `6f8e5ff`
+
+- **Puente nuevo + zip malo (hallazgo confirmado):** `InstallFlow` cambiaba Puente antes de bajar y comprobar el zip.
+  Reproducido en VigiaLab con el código de `fea4ae0` (fila 41): Vigía 0.21.2 se quedó con Puente 2.0.3 (solo clave B)
+  sin instalar nada. **Arreglo `6ea6126`:** el paquete se comprueba antes (tamaño, SHA‑256, firma); el Puente nuevo
+  tiene que aceptar esta misma publicación (`--verify-manifest`) antes de entrar; si el cambio falla vuelve el anterior
+  y un corte entre los dos renombres se recupera al arrancar. El Puente relanzado no vuelve a bajar el zip.
+  `puente-test` **85/0** (11 casos nuevos; con el Puente de `ab35542` fallan 3). Rollback y reparación siguen pasando.
+- **Candidato atado al código (`6f8e5ff`):** `candidato.txt` (commit + huellas); `VIGIA_RELEASE_SIGNED=1` se niega si
+  `app/` cambió o si lo firmado no es lo compilado. `tools/candidate-check.js`. `release-test` **33/0**, `signing-test` **39/0**.
+- **Candidato 0.21.0 rehecho sobre `6f8e5ff`, sin firmar:** zip `6254ed47…836c`, Puente 2.0.1 `cb68d8b7…a257`,
+  manifiesto `dd165736…e1e5`; selftest 371/0; `candidate-check` 19/0. Puente 2.0.1 > 1.4.0 (el de `v0.20.17`): coherente.
+- **Relevo:** `rot2` (A→B, 7 pasos) y `directo2`/`escalon` revisados: correctos salvo el caso de la fila 41.
+  Repetición en VM con el arreglo: **pendiente** (la guarda de juego la pausó).
+- **Wi‑Fi conectado:** sin equipo (3 adaptadores Wi‑Fi, todos desconectados) → HARDWARE_VALIDATION_PENDING.
+- **Firma:** clave real no abierta, copiada ni rotada; ACL = SYSTEM, Administradores y tu usuario; sin cifrar;
+  `CodexSandboxOffline/Online` siguen habilitadas. **SIGNING_BLOCKED.**
 
 ## Cierre 30-10 (noche) — `/goal` «resolver bloqueos finales»
 - **Clave (P0):** con tu autorización, `CodexSandboxUsers` ya no tiene acceso a `.vigia` (copia de permisos previa, metadatos iguales, tu acceso comprobado, `--key-check` rc 0, vuelta atrás con `-Deshacer`). La clave no se abrió ni copió. **Sigue `SIGNING_BLOCKED`:** pudo leerse antes, está sin cifrar y tu cuenta es administradora con UAC desactivado. Permisos peligrosos fuera de `.vigia` documentados con corrección limitada propuesta (no aplicada): `SECURITY_KEY_REVIEW.md`.

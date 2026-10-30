@@ -79,7 +79,7 @@ VIGIA_RELEASE_SIGNED=1 tools/release.sh "notes"
 
 **Run a Puente.exe the signing account already trusts** (built there from a reviewed commit that already has `--sign-release`), never the `Puente.exe` inside the folder being signed: if the dev account were compromised, that file could read the key. The folder's `Puente.exe` is only data to be signed there.
 
-`--sign-release` prints the SHA-256 of what it signed; compare them with the ones printed by `VIGIA_RELEASE_SIGN=fuera` before publishing. With `VIGIA_RELEASE_SIGNED=1` nothing is rebuilt (rebuilding would change the bytes) and no key is needed on the dev account. Tested: `tools/puente-test.js` (section "clave de firma") and `tools/release-test.js` (case 8b).
+`--sign-release` prints the SHA-256 of what it signed; compare them with the ones printed by `VIGIA_RELEASE_SIGN=fuera` before publishing. `VIGIA_RELEASE_SIGN=fuera` also writes `out/<version>/candidato.txt` (the commit it built and the SHA-256 of the four files); `VIGIA_RELEASE_SIGNED=1` refuses to publish, before touching the network, if `app/` changed since that commit or if any file no longer matches, so the tag cannot point to code other than the one that was built and tested. `node tools/candidate-check.js out/<version>` checks a candidate before it goes to the signing account (origin, manifest vs. files, Puente version vs. the last tag, public build, trusted key, no lab keys). With `VIGIA_RELEASE_SIGNED=1` nothing is rebuilt (rebuilding would change the bytes) and no key is needed on the dev account. Tested: `tools/puente-test.js` (section "clave de firma") and `tools/release-test.js` (case 8b).
 
 A hardware token (smart card / YubiKey PIV with a P-256 key) would keep the key non-exportable; `Puente --sign` would need a CNG/PKCS#11 path. Not implemented.
 
@@ -94,5 +94,7 @@ Installed copies of Vigía and Puente only trust the compiled-in public key, so 
 3. Wait until most installs are on N (several weeks).
 4. Release **N+1** signed with the **new** key; its binaries trust only the new key. From then on the old key is retired (kept offline for emergency re-signing of N only).
 5. If the old key is **compromised** (not just rotated): publish N as soon as possible, raise `minVersion` in the manifest to N so Puente refuses anything older, and announce it in the README / release notes so manual installs re-download Puente.
+
+**Puente only replaces itself with the whole release verified** (`app/Puente/Setup.cs`, `InstallFlow`): the package is downloaded and checked (size, SHA-256, signature) first; the new Puente must be a higher version and must accept this same signed release (`--verify-manifest`) before it takes the place of the running one; if the swap fails, the previous Puente comes back. So a bridge or post-rotation release whose zip is bad, or whose Puente would not trust its own signature, changes nothing: neither the program nor the trusted keys. Before this (VM, lab keys, code of `fea4ae0`), a release with an altered zip replaced Puente A+B by Puente B-only and left Vigía on the old version.
 
 Multi-key trust is implemented: `NextKeys` in `app/Puente/Program.cs` and `app/Vigia/Updates.cs` (empty today; tested with test keys in `tools/puente-test.js`). Step 2 only adds the new public key there.

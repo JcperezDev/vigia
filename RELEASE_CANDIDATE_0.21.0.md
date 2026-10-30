@@ -1,6 +1,6 @@
 # Candidato local de Vigía 0.21.0 — SIN FIRMAR · SIN PUBLICAR
 
-Fecha: 2026-10-30 (noche) · rama `debloat-v2` · commit **`a6ffaa5`**. Respecto al candidato de `c8f0921`, el paquete cambia en: Wi‑Fi sin ubicación y WebView2 con permisos denegados (`1ea871f`) y la nota de ese arreglo en cinco idiomas (`a6ffaa5`). Sustituye al candidato de `c8f0921` (zip `2f90087f…f9974`).
+Fecha: 2026-10-30 (noche, 2.ª) · rama `debloat-v2` · commit **`6f8e5ff`** (lo dice `out/0.21.0/candidato.txt`). Respecto al candidato de `a6ffaa5`, el paquete cambia en: Puente solo se sustituye a sí mismo con la publicación entera comprobada (`6ea6126`) y `release.sh` ata lo firmado al commit compilado (`6f8e5ff`). Sustituye a los candidatos de `a6ffaa5` (zip `a393d2fc…a2ee2ad`, Puente `4ed40b0a…4825`) y `c8f0921` (zip `2f90087f…f9974`).
 **Estado: NOT READY · `SIGNING_BLOCKED`.** Sirve para revisarlo. No se puede publicar tal cual: le faltan las firmas, que solo se ponen con la clave de producción fuera de este PC, y eso necesita tu autorización (`OWNER_DECISIONS_0.21.0.md` §6).
 
 ## Qué se generó
@@ -8,14 +8,17 @@ Fecha: 2026-10-30 (noche) · rama `debloat-v2` · commit **`a6ffaa5`**. Respecto
 
 | Archivo | Tamaño | SHA-256 |
 |---|---|---|
-| `Vigia-0.21.0-win-x64.zip` (343 entradas, 321 archivos) | 59 803 702 | `a393d2fc3bec4e04b5ae6da08edc346197d6f470abae609e127b33622a0ee2ad` |
-| `Puente.exe` (2.0.1) = `Vigia-Setup.exe` | 12 554 300 | `4ed40b0a1249c4b9fce9ed9250e430509e1b7bff4010db0e6572a124bdc94825` |
-| `vigia-manifest.json` (versión 0.21.0, Puente 2.0.1, tamaños y SHA-256 de los dos de arriba) | 412 | `8864dfb419f4cc3efa4381817560122d217166d003bbfe0a853b8c0440dada70` |
+| `Vigia-0.21.0-win-x64.zip` (343 entradas) | 59 803 716 | `6254ed4770768da13364db04441396b24d9a5a5cdccda0430c282c31f3c4836c` |
+| `Puente.exe` (2.0.1) = `Vigia-Setup.exe` | 12 557 783 | `cb68d8b779c98cb40b7070400e0b02bc92b215c3b0d164db862869d47dcea257` |
+| `vigia-manifest.json` (versión 0.21.0, Puente 2.0.1, tamaños y SHA-256 de los dos de arriba) | 412 | `dd165736f860c6b36fd3380454c9e866c23c91ed3917294a3569b35721d5e1e5` |
 
-Hashes anteriores (`c8f0921`: zip `2f90087f…f9974`; `d8e24d9`: zip `6e2ba33d…28d3`) quedan sustituidos. Puente 2.0.1 nunca se publicó, así que cambiar sus bytes con el mismo número no deja a nadie atrás; `release.sh` lo comprueba contra la última etiqueta (`v0.20.17`, Puente 1.4.0).
+Hashes anteriores (`a6ffaa5`: zip `a393d2fc…`; `c8f0921`: zip `2f90087f…f9974`; `d8e24d9`: zip `6e2ba33d…28d3`) quedan sustituidos. **Versión de Puente:** la última publicada es la de `v0.20.17`, **Puente 1.4.0**; 2.0.1 no se publicó nunca, así que el 2.0.1 de este candidato es mayor que el instalado en cualquier PC real y lo sustituye de verdad (comprobado por versión y SHA‑256 en la VM). Cambiar sus bytes antes de publicar no deja a nadie con un 2.0.1 distinto. `release.sh` lo comprueba contra la última etiqueta.
+
+**De qué código salió:** `candidato.txt` guarda el commit (`6f8e5ff19aad…`) y las cuatro huellas. `VIGIA_RELEASE_SIGNED=1` se niega a publicar si `app/` cambió desde ese commit o si lo que vuelve firmado no es lo compilado (release-test 33/0, casos nuevos). `node tools/candidate-check.js out/0.21.0`: **19 OK / 0 FAIL** (origen y huellas, manifiesto contra zip y Puente, Puente 2.0.1 > 1.4.0, compilación pública, `--install-check`, `--sensor-service` desconocido, `LocationGuard.Harden` presente, sin `WlanGetNetworkBssList`, misma clave pública en Vigía y Puente, `NextKeys` vacía). Sin `.sig`.
 
 Comprobado sobre el candidato:
-- selftest del `Vigia.exe` empaquetado (paso 2 de `release.sh`): **371 OK / 0 FAIL**, con datos aislados.
+- selftest del `Vigia.exe` empaquetado (paso 2 de `release.sh`, sobre `6f8e5ff`): **371 OK / 0 FAIL**, con datos aislados.
+- Las comprobaciones de abajo son del candidato de `a6ffaa5`. El código de Vigía no cambió desde entonces (solo `app/Puente` y `tools/`); `candidate-check.js` repitió sobre este las de versión, `--sensor-service`, clave y ubicación.
 - Puente: `zip-test` (7/7: rechaza `..`, rutas absolutas, barra inicial, flujos NTFS) y `acl-test` (todo bien).
 - `Vigia.exe` del zip: versión 0.21.0.0, manifiesto `asInvoker`, ninguna cadena `requireAdministrator`; ningún archivo de PawnIO ni `.sys`.
 - `changelog.json` del zip lleva la nota de los seis ajustes de privacidad y la del arreglo de ubicación; `i18n-check`: en/pt/fr/de 2435 claves, 0 errores.
@@ -58,7 +61,7 @@ Procedimiento completo en `docs/INSTALL.md`:
 ## Checklist de seguridad antes de publicar
 | # | Comprobación | Estado |
 |---|---|---|
-| 1 | Builds Vigía / Puente / Puente-test sin errores ni warnings | ✅ `s26` y candidato `d8e24d9` |
+| 1 | Builds Vigía / Puente / Puente-test sin errores ni warnings | ✅ `s26`; Puente-test y candidato sobre `6f8e5ff` |
 | 2 | Suites: selftest 362/0 · Puente 76/0 · release 31/0 · contrato · i18n 0 errores · Apps 44/0 · Monitor 71/0 · LabGuard 24/0 · guarda 10/0 · firma 39/0 · `comprobar` | ✅ `s27` completa sobre `aa0bb59` (mismo código de app que el HEAD) + firma 39/0 (claves de prueba) y `comprobar` rc 0 |
 | 3 | Vigía abre sin UAC; UAC solo al pedir algo administrativo; «No» no eleva; «Sí» levanta solo el ayudante | ✅ VM (administrador) · ✅ VM `estandar`: rc 3, sin escritura, sin procesos (fila 34) · ⛔ aviso con contraseña de admin desde `estandar`: falta credencial autorizada |
 | 4 | Ayudante: lista cerrada, rechazos 2–7, se cierra a los 10 min, lo automático no lo renueva ni lo reabre, no corta tareas en marcha | ✅ VM fila 33: tarea de 11 min sin cortes, cierre 600 s tras el fin, re-pedido y «No» limpios |
@@ -72,3 +75,6 @@ Procedimiento completo en `docs/INSTALL.md`:
 | 11 | Temperaturas reales del Ryzen | ⛔ HARDWARE_VALIDATION_PENDING |
 | 12 | Revisión externa del servicio SYSTEM | ⛔ EXTERNAL_AUDIT_PENDING (el servicio no va en 0.21.0) |
 | 13 | Firmar en un equipo aparte (`firmar-fuera.ps1`), repetir instalación limpia y migración en VigiaLab con ese paquete exacto, publicar | ⛔ NEEDS_OWNER_APPROVAL — no ejecutar sin tu orden |
+| 14 | Puente solo se sustituye con la publicación entera comprobada (zip malo o Puente que no acepta su propia firma ⇒ no cambia nada, ni las claves de confianza) | ✅ PC `puente-test` 85/0 (`6ea6126`) · fallo reproducido en VM con el código anterior (fila 41) · ⏳ VM con el arreglo pendiente (pausada por juego abierto) |
+| 15 | Lo firmado fuera = lo compilado y probado, del mismo commit | ✅ `candidato.txt` + `release.sh` (release-test 33/0) · `candidate-check.js` 19/0 |
+| 16 | Wi‑Fi conectado con ubicación apagada: sin aviso, señal correcta, sin datos de red en logs | ⛔ HARDWARE_VALIDATION_PENDING (aquí no hay Wi‑Fi conectado; pasos en `LOCATION_PRIVACY_FIX.md`) |

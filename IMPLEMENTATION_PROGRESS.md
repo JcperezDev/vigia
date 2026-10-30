@@ -208,3 +208,21 @@ Fuentes: Prompt 4 (Program Files y ayudante), Prompt 5 (firma, sensores, validac
 - **Relevo desde 0.20.17** en VigiaLab con claves de laboratorio: fila 40 de `VM_VALIDATION_REPORT.md`.
 - Pruebas sobre `fea4ae0`: selftest 371/0, location-test 25/0, Puente 76/0, release 31/0, firma 39/0, i18n 2435 claves.
 - Sigue **NOT READY · SIGNING_BLOCKED** (clave real sin custodia resuelta).
+
+## Últimas validaciones antes de publicar — 30-10 (noche, 2.ª) — `6ea6126` / `6f8e5ff`
+
+- **Puente nuevo + zip malo (hallazgo confirmado):** `InstallFlow` cambiaba Puente antes de bajar y comprobar el zip.
+  Reproducido en VigiaLab con el código de `fea4ae0` (fila 41): Vigía 0.21.2 se quedó con Puente 2.0.3 (solo clave B)
+  sin instalar nada. **Arreglo `6ea6126`:** el paquete se comprueba antes (tamaño, SHA‑256, firma); el Puente nuevo
+  tiene que aceptar esta misma publicación (`--verify-manifest`) antes de entrar; si el cambio falla vuelve el anterior
+  y un corte entre los dos renombres se recupera al arrancar. El Puente relanzado no vuelve a bajar el zip.
+  `puente-test` **85/0** (11 casos nuevos; con el Puente de `ab35542` fallan 3). Rollback y reparación siguen pasando.
+- **Candidato atado al código (`6f8e5ff`):** `candidato.txt` (commit + huellas); `VIGIA_RELEASE_SIGNED=1` se niega si
+  `app/` cambió o si lo firmado no es lo compilado. `tools/candidate-check.js`. `release-test` **33/0**, `signing-test` **39/0**.
+- **Candidato 0.21.0 rehecho sobre `6f8e5ff`, sin firmar:** zip `6254ed47…836c`, Puente 2.0.1 `cb68d8b7…a257`,
+  manifiesto `dd165736…e1e5`; selftest 371/0; `candidate-check` 19/0. Puente 2.0.1 > 1.4.0 (el de `v0.20.17`): coherente.
+- **Relevo:** `rot2` (A→B, 7 pasos) y `directo2`/`escalon` revisados: correctos salvo el caso de la fila 41.
+  Repetición en VM con el arreglo: **pendiente** (la guarda de juego la pausó).
+- **Wi‑Fi conectado:** sin equipo (3 adaptadores Wi‑Fi, todos desconectados) → HARDWARE_VALIDATION_PENDING.
+- **Firma:** clave real no abierta, copiada ni rotada; ACL = SYSTEM, Administradores y tu usuario; sin cifrar;
+  `CodexSandboxOffline/Online` siguen habilitadas. **SIGNING_BLOCKED.**

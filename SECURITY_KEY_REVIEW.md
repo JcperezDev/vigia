@@ -410,6 +410,12 @@ Volver atrás: `icacls "%USERPROFILE%" /restore "%USERPROFILE%\acl-puente-signin
 - Para la clave real: la identidad aislada es **un equipo de firma aparte y sin red** (en este PC no hay aislamiento posible con UAC desactivado y tu cuenta administradora). Pasos exactos: `OWNER_DECISIONS_0.21.0.md` §6 y «Procedimiento exacto» de arriba.
 - Actualizaciones desde 0.20.17: mientras no se rote, 0.21.0 se firma con la misma clave en la que confía 0.20.17. Si se rota, primero una versión firmada con la actual que ya confía en la nueva; 0.20.17 la acepta porque la firma es la de siempre.
 
+## Revisión 30-10 (noche, 2.ª) — solo metadatos
+- `release-key.pem`: 240 bytes, modificada 27-10-2026 19:03 (-04), ACL heredada de `.vigia`: SYSTEM, Administradores y el usuario (sin `CodexSandboxUsers`). No se abrió, copió, movió ni rotó.
+- Siguen habilitadas las cuentas locales `CodexSandboxOffline` y `CodexSandboxOnline`; la clave sigue **sin cifrar** en la cuenta de desarrollo con UAC desactivado.
+- Procedimiento offline reforzado: el candidato queda atado a su commit y a sus huellas (`candidato.txt`, `release.sh`, `candidate-check.js`); un relevo o una publicación con zip malo ya no cambia Puente ni sus claves de confianza (`6ea6126`). Documentado en `docs/SIGNING.md`.
+- **Veredicto: SIGNING_BLOCKED** hasta que decidas la custodia (equipo o cuenta de firma aparte, clave protegida con `--protect-key`) y si se rota por la posible exposición anterior.
+
 ## Próximo paso
 Tus decisiones de `OWNER_DECISIONS_0.21.0.md` §6 b–d (rotar o mover; permisos fuera de `.vigia`; firmar fuera). Mientras
 tanto `release.sh` no firma con la clave de este PC y la release sigue **`SIGNING_BLOCKED`**.

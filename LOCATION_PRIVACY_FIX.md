@@ -57,6 +57,17 @@ detenido, ninguna entrada de Vigía en `NonPackaged`, build 26300.
 lectura de calidad/RSSI/banda con una red real conectada no se ha visto aquí. Hay que confirmarla en un equipo con Wi‑Fi
 y la ubicación apagada: abrir Sugerencias y comprobar que no aparece el aviso y que `privacidad.log` dice `datos=sí`.
 
+Relectura del 30-10 (noche, 2.ª), solo lectura con `Get-NetAdapter -IncludeHidden` (sin `netsh wlan`, que también
+pide ubicación): 3 adaptadores Wi‑Fi, los 3 `Disconnected`; lo único conectado es Ethernet. **Sigue `HARDWARE_VALIDATION_PENDING`**:
+no hay equipo de prueba con Wi‑Fi conectado y no se inventa el resultado. Prueba exacta cuando lo haya (ubicación de
+Windows apagada, sin tocar políticas):
+
+1. Instalar el candidato (o copiar `Vigia.exe` del zip) y lanzar con datos aislados: `set VIGIA_DATA=%TEMP%\vigia-wifi`.
+2. `Vigia.exe --wifi-check %TEMP%\wifi.txt`: el adaptador conectado debe salir `estado=Up datos=sí` (el comando no imprime la señal a propósito). Luego, en Sugerencias de red, comprobar que la señal mostrada cuadra con la de Windows (icono de red / Configuración → Wi‑Fi) y que no se muestra el nombre de la red.
+3. Abrir Vigía → Sugerencias de red y esperar 30 s: **no** debe salir «Location has been turned off» / «Una app quiere usar tu ubicación».
+4. `%TEMP%\vigia-wifi\privacidad.log`: `datos=sí` y ninguna línea con nombre de red, BSSID, MAC ni coordenadas.
+5. Configuración → Privacidad → Ubicación → «Actividad reciente»: Vigía no aparece.
+
 ## Puente: ¿compara versiones o hashes?
 
 `app/Puente/Setup.cs`, `PlacePuente` (454–479), llamado en cada instalación (270):
