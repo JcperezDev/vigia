@@ -106,7 +106,7 @@ public sealed class Telemetry : IDisposable
 
     static bool PawnIoInstalled() => Pawn.Installed();
 
-    internal const string NoTempAdmin = "Temperatura de CPU no disponible. Sin permisos de administrador Windows no deja leer los grados del procesador; se ven mientras el ayudante de Vigía está abierto.";
+    internal const string NoTempAdmin = "Temperatura de CPU no disponible. Sin permisos de administrador Windows no deja leer los grados del procesador; con el ayudante de Vigía abierto se intentan leer, si el procesador es compatible.";
     internal const string NoTempCpu = "Temperatura de CPU no disponible. Este procesador no entrega una lectura válida.";
 
     /// <summary>Por qué no hay grados del procesador. Nunca null: sin lectura válida siempre se explica.</summary>

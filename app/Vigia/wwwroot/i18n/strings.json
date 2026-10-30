@@ -2119,7 +2119,7 @@
  "Temperatura",
  "Temperatura {0} °C por encima del aviso ({1} °C).",
  "Temperatura de CPU no disponible.",
- "Temperatura de CPU no disponible. Sin permisos de administrador Windows no deja leer los grados del procesador; se ven mientras el ayudante de Vigía está abierto.",
+ "Temperatura de CPU no disponible. Sin permisos de administrador Windows no deja leer los grados del procesador; con el ayudante de Vigía abierto se intentan leer, si el procesador es compatible.",
  "Temperatura de CPU no disponible. Este procesador no entrega una lectura válida.",
  "Temperatura y carga",
  "Temperature",
