@@ -39,6 +39,14 @@ static class LabGuard
         Check(!IsVm("Micro-Star International Co., Ltd.", "MS-7E12"), "un PC normal no cuenta como laboratorio");
         Check(!IsVm("Microsoft Corporation", "Surface Laptop 7"), "un Surface no es una VM");
         Check(!IsVm(null, null), "sin datos de WMI no se da por VM");
+        if (!Allowed)
+        {
+            // labHold (prueba de vida del ayudante) la rechaza el propio ayudante fuera de la VM, aunque llegue por la tubería
+            string? err = null;
+            try { AdminOps.Run("labHold", new System.Text.Json.Nodes.JsonObject { ["seconds"] = 30 }, (_, _) => { }).GetAwaiter().GetResult(); }
+            catch (Exception e) { err = e.Message; }
+            Check(err == Refusal, "labHold no hace nada fuera de la VM de pruebas");
+        }
         return string.Join(Environment.NewLine, log);
     }
 }

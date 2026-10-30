@@ -25,6 +25,7 @@ public static class AdminOps
         "simpleRun", "procClose", "backupRestore", "sugFix", "biosReboot",
         "isoBuild", "isoCancel", "usbList", "usbWrite", "fpsStart", "fpsCancel",
         "pawnInstall", "restorePoint", "telemetry", "ping",
+        "labHold",   // solo VigiaLab: prueba de vida del ayudante (espera sin tocar nada); el ayudante la rechaza fuera
         // lecturas que sin permisos salen incompletas (arranque, TPM, SMART) o no se pueden hacer (montar la ISO)
         "healthScan", "diagRun", "secGet", "isoInspect", "cleanScan",
     };
@@ -85,6 +86,21 @@ public static class AdminOps
         if (!Names.Contains(cmd)) throw new InvalidOperationException("Esa operación no está permitida.");
         switch (cmd)
         {
+            case "labHold":
+                // Prueba de laboratorio del ciclo de vida del ayudante: una tarea larga que no cambia nada.
+                // La comprobación va aquí, en el proceso elevado: fuera de la VM de pruebas no hace nada.
+                if (!LabGuard.Allowed) throw new InvalidOperationException(LabGuard.Refusal);
+                {
+                    var secs = I(msg, "seconds", 30, 1200);
+                    var t0 = DateTime.UtcNow;
+                    for (var done = 0; done < secs; done += 30)
+                    {
+                        emit("labHold", new { pid = Environment.ProcessId, elevated = Elevation.IsAdmin, elapsed = (int)(DateTime.UtcNow - t0).TotalSeconds });
+                        await Task.Delay(TimeSpan.FromSeconds(Math.Min(30, secs - done)));
+                    }
+                    emit("labHold", new { pid = Environment.ProcessId, elevated = Elevation.IsAdmin, elapsed = (int)(DateTime.UtcNow - t0).TotalSeconds, done = true });
+                }
+                break;
             case "ping":
                 emit("pong", new { elevated = Elevation.IsAdmin, broker = Elevation.InBroker, pid = Environment.ProcessId });
                 break;

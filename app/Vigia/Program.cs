@@ -11,7 +11,7 @@ static class Program
     internal static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
     // Órdenes de consola (pruebas, soporte y laboratorio). Las que abren la interfaz (--tray, --snap, --bench) no están aquí.
-    internal static readonly HashSet<string> ConsoleVerbs = ["--apps-history", "--apps-plan", "--apps-restore", "--apps-run", "--apps-scan", "--autostart", "--backup-restore", "--backups", "--bios", "--broker", "--crashes", "--display-test", "--drift", "--fortnite", "--fps-probe", "--install-check", "--iso", "--lab", "--msdl-probe", "--optimize", "--original", "--probe", "--procs", "--puente-get", "--rates", "--restore-point", "--rig", "--sec", "--selftest", "--sensor-publish", "--sensor-service", "--setup-sensors", "--simple-plan", "--simple-run", "--startup", "--startup-offall", "--startup-set", "--suggest", "--tray-dump", "--tweaks-lab", "--undo-retired", "--usb", "--wallpaper"];
+    internal static readonly HashSet<string> ConsoleVerbs = ["--apps-history", "--apps-plan", "--apps-restore", "--apps-run", "--apps-scan", "--autostart", "--backup-restore", "--backups", "--bios", "--broker", "--broker-hold", "--crashes", "--display-test", "--drift", "--fortnite", "--fps-probe", "--install-check", "--iso", "--lab", "--msdl-probe", "--optimize", "--original", "--probe", "--procs", "--puente-get", "--rates", "--restore-point", "--rig", "--sec", "--selftest", "--sensor-publish", "--sensor-service", "--setup-sensors", "--simple-plan", "--simple-run", "--startup", "--startup-offall", "--startup-set", "--suggest", "--tray-dump", "--tweaks-lab", "--undo-retired", "--usb", "--wallpaper"];
 
     [STAThread]
     static int Main(string[] args)
@@ -87,6 +87,11 @@ static class Program
             var res = Debloat.Run(AppsReq(args[1], args.Length >= 5 ? args[4] : "safe"), args[2], null);
             File.WriteAllText(args[3], JsonSerializer.Serialize(res, jo));
             return res.Changed ? 5 : res.Failed > 0 || res.Stopped ? 1 : 0;
+        }
+        if (args.Length >= 3 && args[0] == "--broker-hold")   // solo VM de pruebas: vida del ayudante con una tarea larga
+        {
+            if (!LabGuard.Allowed) { Console.Error.WriteLine(LabGuard.Refusal); return 3; }
+            return int.TryParse(args[1], out var hs) && hs is >= 30 and <= 1200 ? LabBrokerHold.Run(hs, args[2]) : 2;
         }
         if (args.Length >= 4 && args[0] == "--tweaks-lab")   // solo VM de pruebas: Vigia --tweaks-lab <state|apply|revert> <ids separados por |> <salida.json>
         {

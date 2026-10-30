@@ -24,12 +24,13 @@ const cases = [
   [['--tweaks-lab', 'apply', 'no-existe', o('tw.json')], [3]],
   [['--tweaks-lab', 'revert', 'no-existe', o('tw2.json')], [3]],
   [['--apps-run', 'no-existe', 'huella', o('run.json')], [3]],
+  [['--broker-hold', '60', o('hold.jsonl')], [3]],   // no abre el ayudante ni pide UAC fuera de la VM
   [['--apps-restore', 'no-existe', '-', o('rest.json')], [3]],
   // --autostart review solo lee; --startup-offall y --simple-run no se lanzan en el host (si la guarda fallara cambiarían
   // cosas reales): usan la misma LabGuard.Allowed, comprobada aquí con las demás.
   [['--autostart', 'review', o('auto.json')], [2]],
   // incompletas: antes arrancaban la interfaz
-  [['--apps-run'], [2]], [['--apps-run', 'x'], [2]], [['--apps-restore', 'x'], [2]],
+  [['--apps-run'], [2]], [['--broker-hold', '60'], [2]], [['--apps-run', 'x'], [2]], [['--apps-restore', 'x'], [2]],
   [['--tweaks-lab', 'apply'], [2]], [['--lab', 'apply'], [2]], [['--usb'], [2]], [['--iso', 'x'], [2]],
 ];
 for (const [args, want] of cases) {
