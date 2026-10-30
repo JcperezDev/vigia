@@ -50,6 +50,9 @@ sealed partial class MainForm
     {
         Show();
         if (WindowState == FormWindowState.Minimized) WindowState = FormWindowState.Normal;
+        // Al arrancar con Windows la ventana se esconde sin minimizarse, así que el Resize de arriba no la despierta:
+        // sin esto se abría en negro (WebView escondida y suspendida). Visto en VigiaLab tras reiniciar.
+        _ = SetRestingAsync(false);
         Activate();
         UpdateIfStale();
         if (view is not null)
