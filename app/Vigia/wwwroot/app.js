@@ -26,7 +26,10 @@
   const MAX = 300;
   let win = 60;
 
+  // 0 °C, negativos o 150+ no son lecturas reales (sensor sin driver): se tratan como «sin dato»
+  const realTemp = (v) => (typeof v === 'number' && v > 1 && v < 150) ? v : null;
   function setTemp(el, v) {
+    v = realTemp(v);
     el.textContent = fmt(v);
     const p = el.parentElement;
     p.classList.toggle('na', v == null);
@@ -43,7 +46,7 @@
     const c = s.cpu;
     $('cpu-name').textContent = c.name;
     setTemp($('cpu-temp'), c.temp);
-    $('cpu-temp-na').hidden = c.temp != null;
+    $('cpu-temp-na').hidden = realTemp(c.temp) != null;
     $('cpu-load').textContent = fmt(c.load, 0, ' %');
     $('cpu-clock').textContent = fmt(c.clockGhz, 2, ' GHz');
     $('cpu-cores').textContent = `${c.cores} / ${c.threads}`;
@@ -72,7 +75,7 @@
     $('notes').hidden = notes.length === 0;
     $('notes').textContent = notes.join(' ');
 
-    hist.push({ t: s.ts, ct: c.temp, gt: g ? g.temp : null, cl: c.load });
+    hist.push({ t: s.ts, ct: realTemp(c.temp), gt: g ? realTemp(g.temp) : null, cl: c.load });
     if (hist.length > MAX) hist.shift();
     draw();
     renderDrives(s.drives);

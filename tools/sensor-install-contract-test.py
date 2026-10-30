@@ -34,7 +34,9 @@ for proj in ('app/Vigia/Vigia.csproj', 'app/Puente/Puente.csproj'):
     x = (root / proj).read_text(encoding='utf-8-sig')
     assert "Condition=\"'$(SensorService)' == 'true'\"" in x and 'SENSOR_SERVICE' in x, proj + ': the service must be opt-in'
     assert x.count(';SENSOR_SERVICE<') == 1 and x.index(';SENSOR_SERVICE<') > x.index("Condition=\"'$(SensorService)' == 'true'\""), proj + ': SENSOR_SERVICE defined outside the opt-in group'
-assert '#if SENSOR_SERVICE\n            InstallSensors(exe);' in prep and '#else' in prep and 'RemoveSensors();' in prep[prep.index('#else'):], 'public setup must not register the service and must remove a lab one'
+pub = prep.index('#if !SENSOR_SERVICE')
+assert pub < prep.index('Ui.Show(') and 'RemoveSensors();' in prep[pub:prep.index('#endif', pub)], 'public setup must always remove a lab service, before anything can fail'
+assert '#if SENSOR_SERVICE\n            InstallSensors(exe);' in prep and prep.count('InstallSensors(') == 1, 'only lab builds register the service'
 assert 'SensorHost.Enabled' in t and 'SensorHost.ReadCpu()' in t[t.index('SensorHost.Enabled') - 80:t.index('SensorHost.Enabled') + 120], 'public Vigía must not read the shared memory'
 assert '#if SENSOR_SERVICE\n    public static readonly bool Enabled = true;' in h, 'SensorHost.Enabled follows the build flag'
 assert 'SensorHost.Enabled ? SensorHost.RunService() : 2' in p, '--sensor-service is an unknown command in the public build'

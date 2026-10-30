@@ -506,6 +506,11 @@ static partial class Program
     static void PrepareSensors(string exe)
     {
         if (Layout.Test) return; // los fixtures no son una instalación real
+#if !SENSOR_SERVICE
+        // Versión pública: el servicio SYSTEM queda fuera hasta su revisión externa (SENSOR_SERVICE_AUDIT.md).
+        // Si una compilación de laboratorio lo dejó registrado, se quita siempre, aunque lo de PawnIO falle o tarde.
+        try { RemoveSensors(); } catch (Exception e) { Log("sensores: quitar servicio: " + e.Message); }
+#endif
         Ui.Show("Preparando sensores de Vigía", "Comprobando la dependencia oficial firmada PawnIO para leer la temperatura del procesador.", double.NaN);
         try
         {
@@ -520,10 +525,6 @@ static partial class Program
                 : "sensores: preparación falló, código " + p.ExitCode + "; usar Reparar");
 #if SENSOR_SERVICE
             InstallSensors(exe);   // aunque se aplace PawnIO: sin driver el servicio solo informa que no hay dato
-#else
-            // Versión pública: el servicio SYSTEM queda fuera hasta su revisión externa (SENSOR_SERVICE_AUDIT.md).
-            // Si una compilación de laboratorio lo dejó registrado, se quita: no debe quedar nada apuntando a otra versión.
-            RemoveSensors();
 #endif
         }
         catch (Exception e) { Log("sensores: " + e.Message); }
