@@ -193,10 +193,18 @@ static partial class Program
     {
         public Version? Tag => rel?.Version;
 
-        public async Task<string> Fetch(string name, long max, bool quiet = true, long? size = null)
+        public async Task<string> Fetch(string name, long max, bool quiet = true, long? size = null, string? sha = null)
         {
             Directory.CreateDirectory(Layout.Downloads);
             var dest = Path.Combine(Layout.Downloads, name);
+            // ya está en la carpeta protegida y coincide con el manifiesto firmado (lo bajó el Puente anterior antes de
+            // cederle el sitio a este): no se baja otra vez. Quien llama comprueba igual tamaño, huella y firma.
+            if (sha is not null && size is { } want && File.Exists(dest) && new FileInfo(dest).Length == want
+                && string.Equals(Sha256(dest), sha, StringComparison.OrdinalIgnoreCase))
+            {
+                Log($"{name}: ya estaba bajado y coincide con el manifiesto");
+                return dest;
+            }
             if (offline is not null)
             {
                 var src = new FileInfo(Path.Combine(offline, name));
@@ -233,7 +241,7 @@ static partial class Program
     /// <summary>Baja (o copia) una pieza y comprueba tamaño, SHA-256 del manifiesto y su firma propia.</summary>
     static async Task<string> FetchVerified(Source src, PkgFile f, bool quiet)
     {
-        var path = await src.Fetch(f.Name, f.Size, quiet, f.Size);
+        var path = await src.Fetch(f.Name, f.Size, quiet, f.Size, f.Sha256);
         var sig = await src.Fetch(f.Name + ".sig", 4096);
         if (new FileInfo(path).Length != f.Size || !string.Equals(Sha256(path), f.Sha256, StringComparison.OrdinalIgnoreCase) || !Verify(path, File.ReadAllText(sig)))
         {
@@ -267,6 +275,16 @@ static partial class Program
             st.Floor = mv; st.Save();
         }
 
+        if (PuenteChangeNeeded(m))
+        {
+            // Puente solo avanza con la publicación entera comprobada: antes de cambiarlo se baja y se comprueba el
+            // paquete (tamaño, SHA-256 del manifiesto y su firma). Si el zip no vale, Puente se queda como estaba y
+            // no cambia nada más; el Puente nuevo reutiliza este zip ya comprobado en vez de bajarlo otra vez.
+            SpaceCheck(m.Package.Size);
+            Ui.Show($"Comprobando Vigía {m.Version}", "Descargando y revisando la versión entera antes de cambiar nada.", double.NaN);
+            await FetchVerified(src, m.Package, quiet: false);
+            Log($"paquete {m.Version} comprobado antes de cambiar Puente");
+        }
         await PlacePuente(m, src, st);
 
         var legacy = LegacyVersion();
@@ -451,6 +469,22 @@ static partial class Program
     }
 
     /// <summary>Puente se pone en Program Files desde una copia comprobada; nunca baja a una versión más vieja.</summary>
+    /// <summary>¿Este manifiesto trae un Puente más nuevo que el instalado (y no es este mismo, recién relanzado)?</summary>
+    static bool PuenteChangeNeeded(Manifest m)
+    {
+        if (m.Puente is null || m.PuenteVersion is null) return false;
+        var target = Layout.PuenteExe;
+        var have = File.Exists(target) ? FileVersion(target) : null;
+        if (have is not null && have >= m.PuenteVersion) return false;
+        return !(_args.Contains("--relaunched") && Layout.Same(Environment.ProcessPath!, target));
+    }
+
+    /// <summary>
+    /// Puente se pone en Program Files desde una copia comprobada; nunca baja a una versión más vieja.
+    /// Solo se cambia si la publicación entera ya se comprobó (InstallFlow baja antes el paquete) y si el Puente nuevo
+    /// arranca en este PC y acepta esa misma publicación con sus propias claves: así nunca queda un Puente que no
+    /// confía en la versión que vino a instalar. Si algo falla al cambiarlo, vuelve el que había.
+    /// </summary>
     static async Task PlacePuente(Manifest m, Source src, State st)
     {
         var me = Environment.ProcessPath!;
@@ -472,10 +506,21 @@ static partial class Program
 
         var tmp = await FetchVerified(src, m.Puente, quiet: true);
         if (FileVersion(tmp) != m.PuenteVersion) { File.Delete(tmp); throw new InvalidOperationException("Puente.exe no trae la versión que dice su manifiesto."); }
+        if (NewPuenteProblem(tmp, m) is { } why)
+        {
+            try { File.Delete(tmp); } catch { }
+            Log($"Puente {m.PuenteVersion} no pasó la prueba: {why}");
+            throw new InvalidOperationException($"el Puente {m.PuenteVersion} de esta versión no pasó la prueba en este PC ({why}); no se cambió nada.");
+        }
         var old = Path.Combine(Layout.Root, "Puente.old.exe");
         try { if (File.Exists(old)) File.Delete(old); } catch { }
         if (File.Exists(target)) File.Move(target, old);   // un .exe abierto se puede renombrar, no sobrescribir
-        File.Move(tmp, target);
+        try { File.Move(tmp, target); }
+        catch
+        {
+            if (!File.Exists(target) && File.Exists(old)) File.Move(old, target);   // vuelve el que había
+            throw;
+        }
         Log($"Puente {have?.ToString() ?? "nuevo"} -> {m.PuenteVersion}");
         if (mine && !Layout.Test)
         {
@@ -483,10 +528,52 @@ static partial class Program
             var psi = new ProcessStartInfo(target) { UseShellExecute = false, WorkingDirectory = Layout.Root };
             foreach (var a in _args.Where(x => x != "--relaunched")) psi.ArgumentList.Add(a);
             psi.ArgumentList.Add("--relaunched");
+            Process? p = null;
+            try { p = Process.Start(psi); }
+            catch (Win32Exception e)
+            {
+                // no se pudo abrir el nuevo: vuelve el que había y se sigue sin cambiar nada más
+                try { File.Move(target, tmp, overwrite: true); if (File.Exists(old)) File.Move(old, target); } catch { }
+                Log("no pude abrir el Puente nuevo: " + e.Message);
+                throw new InvalidOperationException("no pude abrir el Puente nuevo; se dejó el que había y no se cambió nada.");
+            }
             Ui.Close();
-            Process.Start(psi)?.Dispose();
+            p?.Dispose();
             Environment.Exit(0);
         }
+    }
+
+    /// <summary>
+    /// Abre el Puente bajado (ya comprobado: tamaño, SHA-256 y firma) con --verify-manifest sobre la publicación que
+    /// se está instalando, en la carpeta protegida de descargas. Tiene que arrancar, confiar en la clave que firmó el
+    /// manifiesto y aceptar el paquete y a sí mismo. null = bien.
+    /// </summary>
+    static string? NewPuenteProblem(string exe, Manifest m)
+    {
+        try
+        {
+            var psi = new ProcessStartInfo(exe)
+            {
+                UseShellExecute = false, CreateNoWindow = true, WindowStyle = ProcessWindowStyle.Hidden,
+                RedirectStandardOutput = true, RedirectStandardError = true, WorkingDirectory = Layout.Root,
+            };
+            psi.ArgumentList.Add("--verify-manifest");
+            psi.ArgumentList.Add(Path.Combine(Layout.Downloads, ManifestName));
+#if PUENTE_TEST
+            // solo pruebas: el Puente nuevo con otras claves de confianza que el actual
+            if (Environment.GetEnvironmentVariable("PUENTE_TEST_CHILD_PUBKEY") is { Length: > 40 } k) psi.Environment["PUENTE_TEST_PUBKEY"] = k;
+#endif
+            using var p = Process.Start(psi);
+            if (p is null) return "no arrancó";
+            var outTask = p.StandardOutput.ReadToEndAsync();
+            var errTask = p.StandardError.ReadToEndAsync();
+            if (!p.WaitForExit(120_000)) { try { p.Kill(true); } catch { } return "no terminó en 2 minutos"; }
+            var text = outTask.Result + errTask.Result;
+            if (p.ExitCode != 0 || !text.Contains($"manifiesto {m.Version}") || !text.Contains(": bien"))
+                return $"no acepta esta publicación (código {p.ExitCode})";
+            return null;
+        }
+        catch (Exception e) when (e is Win32Exception or IOException or InvalidOperationException) { return "no arrancó: " + e.Message; }
     }
 
     /// <summary>Después de cambiar de versión: accesos, Apps, inicio con Windows y retirada de lo viejo. Se puede repetir.</summary>
@@ -711,8 +798,14 @@ static partial class Program
 
     static void CleanPending(State st)
     {
-        if (st.PendingDelete.Count == 0 && !File.Exists(Path.Combine(Layout.Root, "Puente.old.exe"))) return;
-        try { File.Delete(Path.Combine(Layout.Root, "Puente.old.exe")); } catch { }
+        var oldPuente = Path.Combine(Layout.Root, "Puente.old.exe");
+        if (st.PendingDelete.Count == 0 && !File.Exists(oldPuente)) return;
+        if (File.Exists(oldPuente) && !File.Exists(Layout.PuenteExe))
+        {
+            // se cortó entre apartar el Puente viejo y poner el nuevo: vuelve el viejo
+            try { File.Move(oldPuente, Layout.PuenteExe); Log("Puente: se cortó al cambiarlo; vuelve el que había"); } catch (Exception e) { Log("Puente apartado: " + e.Message); }
+        }
+        try { File.Delete(oldPuente); } catch { }
         if (st.PendingDelete.Count > 0) { RetireLegacy(st); st.Save(); }
     }
 

@@ -14,7 +14,7 @@ const path = require('path');
 const crypto = require('crypto');
 
 const repo = path.resolve(__dirname, '..');
-const PT = path.join(repo, 'out', 'puente-test', 'Puente-test.exe');
+const PT = process.env.PUENTE_TEST_EXE || path.join(repo, 'out', 'puente-test', 'Puente-test.exe');   // PUENTE_TEST_EXE: probar otro Puente (p. ej. uno anterior)
 const PUBLIC_PUENTE = path.join(repo, 'app', 'Puente', 'bin', 'Release', 'net10.0', 'win-x64', 'Puente.exe');
 const TEMP = fs.realpathSync.native(process.env.TEMP);   // ruta larga (sin PICKLE~1): así la escribe Puente
 const DOTNET = path.join(process.env.DOTNET_ROOT || path.join(process.env.USERPROFILE, '.dotnet'), 'dotnet.exe');
@@ -71,10 +71,12 @@ function pkg(v, o = {}) {
   const names = fs.readdirSync(files);
   const t = sh(TAR, ['-a', '-c', '-f', zip, '-C', files, ...names]);
   if (t.code !== 0) throw new Error('tar: ' + t.out);
+  if (o.before) o.before(dir);
   const m = sh(PT, ['--manifest', dir, v, ...(o.min ? [o.min] : [])]);
   if (m.code !== 0) throw new Error('--manifest: ' + m.out);
   const key = o.key || keyA;
-  for (const f of [zip, path.join(dir, 'vigia-manifest.json')]) {
+  const pu = path.join(dir, 'Puente.exe');
+  for (const f of [zip, ...(fs.existsSync(pu) ? [pu] : []), path.join(dir, 'vigia-manifest.json')]) {
     const s = sh(PT, ['--sign', f, key]);
     if (s.code !== 0) throw new Error('--sign: ' + s.out);
   }
@@ -114,6 +116,19 @@ const P = {
   brokenSame: pkg('0.21.1', { broken: true, tag: 'rota' }),
   brokenMin: pkg('0.22.0', { min: '0.22.0', broken: true, tag: 'rota-min' }),
 };
+// Puente de prueba con un número más alto (2.0.2): para ver que el cambio de Puente es transaccional
+const pt202Dir = path.join(work, 'pt202');
+{
+  // publish: un solo .exe autocontenido, como el Puente.exe que se publica (copiado solo, tiene que arrancar)
+  const b = sh(DOTNET, ['publish', path.join(repo, 'app', 'Puente', 'Puente.csproj'), '-c', 'Release', '-r', 'win-x64', '-p:PuenteTest=true', '-p:Version=2.0.2',
+    '-o', pt202Dir, '-v:q', '-nologo', '-nodeReuse:false']);
+  if (b.code !== 0) { console.error('no compiló el Puente 2.0.2 de prueba\n' + b.out); process.exit(2); }
+}
+const PT202 = path.join(pt202Dir, 'Puente-test.exe');
+/** Paquete que además trae un Puente.exe (el 2.0.2 de prueba), firmado como en una publicación. */
+function pkgP(v, o = {}) {
+  return pkg(v, { ...o, before: d => { fs.copyFileSync(PT202, path.join(d, 'Puente.exe')); } });
+}
 const noManifest = path.join(work, 'pkg', 'sin-manifiesto');
 fs.mkdirSync(noManifest, { recursive: true });
 fs.copyFileSync(path.join(P.v210, 'Vigia-0.21.0-win-x64.zip'), path.join(noManifest, 'Vigia-0.21.0-win-x64.zip'));
@@ -192,6 +207,55 @@ try {
   const dl = path.join(A.root, '.descargas');
   check(!fs.existsSync(dl) || fs.readdirSync(dl).filter(f => /\.zip$/i.test(f)).length <= 1, 'las descargas viven en la carpeta protegida (.descargas)');
   if (fs.existsSync(dl)) { u = asUser(path.join(A.root, 'estado.json')); check(u.n === 0, 'un usuario normal no puede dejar nada en la raíz ni en .descargas (TOCTOU)', u.out); }
+
+  console.log('--- Puente nuevo + zip que no vale (cambio transaccional de Puente)');
+  {
+    const ver = f => { const r2 = sh('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', `(Get-Item -LiteralPath '${f}').VersionInfo.FileVersion`]); return r2.out.trim(); };
+    const T = newPc();
+    install(T, P.v210); install(T, P.v211);
+    const pe = path.join(T.root, 'Puente.exe');
+    const pHash = sha(pe), pVer = ver(pe);
+    const st0 = JSON.stringify(state(T));
+    const userData = path.join(T.local, 'mis-datos.txt'); fs.writeFileSync(userData, 'datos del usuario');
+    // 1) el zip se cambió después de firmar: Puente no se toca
+    r = install(T, pkgP('0.21.2', { tag: 'p202-zip-cambiado', after: (d, zip) => fs.appendFileSync(zip, 'x') }));
+    check(r.code !== 0 && sha(pe) === pHash && !fs.existsSync(path.join(T.root, 'Puente.old.exe')) && !fs.existsSync(path.join(T.root, 'diario.json')) && JSON.stringify(state(T)) === st0 && !fs.existsSync(path.join(T.root, 'versiones', '0.21.2')),
+      'zip roto + Puente nuevo: no cambia Puente ni Vigía (antes cambiaba Puente y dejaba la versión vieja)', r.out + readLog(T));
+    // 2) el zip va bien firmado pero el Puente nuevo no confía en la clave que firmó: Puente no se toca
+    const pubB2 = genB.out.trim().split(/\r?\n/).pop();
+    const okPkg = pkgP('0.21.2', { tag: 'p202-bien' });
+    r = sh(PT, ['--offline', okPkg, '--quiet', '--yes'], { env: { ...env(T.root, T.local), PUENTE_TEST_CHILD_PUBKEY: pubB2 } });
+    check(r.code !== 0 && sha(pe) === pHash && JSON.stringify(state(T)) === st0 && /no acepta esta publicación \(código 1\)/.test(r.out + readLog(T)),
+      'un Puente nuevo que no aceptaría esta misma publicación no entra (la confianza no se pierde)', r.out + readLog(T));
+    // 3) todo bien: Puente cambia de verdad (versión y SHA-256) y Vigía sube
+    r = install(T, okPkg);
+    check(r.code === 0 && state(T).current === '0.21.2' && sha(pe) === sha(PT202) && sha(pe) !== pHash && /2\.0\.2/.test(ver(pe)) && !/2\.0\.2/.test(pVer),
+      'publicación buena: Puente pasa de ' + pVer + ' a 2.0.2 (versión y SHA-256) y Vigía a la 0.21.2', r.out + readLog(T));
+    check(/paquete 0\.21\.2 comprobado antes de cambiar Puente/.test(readLog(T)) && /ya estaba bajado y coincide/.test(readLog(T)), 'el paquete se comprueba antes de cambiar Puente y no se baja dos veces', readLog(T));
+    // 4) el Puente nuevo sigue confiando: rechaza otra clave, vuelve atrás y no deja bajar de versión
+    const st1 = JSON.stringify(state(T));
+    r = sh(PT202, ['--offline', P.otherKey, '--quiet', '--yes', '--repair'], { env: env(T.root, T.local) });
+    check(r.code !== 0 && JSON.stringify(state(T)) === st1, 'el Puente 2.0.2 rechaza un paquete firmado con una clave que no conoce', r.out);
+    r = sh(PT202, ['--offline', P.v210, '--quiet', '--yes'], { env: env(T.root, T.local) });
+    check(r.code !== 0 && JSON.stringify(state(T)) === st1, 'el Puente 2.0.2 no deja volver a una versión más vieja con un manifiesto viejo', r.out);
+    r = sh(PT202, ['--rollback', '--quiet', '--yes'], { env: env(T.root, T.local) });
+    check(r.code === 0 && state(T).current === '0.21.1' && sha(pe) === sha(PT202), 'vuelta atrás con el Puente 2.0.2: Vigía a la 0.21.1 y Puente se queda en 2.0.2', r.out);
+    check(fs.readFileSync(userData, 'utf8') === 'datos del usuario', 'los datos del usuario siguen intactos');
+    // 5) corte de luz entre apartar el Puente y poner el nuevo: vuelve el que había
+    const good2 = sha(pe);
+    fs.renameSync(pe, path.join(T.root, 'Puente.old.exe'));
+    r = sh(PT202, ['--offline', okPkg, '--quiet', '--yes'], { env: env(T.root, T.local) });
+    check(sha(pe) === good2 && !fs.existsSync(path.join(T.root, 'Puente.old.exe')) && /se cortó al cambiarlo/.test(readLog(T)), 'si se cortó al cambiar Puente, el siguiente arranque devuelve el que estaba', r.out + readLog(T));
+    // 6) Puente nuevo + versión que no arranca: Puente sí avanza (ya probado), Vigía se queda y la vuelta atrás funciona
+    const U = newPc();
+    install(U, P.v210); install(U, P.v211);
+    r = install(U, pkgP('0.21.2', { broken: true, tag: 'p202-rota' }));
+    const pu = path.join(U.root, 'Puente.exe');
+    check(r.code !== 0 && state(U).current === '0.21.1' && !fs.existsSync(path.join(U.root, 'versiones', '0.21.2')) && sha(pu) === sha(PT202),
+      'Puente nuevo aprobado + Vigía que no arranca: queda la 0.21.1 entera con el Puente nuevo (no una mezcla)', r.out);
+    r = sh(PT202, ['--rollback', '--quiet', '--yes'], { env: env(U.root, U.local) });
+    check(r.code === 0 && state(U).current === '0.21.0', 'y desde ahí la vuelta atrás funciona', r.out);
+  }
 
   console.log('--- versión que no arranca');
   r = install(A, P.broken212);
