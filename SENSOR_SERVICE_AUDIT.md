@@ -3,8 +3,10 @@
 Estado: **EXTERNAL_AUDIT_PENDING** · **VM_TESTED** (VigiaLab) · **sin validar en hardware físico** · **no aprobado para instalarse en el PC del propietario**.
 Esto es una revisión interna (código leído y pruebas propias, más una pasada de un agente de código en solo lectura). **No es una auditoría externa independiente.**
 
+> **Fuera de la versión pública** desde `dd36490`: solo se compila con `-p:SensorService=true` (laboratorio); `tools/release.sh` lo impide y Puente quita el servicio si lo encuentra. Encargo para el revisor externo: `SENSOR_SERVICE_EXTERNAL_REVIEW.md`.
+
 ## 1. Qué es
-`VigiaSensores` («Sensores de Vigía»): servicio de Windows que registra Puente durante la instalación. Ejecuta
+`VigiaSensores` («Sensores de Vigía»): servicio de Windows que registra Puente durante la instalación **solo en compilaciones de laboratorio**. Ejecuta
 `"C:\Program Files\Vigia\versiones\<v>\Vigia.exe" --sensor-service` como LocalSystem, lee la temperatura del procesador
 con LibreHardwareMonitor + el driver oficial PawnIO y la publica en una memoria compartida de 64 bytes
 (`Global\VigiaSensores`). La interfaz de Vigía corre sin administrador y solo **lee** esa memoria.

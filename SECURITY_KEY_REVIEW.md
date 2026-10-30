@@ -148,6 +148,79 @@ aparte o PC/VM sin red, firmando con `Puente.exe --sign-release` (ya implementad
 
 Hasta entonces: `SIGNING_BLOCKED`.
 
+## Revisión de metadatos (29-10-2026, noche) — sin abrir la clave
+
+Solo `Get-Item` y `Get-Acl` (la prueba de arriba demostró que no tocan la fecha de acceso). No se leyó el contenido.
+
+| Dato | Valor |
+| --- | --- |
+| Tamaño | 240 bytes (igual que antes) |
+| Creada / modificada (UTC) | 27-10-2026 23:03:06 / 27-10-2026 23:03:06: **no ha cambiado desde que se creó** |
+| Atributos | `Archive` (no oculta ni de solo lectura) |
+| Dueño | `DESKTOP-F8CBGOK\Pickle OS` |
+| ACL del archivo | Toda heredada: `CodexSandboxUsers` ReadAndExecute · SYSTEM, Administradores y `Pickle OS` control total |
+| ACL de `.vigia` | `CodexSandboxUsers` ReadAndExecute **explícita**; el resto heredado |
+
+Sigue igual que en la reauditoría de la tarde: **`SIGNING_BLOCKED`**.
+
+## Procedimiento exacto (para cuando lo autorices) — NO ejecutado
+
+Todo en **tu** consola (`cmd` como `Pickle OS`), no en una sesión de un agente. Ningún paso abre ni muestra la clave.
+
+### A. Retirar el acceso de `CodexSandboxUsers` (reversible)
+
+```bat
+:: 0. Que no haya sesiones del sandbox en marcha
+tasklist /v | findstr /i CodexSandbox
+:: 1. Guardar la ACL actual de la carpeta y lo que tiene dentro (para volver atrás)
+icacls "%USERPROFILE%\.vigia" /save "%USERPROFILE%\vigia-acl-antes.txt" /t /c
+:: 2. Quitar la entrada explícita de la carpeta; el archivo la heredaba, así que también se va de él
+icacls "%USERPROFILE%\.vigia" /remove:g "DESKTOP-F8CBGOK\CodexSandboxUsers" /t /c
+:: 3. Comprobar (sin abrir la clave): debe decir «Clave protegida», código 0
+"%USERPROFILE%\work\vigia\app\Puente\bin\Release\net10.0\win-x64\Puente.exe" --key-check "%USERPROFILE%\.vigia\release-key.pem" & echo rc=%errorlevel%
+icacls "%USERPROFILE%\.vigia\release-key.pem"
+```
+
+(El Puente 0.20.17 instalado no tiene `--key-check`; se usa el compilado de `debloat-v2`.)
+
+Volver atrás: `icacls "%USERPROFILE%" /restore "%USERPROFILE%\vigia-acl-antes.txt"` (el archivo guardado usa rutas
+relativas a la carpeta padre). Efecto conocido: Codex en modo sandbox deja de leer `.vigia`; no usa nada de ahí.
+
+Lo que **no** arregla: cualquier proceso de `Pickle OS` (Hermes, subagentes, compilaciones) sigue pudiendo leerla. Por
+eso `SIGNING_BLOCKED` se mantiene hasta B.
+
+### B. Custodia con una identidad de firma aislada
+
+1. Crear la cuenta local estándar `vigia-firma` (sin Microsoft Account, sin navegador ni herramientas de desarrollo,
+   contraseña larga en tu gestor de contraseñas): `net user vigia-firma * /add` (pide la contraseña sin mostrarla).
+2. Carpeta de firma con ACL propia: `mkdir C:\VigiaFirma` y
+   `icacls C:\VigiaFirma /inheritance:r /grant:r "vigia-firma:(OI)(CI)F" "SYSTEM:(OI)(CI)F" "Administrators:(OI)(CI)F"`.
+3. Copia offline cifrada del `.pem` (USB cifrado o adjunto del gestor de contraseñas), hecha por ti. Nunca a `%TEMP%`
+   ni a una carpeta compartida.
+4. **Como `vigia-firma`** (`runas /user:vigia-firma cmd`), desde la copia offline:
+   `Puente.exe --protect-key <USB>\release-key.pem C:\VigiaFirma\release-key.dpapi` (o una clave nueva con
+   `Puente.exe --genkey`, ver C). DPAPI la ata a esa cuenta: `Pickle OS` ya no puede descifrarla.
+5. Borrar el `.pem` de `Pickle OS` tú mismo, tras comprobar que en `vigia-firma` se puede firmar una carpeta de prueba
+   (`Puente.exe --sign-release <carpeta de prueba> C:\VigiaFirma\release-key.dpapi`).
+6. Publicar desde entonces así: en tu cuenta `VIGIA_RELEASE_SIGN=fuera bash tools/release.sh "notas"` (compila, prueba,
+   arma, no toca la clave) → copia `out\<versión>` a una carpeta de intercambio (`C:\VigiaEntrega`, sin la clave) → en
+   `vigia-firma` `Puente.exe --sign-release C:\VigiaEntrega\<versión> C:\VigiaFirma\release-key.dpapi` → devuelve los
+   cuatro `.sig` a `out\<versión>` → en tu cuenta `VIGIA_RELEASE_SIGNED=1 bash tools/release.sh "notas"` (comprueba y publica).
+
+Volver atrás: la copia offline del paso 3 y `net user vigia-firma /delete`.
+
+### C. Rotación: evaluación
+
+| Opción | Qué pasa con las instalaciones existentes | Riesgo que queda |
+| --- | --- | --- |
+| **No rotar** (solo A + B) | Nada cambia: 0.20.x actualiza a 0.21.0 normal | Si la clave ya se copió, quien la tenga puede firmar paquetes que pasen por buenos fuera de GitHub (ver «Qué limita el daño»). No se puede descartar con pruebas |
+| **Rotar con relevo** (recomendado) | 0.21.0 se firma con la clave **vieja** y lleva la pública **nueva** en `NextKeys` (Puente y Vigía). 0.20.17 la acepta. Desde 0.21.1 se firma con la nueva | Las 0.20.x que no actualicen nunca solo confían en la vieja. 0.21.0 sigue firmada con la vieja (inevitable: es lo único que 0.20.x verifica) |
+| Rotar sin relevo | 0.20.x rechaza todo lo nuevo (falla seguro) y hay que reinstalar a mano | Rompe la actualización de quien ya la tiene: **descartado** |
+
+Si eliges rotar, lo único que cambia en este repositorio es pegar la clave **pública** nueva en `NextKeys` de
+`app/Puente/Program.cs` y `app/Vigia/Updates.cs` antes de compilar 0.21.0, y cambiar la prueba
+«esta versión no trae claves de relevo». La privada nueva se crea directamente en `vigia-firma` (B.4 con `--genkey`).
+
 ## Próximo paso
 
 Tu decisión sobre la entrada de Codex en `.vigia`. Mientras tanto `release.sh` no firmará con la clave actual (eso es lo

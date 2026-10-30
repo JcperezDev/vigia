@@ -3,8 +3,8 @@
 Actualizado 2026-10-29, rama `debloat-v2` (sin push ni merge). Una línea por requisito.
 Estados: ✅ hecho y probado · 🟡 hecho, falta validación física/VM · ⛔ bloqueado (decisión tuya) · ⬜ pendiente.
 
-Pruebas de referencia ahora (`048de17`): selftest **344/0** · UI de Apps **44/0** · traducciones **0 errores** · Puente **74/0** ·
-`release.sh` **31/0** · contrato de sensores OK · VigiaLab **20/22** pruebas reales (`VM_VALIDATION_REPORT.md`).
+Pruebas de referencia ahora (suite `s20` sobre `dd36490`, 2026-10-29 23:3x): selftest **359/0** · Puente **76/0** · `release.sh` **31/0** ·
+contrato de sensores OK · traducciones pt/fr/de **2435 claves, 0 errores** · VigiaLab **31** pruebas reales (`VM_VALIDATION_REPORT.md`). Cifras anteriores de este archivo son históricas.
 
 ## Validación real — 29 de octubre
 
@@ -120,3 +120,13 @@ Dato real de solo lectura de este PC: la RAM va a 5600 MT/s siendo de 6000 → E
 - ✅ UAC en VM (consola): aviso real, No/Sí, cierre por inactividad del ayudante (`97b9c29`), ventana en negro tras arrancar con Windows (`14b506d`). Suite s17: 352/0, 76/0, 31/0.
 - ⛔ clave de firma (`SIGNING_BLOCKED`, permisos y rotación tuyos) · revisión externa del servicio SYSTEM · migración real en tu PC, publicar, merge, push.
 - «Fable» = JITA, no Vigía. Detalle y siguiente paso: `FINAL_VALIDATION_REPORT.md`.
+
+
+## Cierre de seguridad 0.21.0 (29–30 de octubre)
+- ✅ Ayudante: el plazo de 10 min cuenta desde que termina el último pedido tuyo; nunca corta una tarea en marcha (selftest, simulado); no pierde medio mensaje al vencer el plazo (selftest); las lecturas automáticas no lo renuevan y, si está cerrado, no lo reabren ni piden UAC. VM 0.21.7: cierre ≈10 min con Monitor abierto, sin UAC espontáneo, nueva solicitud con UAC (fila 31). Regla escrita en `docs/PRIVILEGES.md`.
+- ✅ «Temperatura de CPU no disponible.» con motivo (`CpuTempWhy`), sin «°C» ni 0 °C; cinco idiomas; VM fila 30.
+- ✅ Servicio de sensores **fuera de la versión pública** (`SensorService`/`SENSOR_SERVICE`, `release.sh` aborta si se cuela, Puente 2.0.1 lo quita al actualizar; VM fila 29). Encargo externo: `SENSOR_SERVICE_EXTERNAL_REVIEW.md` (⛔ EXTERNAL_AUDIT_PENDING).
+- ✅ `LAB_ALLOW_GAME=1`: 0 usos en `app/` y `tools/`; en los scripts de laboratorio solo salta la pausa por juego. Identidad de VigiaLab siempre comprobada; prueba de regresión `scratch/lab/test/guard-test.ps1` 10/0 (la versión anterior da 10 FAIL). LabGuard en el host: `--tweaks-lab`, `--apps-run`, `--apps-restore` rc 3, también con `VIGIA_LAB=1` y `LAB_ALLOW_GAME=1`.
+- ✅ Clave: metadatos y ACL sin abrirla (sin cambios desde su creación); procedimiento exacto A/B/C en `SECURITY_KEY_REVIEW.md`. ⛔ `SIGNING_BLOCKED` hasta que lo autorices.
+- ✅ Versiones: público v0.20.17; 0.21.0 sigue siendo la siguiente válida (0.21.1–0.21.7 solo en VigiaLab con clave ficticia). Puente 2.0.1.
+- 🟡 UAC con usuario estándar y temperaturas en hardware físico: pendientes (HARDWARE_VALIDATION_PENDING / NEEDS_OWNER_APPROVAL).

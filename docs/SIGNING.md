@@ -95,4 +95,4 @@ Installed copies of Vigía and Puente only trust the compiled-in public key, so 
 4. Release **N+1** signed with the **new** key; its binaries trust only the new key. From then on the old key is retired (kept offline for emergency re-signing of N only).
 5. If the old key is **compromised** (not just rotated): publish N as soon as possible, raise `minVersion` in the manifest to N so Puente refuses anything older, and announce it in the README / release notes so manual installs re-download Puente.
 
-Multi-key trust is not implemented yet; it is needed only at step 2.
+Multi-key trust is implemented: `NextKeys` in `app/Puente/Program.cs` and `app/Vigia/Updates.cs` (empty today; tested with test keys in `tools/puente-test.js`). Step 2 only adds the new public key there.

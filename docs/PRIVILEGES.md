@@ -28,6 +28,19 @@ mientras hace falta y solo habla con la ventana que lo abrió. Vigía no necesit
   Ningún mensaje lleva rutas de programas, claves de registro, texto de PowerShell, CMD ni líneas de órdenes.
 - `VIGIA_DATA` y `VIGIA_FORTNITE_INI` se ignoran dentro del ayudante. No hay variable ni opción que abra el ayudante desde una carpeta sin proteger (selftest: «VIGIA_DEV=1 no abre el ayudante…»).
 
+## Cuánto vive el ayudante (comportamiento previsto)
+
+- Se abre solo cuando pides algo que necesita administrador (aviso UAC). Abrir Vigía o mirar el Monitor no lo abre.
+- **Se cierra solo a los 10 minutos sin operaciones privilegiadas pedidas por ti** (`Elevation.IdleLimit`). El plazo
+  cuenta desde que **termina** tu último pedido; mientras uno está en marcha (una ISO a USB, un análisis largo) no corre,
+  así que el cierre nunca corta una tarea.
+- Las lecturas automáticas (`Elevation.Background`: `telemetry`, `memAuto`, `undoRetired`, `ping`) se atienden si el
+  ayudante ya está abierto, pero **no renuevan el plazo**, y si está cerrado **no lo vuelven a abrir** ni piden UAC: el
+  Monitor sigue funcionando sin permisos y la temperatura del procesador dice «Temperatura de CPU no disponible».
+- Al cerrarse, el siguiente pedido tuyo vuelve a mostrar el aviso UAC y abre otro ayudante; nada queda a medias.
+- Pruebas: selftest (plazo, tarea larga, lecturas de fondo, pedido partido en dos al vencer el plazo) y VigiaLab
+  (cierre a los 10 min con el Monitor abierto y nueva solicitud con UAC; `VM_VALIDATION_REPORT.md`, filas 26 y 29).
+
 ## Clasificación de operaciones
 
 ### Con administrador (pasan por el ayudante) — 41
