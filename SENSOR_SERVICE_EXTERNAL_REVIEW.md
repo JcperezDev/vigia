@@ -17,8 +17,10 @@ Mientras esta revisión no esté hecha y aprobada por el propietario, **el servi
 | `tools/release.sh` | Compila con `-p:SensorService=false` (ignora la variable de entorno) y **no publica** si `--sensor-service` no da rc 2 | contrato |
 
 Sin el servicio, Vigía funciona igual salvo la temperatura del procesador sin permisos de administrador: el Monitor
-dice «Temperatura de CPU no disponible» con el motivo y la muestra mientras el ayudante con permisos está abierto
-(el servicio solo publica la temperatura del procesador; el resto de lecturas no pasa por él).
+dice «Temperatura de CPU no disponible.» con el motivo, sin unidad ni valor inventado (el servicio solo publica la
+temperatura del procesador; el resto de lecturas no pasa por él). Comprobado el 30-10-2026 en VigiaLab con el
+candidato de laboratorio 0.21.0 (`7202134`): sin servicio, sin UAC al abrir, Monitor «N/D» + «Temperatura de CPU no
+disponible.», sin «°C» en la tarjeta del procesador.
 
 ## Alcance pedido al revisor
 
@@ -80,3 +82,61 @@ propio equipo o VM. Las revisiones hechas por los agentes de programación usado
 
 ## Lo que el revisor no recibe
 Claves de firma de producción, credenciales de la VM de laboratorio ni datos del PC del propietario.
+
+## Paquete de entrega al revisor (preparado el 30-10-2026; revisión NO hecha)
+
+Commit de referencia: `7202134` (rama `debloat-v2`, sin publicar). Huella SHA-256 de cada archivo en ese commit
+(primeros 16 caracteres; el revisor debe recalcularlas con `git show 7202134:<archivo> | sha256sum`):
+
+| Archivo | Líneas | SHA-256 |
+| --- | --- | --- |
+| `app/Puente/SensorService.cs` | 104 | `a09dc878fe31fd73…` |
+| `app/Puente/Setup.cs` | 1128 | `7a03446ae22b615d…` |
+| `app/Puente/Program.cs` | 514 | `f1b7c232a9df87bc…` |
+| `app/Puente/Puente.csproj` | 31 | `2fe4327bbea8e0d8…` |
+| `app/Vigia/SensorHost.cs` | 353 | `d92546d8cb3b8bef…` |
+| `app/Vigia/Telemetry.cs` | 325 | `d7b83d85b6e594ae…` |
+| `app/Vigia/Pawn.cs` | 113 | `a18cfc49c8f2d90f…` |
+| `app/Vigia/Elevation.cs` | 610 | `2df430cce409e96f…` |
+| `app/Vigia/AdminOps.cs` | 379 | `b261506bf3263874…` |
+| `app/Vigia/LabGuard.cs` | 52 | `3d6b2ce71e212bdc…` |
+| `app/Vigia/Vigia.csproj` | 38 | `07fad741fa21bf42…` |
+| `tools/sensor-install-contract-test.py` | 64 | `052468dd9bc4ab75…` |
+| `tools/ui-monitor-test.js` | 79 | `9b769f9d9ada9286…` |
+| `SENSOR_SERVICE_AUDIT.md` | 81 | `b63d6ca073c03aff…` |
+| `CPU_SENSOR_INTEGRATION_REPORT.md` | 67 | `036c4296853d6557…` |
+| `docs/PRIVILEGES.md` | 100 | `9617ff20548bc8fc…` |
+| `docs/SECURITY-DESIGN.md` | 79 | `ef7e05a7591175a4…` |
+
+### Cómo compilar la variante con servicio (solo en la VM del revisor)
+
+```bash
+dotnet build app/Vigia/Vigia.csproj   -c Release -r win-x64 -p:SensorService=true
+dotnet build app/Puente/Puente.csproj -c Release -r win-x64 -p:SensorService=true -p:PuenteTest=true
+```
+
+`PuenteTest=true` permite que el revisor use **su propia** clave de prueba (`PUENTE_TEST_PUBKEY`); no recibe la de
+producción. La compilación pública es la misma sin esos dos parámetros.
+
+### Pruebas internas existentes (referencia, no cuentan como independientes)
+
+| Prueba | Qué cubre | Resultado interno |
+| --- | --- | --- |
+| `python -I tools/sensor-install-contract-test.py` | el servicio no entra en la compilación pública; `release.sh` lo exige | OK en `7202134` |
+| `node tools/ui-monitor-test.js` | sin lectura válida: «no disponible», sin °C, sin 0 °C | 71/0; prueba inversa 45 FAIL |
+| `Vigia.exe --sensor-service` (pública) | orden desconocida | rc 2 |
+| VigiaLab `squat.ps1` | usuario estándar crea `Global\VigiaSensores` antes que el servicio | objeto ajeno ignorado |
+| Revisión interna `SENSOR_SERVICE_AUDIT.md` | 7 fallos de robustez corregidos (`791fdc9`) | interna, no independiente |
+
+### Preguntas concretas para el revisor
+
+1. ¿Puede un usuario estándar hacer que el servicio SYSTEM lea, escriba o ejecute algo distinto de publicar la
+   temperatura del procesador? (no debe aceptar órdenes)
+2. ¿La ACL de `Global\VigiaSensores` y la comprobación de dueño impiden suplantar o envenenar la lectura?
+3. ¿La carpeta de instalación y el binario del servicio son inmodificables para usuarios no administradores
+   durante instalar, actualizar, reparar, rollback y desinstalar (incluidas carreras)?
+4. ¿La carga de PawnIO (driver oficial firmado, sin modificar) añade superficie que deba aceptarse explícitamente?
+5. ¿Qué pasa si el servicio queda registrado y luego se instala una versión sin servicio? (debe borrarse)
+6. Recomendación: incluir / no incluir en versión pública, y condiciones.
+
+Hasta recibir ese informe firmado y la aprobación del propietario: **servicio excluido de 0.21.0**.
