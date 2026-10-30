@@ -31,7 +31,7 @@ Optimizar el PC de juego desde una sola app: monitor de hardware, limpieza, libe
 
 ## Capabilities and Constraints
 
-- Monitor (CPU, GPU, RAM, discos, temperaturas con permisos de administrador), Almacenamiento, Diagnóstico, Optimizar, Memoria (liberación automática al 60 %), Ajustes (35 en catálogo), Apps, Herramientas (incl. FanControl), Inicio de Windows, Resolución estirada con vuelta automática en 15 s, Copias de seguridad, Configuración.
+- Monitor (CPU, GPU, RAM, discos, temperatura de CPU solo con fuente compatible y lectura válida; sin dato dice «no disponible»), Almacenamiento, Diagnóstico, Optimizar, Memoria (liberación automática al 60 %), Ajustes (35 en catálogo), Apps, Herramientas (incl. FanControl), Inicio de Windows, Resolución estirada con vuelta automática en 15 s, Copias de seguridad, Configuración.
 - Idiomas: español, inglés, portugués, francés y alemán.
 - Actualizaciones firmadas (ECDSA) desde la propia app, con vuelta a la versión anterior.
 - Instalador: `Vigia-X.Y.Z-win-x64.zip` + `Puente.exe` en GitHub Releases de este repo (`JcperezDev/vigia`). `JcperezDev/vigia-releases` queda como copia para las instalaciones ≤ 0.20.17, que todavía buscan ahí.

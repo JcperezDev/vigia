@@ -8,7 +8,7 @@ The app is available in English, Spanish, Portuguese, French and German. [Leer e
 
 ## What it does
 
-- **Monitor:** CPU, GPU, memory and disks, using the same counters as Task Manager, plus temperatures and which program is using more than it should.
+- **Monitor:** CPU, GPU, memory and disks, using the same counters as Task Manager, plus the CPU temperature when there is a compatible source and a valid reading (not every processor is supported), and which program is using more than it should.
 - **Simple mode:** answer a few questions (printer, network, Windows apps…) and Vigía does the rest.
 - **Tweaks, Games and Memory:** Windows tweaks explained one by one, real FPS before and after, a Fortnite profile, stretched resolution with an FPS estimate, and automatic memory release.
 - **Windows apps, Windows startup, Storage:** remove what you don't need, turn off what starts on its own, and clean temporary files and the Recycle Bin.

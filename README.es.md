@@ -8,7 +8,7 @@ Optimizador y monitor para PCs con Windows 10/11, pensado para jugar. Gratis, si
 
 ## Qué hace
 
-- **Monitor:** CPU, GPU, memoria y discos con los mismos contadores del Administrador de tareas, más temperaturas y qué programa está gastando de más.
+- **Monitor:** CPU, GPU, memoria y discos con los mismos contadores del Administrador de tareas, más la temperatura del procesador cuando hay una fuente compatible y una lectura válida (no todos los procesadores lo son), y qué programa está gastando de más.
 - **Modo simple:** unas preguntas (impresora, red, apps de Windows…) y Vigía hace el resto.
 - **Ajustes, Juegos y Memoria:** ajustes de Windows explicados uno a uno, FPS reales antes y después, perfil para Fortnite, resolución estirada con estimación de FPS y liberación de memoria automática.
 - **Apps de Windows, Inicio de Windows, Almacenamiento:** quitar lo que sobra, apagar lo que arranca solo y limpiar archivos temporales y la Papelera.
