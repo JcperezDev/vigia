@@ -9,12 +9,14 @@ Estados: `IMPLEMENTED` código hecho · `UNIT_TESTED` pruebas automáticas · `B
 
 ## Veredicto
 
-**POSIBLE EXPOSICIÓN (sin evidencia de lectura).** La clave estuvo y sigue estando legible por las dos cuentas del
-sandbox de Codex, una de ellas con red. No hay rastro de que ninguna la leyera ni de que esté copiada en ningún sitio,
-pero no se puede demostrar que no ocurrió. Hasta que decidas: no se firma con ella (lo impide el código, ver abajo).
+**Actualizado 30-10-2026 18:00 — POSIBLE EXPOSICIÓN ANTERIOR (sin evidencia de lectura) · acceso del sandbox a `.vigia` retirado.**
+Hasta el 30-10 17:35 la clave fue legible por las dos cuentas del sandbox de Codex, una de ellas con red. No hay rastro
+de que ninguna la leyera ni de que esté copiada en ningún sitio, pero no se puede demostrar que no ocurrió, y quitar el
+permiso ahora no lo cambia. Además la clave sigue sin cifrar en la cuenta de desarrollo, que es administradora con UAC
+desactivado: cualquier proceso de esa cuenta puede abrirla.
 
-Estado de publicación: **`SIGNING_BLOCKED`** mientras siga la entrada de `CodexSandboxUsers` en `.vigia` y la clave viva
-en la misma cuenta donde corren los agentes de programación (ver «Reauditoría» al final).
+Estado de publicación: **`SIGNING_BLOCKED`** hasta que la clave con la que se firme esté fuera de este PC (o se rote
+desde un equipo de firma). No se firma ninguna release de producción mientras tanto.
 
 ## Investigación (los 11 puntos)
 
@@ -362,14 +364,52 @@ de Puente y Vigía no cuadran, falla; durante el relevo lo firmado con la vieja 
 
 ### Pasos que necesitan tu autorización exacta
 
-1. Ejecutar el paso 1 sobre `~/.vigia` real (o decirme «autorizo quitar-acceso-sandbox en .vigia»).
+1. ~~Ejecutar el paso 1 sobre `~/.vigia` real~~ — **hecho el 30-10 con tu autorización** (ver «Corrección de permisos… aplicada»).
 2. Elegir: **rotar** (clave nueva en el equipo de firma + `preparar-relevo.js anadir` en 0.21.0) o **mover** la actual.
 3. Decidir sobre las entradas de `CodexSandboxUsers` en `AppData` y `Temp` (afectan a otras herramientas; no se tocan).
 4. Reactivar UAC o no (`EnableLUA = 1` necesita reinicio). Sin UAC, el paso 1 solo es una mejora parcial.
 
 Estado: **`SIGNING_BLOCKED`** hasta que la clave con la que se firme 0.21.0 esté fuera de este PC (o rotada allí).
 
-## Próximo paso
+## Corrección de permisos de `.vigia` aplicada (30-10-2026 17:35) — con tu autorización, sin abrir la clave
+Autorizada en el `/goal` del 30-10 (§1). Herramienta: `tools/signing/quitar-acceso-sandbox.ps1` (commit `7202134`).
+- **Antes** (solo metadatos, `scratch/acl/antes.txt`): `CodexSandboxUsers` con ReadAndExecute explícito en `.vigia`.
+- **Copia de los permisos** antes de cambiar nada: `%USERPROFILE%\vigia-acl-antes-20261030-173546.acl` (3106 B; solo tu cuenta, SYSTEM y Administradores pueden abrirla).
+- **Aplicado:** rc 0. Herencia cortada en `.vigia`; quedan solo SYSTEM, Administradores y tu cuenta, con control total.
+- **Comprobado después** (`scratch/acl/verificar.txt`, repetido a las 18:00): `icacls` de la carpeta y de los tres archivos solo con esas tres cuentas; ninguna entrada de `CodexSandbox*`, `Everyone`, `Authenticated Users`, `Users` ni `INTERACTIVE` (`aces-de-riesgo=0`); ninguna cuenta del sandbox en Administradores ni en Operadores de copia; tamaños, fechas y dueño de los tres archivos **iguales que antes** (la clave: 240 B, modificada 27-10 23:03:06 UTC); tu cuenta crea, lee y borra un archivo de prueba (no la clave) sin dejar rastro; `Puente --key-check` (solo permisos) **rc 0** «Clave protegida».
+- **Volver atrás:** `powershell -File tools\signing\quitar-acceso-sandbox.ps1 -Deshacer "%USERPROFILE%\vigia-acl-antes-20261030-173546.acl"`.
+- La clave **no se abrió, imprimió, copió, movió ni rotó**. Los permisos de `AppData` y `Temp` no se tocaron.
 
-Tu decisión sobre la entrada de Codex en `.vigia`. Mientras tanto `release.sh` no firmará con la clave actual (eso es lo
-esperado: «debe resolverse antes de publicar»).
+## Permisos fuera de `.vigia` (30-10-2026, solo metadatos) — corrección limitada propuesta, NO aplicada
+| Ruta | Qué hay | Permiso peligroso | Propuesta limitada |
+|---|---|---|---|
+| `%USERPROFILE%\.puente-signing` | `update-public-key.pem` (113 B) y `update-signing-key.dpapi` (342 B), de 25-10. La pública **no** es la de Vigía (comparada con `PublicKey`): es material de firma de otra herramienta tuya. La privada está protegida con DPAPI de tu cuenta | `CodexSandboxUsers` RX **explícito** (con herencia) | quitar esa entrada |
+| `%USERPROFILE%\Puente-respaldos` | copias de perfil de otra herramienta (26-10): almacenamiento local, `Network`, preferencias, transcripciones | `CodexSandboxUsers` RX **explícito** | quitar esa entrada |
+| `%LOCALAPPDATA%\Vigia` (tus datos de Vigía) y `%LOCALAPPDATA%\Programs\Vigia` (0.20.17) | ajustes, copias, historial; programa | RX **heredado** de `AppData` | cortar la herencia solo en `%LOCALAPPDATA%\Vigia` y quitar la entrada; `Programs\Vigia` desaparece al migrar |
+| `AppData` (RX explícito) y `AppData\Local\Temp` (Modificar explícito + un SID sin nombre `…-3224999056`) | todo tu perfil | amplio | **no tocar**: el sandbox de Codex lo necesita para funcionar. Mitigación: no dejar secretos en `Temp` (las herramientas de firma no lo hacen) |
+| Cuentas `CodexSandboxOffline` (último inicio 29-10 13:37) y `CodexSandboxOnline` (nunca) | habilitadas, no administradoras | — | desactivarlas cuando no uses Codex (`OWNER_DECISIONS` §7) |
+| `%ProgramData%\Vigia\claves` | clave de las copias | SYSTEM y Administradores, explícito | correcto, nada que hacer |
+
+Comandos (consola de administrador; cada uno guarda copia antes y se deshace con `/restore`):
+```
+icacls "%USERPROFILE%\.puente-signing" /save "%USERPROFILE%\acl-puente-signing.txt" /t
+icacls "%USERPROFILE%\.puente-signing" /remove:g "%COMPUTERNAME%\CodexSandboxUsers" /t
+icacls "%USERPROFILE%\Puente-respaldos" /save "%USERPROFILE%\acl-puente-respaldos.txt" /t
+icacls "%USERPROFILE%\Puente-respaldos" /remove:g "%COMPUTERNAME%\CodexSandboxUsers" /t
+icacls "%LOCALAPPDATA%\Vigia" /save "%USERPROFILE%\acl-vigia-datos.txt" /t
+icacls "%LOCALAPPDATA%\Vigia" /inheritance:d
+icacls "%LOCALAPPDATA%\Vigia" /remove:g "%COMPUTERNAME%\CodexSandboxUsers" /t
+```
+Verificar: `icacls <ruta>` sin `CodexSandboxUsers`, y que la herramienta dueña (y Vigía) sigue abriendo.
+Volver atrás: `icacls "%USERPROFILE%" /restore "%USERPROFILE%\acl-puente-signing.txt"` (ídem `acl-puente-respaldos.txt`) y `icacls "%LOCALAPPDATA%" /restore "%USERPROFILE%\acl-vigia-datos.txt"` (`/save` guarda rutas relativas a la carpeta padre).
+
+## Firma fuera y relevo de claves — probados sin la clave real (30-10-2026)
+- `tools/signing/signing-test.js` con claves de prueba: **39 OK / 0 FAIL** sobre el HEAD final (antes 36; desde `78f3fdf` comprueba también que el relevo sube la versión de Puente). Cubre `preparar-relevo.js`, `quitar-acceso-sandbox.ps1` y `firmar-fuera.ps1` (se niega con red, con Puente cambiado o con la clave con permisos de más).
+- `78f3fdf`: `anadir` y `promover` suben la versión de Puente. Motivo: Puente solo se cambia por uno más nuevo; sin la subida, una instalación con Puente de la misma versión se quedaba con la lista de claves vieja y, tras rotar, rechazaba las versiones nuevas (se cortaban las actualizaciones).
+- **VigiaLab, fila 38**, con dos claves de laboratorio A y B (la real no se usó): instalación limpia 0.21.0 (solo A) → saltarse la versión puente rechazado sin instalar nada → versión puente (A+B, firmada con A) instalada y Puente 2.0.1 → 2.0.2 → versión solo B (firmada con B) instalada y Puente 2.0.3 → una versión firmada con la vieja A tras rotar, rechazada → rollback y reparación rc 0.
+- Para la clave real: la identidad aislada es **un equipo de firma aparte y sin red** (en este PC no hay aislamiento posible con UAC desactivado y tu cuenta administradora). Pasos exactos: `OWNER_DECISIONS_0.21.0.md` §6 y «Procedimiento exacto» de arriba.
+- Actualizaciones desde 0.20.17: mientras no se rote, 0.21.0 se firma con la misma clave en la que confía 0.20.17. Si se rota, primero una versión firmada con la actual que ya confía en la nueva; 0.20.17 la acepta porque la firma es la de siempre.
+
+## Próximo paso
+Tus decisiones de `OWNER_DECISIONS_0.21.0.md` §6 b–d (rotar o mover; permisos fuera de `.vigia`; firmar fuera). Mientras
+tanto `release.sh` no firma con la clave de este PC y la release sigue **`SIGNING_BLOCKED`**.

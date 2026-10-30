@@ -3,8 +3,8 @@
 Actualizado 2026-10-30, rama `debloat-v2` (sin push ni merge). Una línea por requisito.
 Estados: ✅ hecho y probado · 🟡 hecho, falta validación física/VM · ⛔ bloqueado (decisión tuya) · ⬜ pendiente.
 
-Pruebas de referencia ahora (suite `s26` sobre `9459165`, 2026-10-30 01:20–01:21): selftest **361 OK / 0 FAIL** · Puente **76/0** · `release.sh` **31/0** ·
-contrato de sensores OK · traducciones pt/fr/de **2435 claves, 0 errores** · interfaz Apps **44/0** · interfaz Monitor **71/0** · LabGuard en el PC **24/0** · guarda del laboratorio **10/0** · `--sensor-service` en la compilación pública rc 2 · material de clave privada en logs **0** · VigiaLab **34** pruebas reales (`VM_VALIDATION_REPORT.md`). Las cifras de más abajo son históricas (s25 y antes).
+Pruebas de referencia ahora (suite `s27` sobre `aa0bb59`, mismo código de app que el HEAD final, 2026-10-30 17:53): selftest **362 OK / 0 FAIL** · Puente **76/0** · `release.sh` **31/0** · herramientas de firma **39/0** · `preparar-relevo comprobar` rc 0 ·
+contrato de sensores OK · traducciones pt/fr/de **2435 claves, 0 errores** · interfaz Apps **44/0** · interfaz Monitor **71/0** · LabGuard en el PC **24/0** · guarda del laboratorio **10/0** · `--sensor-service` en la compilación pública rc 2 · material de clave privada en logs **0** · VigiaLab **39** pruebas reales (`VM_VALIDATION_REPORT.md`). Estado: **NOT READY · `SIGNING_BLOCKED`**. Las cifras de más abajo son históricas.
 
 ## Validación real — 29 de octubre
 
@@ -180,3 +180,20 @@ Fuentes: Prompt 4 (Program Files y ayudante), Prompt 5 (firma, sensores, validac
 - Sensores: paquete para la revisión externa (**EXTERNAL_AUDIT_PENDING**) y procedimiento para el Ryzen (**HARDWARE_VALIDATION_PENDING**).
 - Decisiones preparadas en `OWNER_DECISIONS_0.21.0.md`: texto de temperatura, seis ajustes de privacidad, UAC del PC, Hyper-V, migración y firma.
 - Candidato `out/0.21.0` sin firmar sobre `d8e24d9`: hashes en `RELEASE_CANDIDATE_0.21.0.md`.
+
+## Cierre 30-10 (noche) — `78f3fdf` / `aa0bb59` / `c8f0921`
+| Requisito del `/goal` | Estado | Dónde / nota |
+|---|---|---|
+| Quitar `CodexSandboxUsers` de `.vigia` con copia, verificación y vuelta atrás | ✅ aplicado (autorizado) | `SECURITY_KEY_REVIEW.md`; `--key-check` rc 0; clave sin abrir |
+| La corrección no prueba que la clave no se expusiera | ⛔ `SIGNING_BLOCKED` | rotar o mover: tu decisión (`OWNER_DECISIONS` §6) |
+| Firma offline con identidad aislada | 🟡 herramientas probadas (39/0); el equipo de firma aparte lo pones tú | `firmar-fuera.ps1` |
+| Transición de confianza sin cortar 0.20.17 | ✅ VM fila 38 con claves de laboratorio; `78f3fdf` arregla la subida de Puente | clave real: NEEDS_OWNER_APPROVAL |
+| Notas de 0.21.0 iguales al comportamiento real | ✅ `aa0bb59` + contraste con el código | `RELEASE_CANDIDATE_0.21.0.md` |
+| VigiaLab: instalación limpia, actualización firmada (laboratorio), firmas malas, downgrade, reparación, rollback, sin elevación, permisos, sin SYSTEM | ✅ filas 35–38 | con el paquete firmado de producción: repetir antes de publicar |
+| VigiaLab: UAC con usuario estándar | 🟡 todo menos teclear la contraseña de admin | NEEDS_OWNER_APPROVAL |
+| Temperaturas en tu Ryzen sin instalar servicios | 🟡 procedimiento listo | HARDWARE_VALIDATION_PENDING (no bloquea 0.21.0) |
+| Servicio de sensores fuera hasta auditoría externa | ✅ fuera del paquete (rc 2) | EXTERNAL_AUDIT_PENDING |
+| Reactivar UAC (estado, consecuencias, compatibilidad, reinicio, recuperación) | 🟡 preparado y probado en VM, no aplicado | `tools/host/uac.ps1`, `OWNER_DECISIONS` §3 |
+| Permisos peligrosos de `AppData`/`Temp` y del perfil | 🟡 documentados, corrección limitada propuesta | `SECURITY_KEY_REVIEW.md` «Permisos fuera de .vigia» |
+| Candidato 0.21.0 (archivos, SHA-256, manifiesto, changelog, Puente, cinco idiomas, sin drivers, servicio ni claves) | ✅ sin firmar | `RELEASE_CANDIDATE_0.21.0.md` |
+| Hyper-V | sin tocar (`Auto`) | NEEDS_OWNER_APPROVAL para revertir |
