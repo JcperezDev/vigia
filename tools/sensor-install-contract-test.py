@@ -46,7 +46,7 @@ assert 'SensorService=true' not in rel, 'release must never enable the service'
 # Sin lectura fiable: siempre «Temperatura de CPU no disponible», nunca un número.
 assert 'NoTempAdmin' in t and 'NoTempCpu' in t and 'v > 1 && v < 150' in t, 'no reading must be explained, never 0 °C'
 js = (root / 'app/Vigia/wwwroot/app.js').read_text(encoding='utf-8')
-assert "$('cpu-temp-na').hidden = c.temp != null;" in js and 'unit.hidden = v == null' in js, 'UI shows «no disponible» and hides °C without a reading'
+assert "$('cpu-temp-na').hidden = realTemp(c.temp) != null;" in js and 'v > 1 && v < 150' in js and 'unit.hidden = v == null' in js, 'UI shows «no disponible» and hides °C without a reading'
 assert 'id="cpu-temp-na"' in (root / 'app/Vigia/wwwroot/index.html').read_text(encoding='utf-8')
 # Ayudante: lo automático nunca abre uno nuevo (no saca UAC sin que la persona pulse nada)
 assert 'Elevation.Background.Contains(cmd) ? Elevation.Broker.Existing : await Elevation.Broker.EnsureAsync()' in p, 'background commands must not start the helper'
