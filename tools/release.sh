@@ -94,8 +94,20 @@ if [ "$SKIP_BUILD" = 1 ] && [ "$MOCK" = 1 ]; then
 fi
 ZIP="Vigia-$V-win-x64.zip"
 ASSETS=("$ZIP" "$ZIP.sig" Puente.exe Puente.exe.sig Vigia-Setup.exe Vigia-Setup.exe.sig vigia-manifest.json vigia-manifest.json.sig SHA256SUMS.txt)
+CAND="$OUT/candidato.txt"   # lo escribe VIGIA_RELEASE_SIGN=fuera: commit compilado y huellas de lo que se firma fuera
 if [ "$SIGNED" = 1 ]; then
   [ -x "$P" ] || { echo "Falta $P: primero VIGIA_RELEASE_SIGN=fuera tools/release.sh."; exit 1; }
+  # lo firmado fuera tiene que ser exactamente lo que se compiló y probó aquí, y de este mismo código: si no, la
+  # etiqueta v$V acabaría apuntando a un código distinto del de los binarios publicados
+  if [ "$MOCK" = 0 ] || [ -f "$CAND" ]; then
+    [ -f "$CAND" ] || { echo "Falta $CAND: vuelve a generar el candidato con VIGIA_RELEASE_SIGN=fuera."; exit 1; }
+    CC=$(sed -n 's/^commit \([0-9a-f]\{40\}\)$/\1/p' "$CAND")
+    [ -n "$CC" ] && git cat-file -e "$CC^{commit}" 2>/dev/null || { echo "candidato.txt no dice de qué commit salió."; exit 1; }
+    git diff --quiet "$CC" HEAD -- app tools/release.sh \
+      || { echo "El candidato se compiló en ${CC:0:7} y app/ cambió desde entonces: vuelve a generarlo (VIGIA_RELEASE_SIGN=fuera)."; exit 1; }
+    ( cd "$OUT" && sed -n 's/^sha256 //p' "$CAND" | sha256sum -c --quiet - ) >/dev/null 2>&1 \
+      || { echo "Lo que hay en $OUT no es lo que se compiló y probó en ${CC:0:7} (las huellas no cuadran con candidato.txt)."; exit 1; }
+  fi
   ( cd "$OUT" && sha256sum "${ASSETS[@]:0:8}" > SHA256SUMS.txt ) 2>/dev/null || { echo "Faltan archivos firmados en $OUT."; exit 1; }
 fi
 
@@ -136,7 +148,10 @@ cp "$OUT/Puente.exe" "$OUT/Vigia-Setup.exe"
 echo "== 4-5. manifiesto y firmas"
 "$P" --manifest "$OUT" "$V" "$MIN_VERSION" >/dev/null
 if [ "$SIGN" = fuera ]; then
+  { echo "commit $(git rev-parse HEAD)"; echo "puente $PV_NOW"
+    ( cd "$OUT" && sha256sum "$ZIP" Puente.exe Vigia-Setup.exe vigia-manifest.json ) | sed 's/^/sha256 /'; } > "$CAND"
   ( cd "$OUT" && sha256sum "$ZIP" Puente.exe Vigia-Setup.exe vigia-manifest.json )
+  echo "Commit compilado: $(git rev-parse --short HEAD) (queda en $CAND)"
   echo "Listo para firmar fuera (la clave no se tocó). En la cuenta de firma:"
   echo "  Puente.exe --sign-release \"$(cd "$OUT" && pwd -W)\" <clave>"
   echo "y luego aquí: VIGIA_RELEASE_SIGNED=1 tools/release.sh \"...\""

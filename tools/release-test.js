@@ -182,6 +182,23 @@ const writes = (mock, from) => mock.log.slice(from).filter((l) => l.method !== '
     from = mock.log.length;
     r = await release(mock, H, 'prueba/h', '', { VIGIA_RELEASE_SIGNED: '1' });
     check(r.code !== 0 && mock.log.length === from, 'VIGIA_RELEASE_SIGNED=1 sin firmas: para antes de tocar la red', r.out);
+    {   // candidato.txt: lo firmado fuera tiene que ser lo compilado y probado, y del mismo código que HEAD
+      const head = sh('git', ['-C', ROOT, 'rev-parse', 'HEAD']).stdout.trim();
+      const sums = n => crypto.createHash('sha256').update(fs.readFileSync(path.join(G.dir, n))).digest('hex') + ' *' + n;
+      const four = [G.zip, 'Puente.exe', 'Vigia-Setup.exe', 'vigia-manifest.json'];
+      const cand = (commit, alter) => fs.writeFileSync(path.join(G.dir, 'candidato.txt'),
+        ['commit ' + commit, 'puente 0', ...four.map((n, i) => 'sha256 ' + (alter && i === 1 ? '0'.repeat(64) + ' *' + n : sums(n)))].join('\n') + '\n');
+      for (const [tag, commit, alter, want, what] of [
+        ['gx', head, true, /no es lo que se compiló/, 'si Puente.exe no es el compilado y probado (huella distinta de candidato.txt), no se publica'],
+        ['gy', sh('git', ['-C', ROOT, 'rev-parse', 'v0.20.17^{commit}']).stdout.trim(), false, /app\/ cambió desde entonces/, 'si el candidato salió de otro código (app/ cambió desde su commit), no se publica']]) {
+        cand(commit, alter);
+        mock.seed('prueba/' + tag, 'v0.20.17');
+        from = mock.log.length;
+        r = await release(mock, G, 'prueba/' + tag, '', { VIGIA_RELEASE_SIGNED: '1' });
+        check(r.code !== 0 && want.test(r.out) && mock.log.length === from, what + ' (para antes de tocar la red)', r.out);
+      }
+      fs.rmSync(path.join(G.dir, 'candidato.txt'));
+    }
     r = await release(mock, G, 'prueba/g', '', { VIGIA_RELEASE_SIGN: 'fuera', VIGIA_RELEASE_SIGNED: '1' });
     check(r.code !== 0 && /pasos distintos/.test(r.out), 'firmar fuera y publicar lo firmado no se mezclan en una pasada', r.out);
     r = await release(mock, G, 'prueba/g', '', { VIGIA_RELEASE_SIGN: 'otra' });
