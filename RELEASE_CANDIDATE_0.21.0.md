@@ -1,6 +1,6 @@
 # Candidato local de Vigía 0.21.0 — SIN FIRMAR · SIN PUBLICAR
 
-Fecha: 2026-10-30 18:00 · rama `debloat-v2` · commit **`c8f0921`**. El código del paquete es el de `aa0bb59` (notas de privacidad en cinco idiomas); `c8f0921` solo añade `tools/host/uac.ps1`, que no va en el paquete. Sustituye al candidato de `d8e24d9`, que no llevaba la nota de privacidad.
+Fecha: 2026-10-30 (noche) · rama `debloat-v2` · commit **`a6ffaa5`**. Respecto al candidato de `c8f0921`, el paquete cambia en: Wi‑Fi sin ubicación y WebView2 con permisos denegados (`1ea871f`) y la nota de ese arreglo en cinco idiomas (`a6ffaa5`). Sustituye al candidato de `c8f0921` (zip `2f90087f…f9974`).
 **Estado: NOT READY · `SIGNING_BLOCKED`.** Sirve para revisarlo. No se puede publicar tal cual: le faltan las firmas, que solo se ponen con la clave de producción fuera de este PC, y eso necesita tu autorización (`OWNER_DECISIONS_0.21.0.md` §6).
 
 ## Qué se generó
@@ -8,20 +8,22 @@ Fecha: 2026-10-30 18:00 · rama `debloat-v2` · commit **`c8f0921`**. El código
 
 | Archivo | Tamaño | SHA-256 |
 |---|---|---|
-| `Vigia-0.21.0-win-x64.zip` (343 entradas, 321 archivos) | 59 798 833 | `2f90087fc7069a74798318bb6943a21efbec69fc75dc4b1c3f2921f4357f9974` |
-| `Puente.exe` (2.0.1) = `Vigia-Setup.exe` | 12 554 298 | `71ed5265dfb76cca6fa6567c6ba8e3a52dd8042b5113d7d084aeaf5505d3dd70` |
-| `vigia-manifest.json` (versión 0.21.0, Puente 2.0.1, tamaños y SHA-256 de los dos de arriba) | 412 | `c3e2f25372a69932b902944f99a0870539eaab6ceea05d9791b9d09f946848da` |
+| `Vigia-0.21.0-win-x64.zip` (343 entradas, 321 archivos) | 59 803 702 | `a393d2fc3bec4e04b5ae6da08edc346197d6f470abae609e127b33622a0ee2ad` |
+| `Puente.exe` (2.0.1) = `Vigia-Setup.exe` | 12 554 300 | `4ed40b0a1249c4b9fce9ed9250e430509e1b7bff4010db0e6572a124bdc94825` |
+| `vigia-manifest.json` (versión 0.21.0, Puente 2.0.1, tamaños y SHA-256 de los dos de arriba) | 412 | `8864dfb419f4cc3efa4381817560122d217166d003bbfe0a853b8c0440dada70` |
 
-Hashes anteriores (`d8e24d9`: zip `6e2ba33d…28d3`) quedan sustituidos.
+Hashes anteriores (`c8f0921`: zip `2f90087f…f9974`; `d8e24d9`: zip `6e2ba33d…28d3`) quedan sustituidos. Puente 2.0.1 nunca se publicó, así que cambiar sus bytes con el mismo número no deja a nadie atrás; `release.sh` lo comprueba contra la última etiqueta (`v0.20.17`, Puente 1.4.0).
 
 Comprobado sobre el candidato:
-- selftest del `Vigia.exe` empaquetado: **362 OK / 0 FAIL**, con datos aislados.
+- selftest del `Vigia.exe` empaquetado (paso 2 de `release.sh`): **371 OK / 0 FAIL**, con datos aislados.
 - Puente: `zip-test` (7/7: rechaza `..`, rutas absolutas, barra inicial, flujos NTFS) y `acl-test` (todo bien).
 - `Vigia.exe` del zip: versión 0.21.0.0, manifiesto `asInvoker`, ninguna cadena `requireAdministrator`; ningún archivo de PawnIO ni `.sys`.
-- `changelog.json` del zip lleva la nota de los seis ajustes de privacidad; traducciones del paquete: en/pt/fr/de 2435 claves, 0 errores.
+- `changelog.json` del zip lleva la nota de los seis ajustes de privacidad y la del arreglo de ubicación; `i18n-check`: en/pt/fr/de 2435 claves, 0 errores.
 - `preparar-relevo comprobar`: Puente y Vigía confían en la misma clave y `NextKeys` está vacía.
 - `--sensor-service`: rc 2.
 - El zip no lleva `.pem`, `.key`, `dpapi`, `lab.flag`, `vm-cred`, `.sys` ni el servicio de sensores (0 coincidencias). El log del candidato y `out/0.21.0` no contienen material de clave privada (0).
+
+**Relevo desde 0.20.17** (Puente 1.4.0 → 2.0.1/2.0.2 → 2.0.3, SHA-256 comprobado, mismo número no sustituye, firmas inválidas y downgrade con firma válida rechazados, datos conservados): fila 40, paquetes de laboratorio desde `fea4ae0`.
 
 **Instalación, migración, Puente y rollback** se probaron en VigiaLab el 30-10 con paquetes de laboratorio firmados con la clave de laboratorio: filas 35–37 (`7202134`) y 38 (relevo de claves A → B, instalación limpia, puente, rechazo de la firma vieja, rollback y reparación, `78f3fdf`) de `VM_VALIDATION_REPORT.md`. Desde `7202134` el código de la app solo cambió en las notas (`aa0bb59`), así que esas pruebas siguen valiendo para este candidato. **Lo que falta:** instalar *este* candidato una vez firmado con la clave de producción (Puente rechaza manifiestos sin firmar). Cuando se firme, hay que repetir en la VM la instalación limpia y la migración desde 0.20.17 con el paquete firmado (unos 10 minutos).
 
