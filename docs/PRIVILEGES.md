@@ -58,7 +58,7 @@ mientras hace falta y solo habla con la ventana que lo abrió. Vigía no necesit
 | Copias | `backupRestore`, `restorePoint` | Restaurar HKLM/servicios; punto de restauración del sistema |
 | Diagnóstico | `healthScan`, `diagRun` | Opciones de arranque (`bcdedit`) y SMART de discos |
 | ISO / USB | `isoInspect`, `isoBuild`, `isoCancel`, `usbList`, `usbWrite` | Montar la ISO, DISM, escribir en un USB |
-| Monitor / FPS | `fpsStart`, `fpsCancel`, `telemetry` | Sesión ETW del kernel (DxgKrnl); sensores de la placa |
+| Monitor | `telemetry` | Sensores de la placa. La captura de FPS (ETW) ya no pasa por el ayudante: no tiene botón desde 0.20.11 y solo existe como prueba de consola (`--fps-probe`) |
 | BIOS | `biosReboot` | Reiniciar directo a la BIOS (`shutdown /fw`). **Vigía nunca escribe en la BIOS** |
 | Driver | `pawnInstall` | Instalar PawnIO (solo si respondes «Sí» en el aviso del Monitor) |
 | Control | `ping` | Comprobar que el ayudante responde |

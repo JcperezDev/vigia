@@ -23,7 +23,7 @@ public static class AdminOps
         "tweaksApply", "tweaksRevert", "undoRetired", "bloatRemove",
         "appsScan", "appsPreview", "appsRun", "appsCancel", "appsRestore",
         "simpleRun", "procClose", "backupRestore", "sugFix", "biosReboot",
-        "isoBuild", "isoCancel", "usbList", "usbWrite", "fpsStart", "fpsCancel",
+        "isoBuild", "isoCancel", "usbList", "usbWrite",
         "pawnInstall", "restorePoint", "telemetry", "ping",
         "labHold",   // solo VigiaLab: prueba de vida del ayudante (espera sin tocar nada); el ayudante la rechaza fuera
         // lecturas que sin permisos salen incompletas (arranque, TPM, SMART) o no se pueden hacer (montar la ISO)
@@ -36,7 +36,7 @@ public static class AdminOps
     /// </summary>
     public static readonly IReadOnlySet<string> Soft = new HashSet<string>(StringComparer.Ordinal)
     {
-        "appsScan", "appsPreview", "telemetry", "optCancel", "appsCancel", "isoCancel", "fpsCancel", "memAuto", "undoRetired",
+        "appsScan", "appsPreview", "telemetry", "optCancel", "appsCancel", "isoCancel", "memAuto", "undoRetired",
         "healthScan", "diagRun", "secGet", "cleanScan",
     };
 
@@ -270,22 +270,7 @@ public static class AdminOps
                     emit("usbProgress", pr);
                 })));
                 break;
-            case "fpsStart":
-                var fsec = I(msg, "seconds", 30, 1800, 180);
-                var flabel = msg["label"] is JsonValue lv && lv.TryGetValue<string>(out var ls) ? new string(ls.Where(c => !char.IsControl(c)).Take(80).ToArray()) : "";
-                var finished = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-                void Changed(Fps.WatchState st) { emit("fpsState", st); if (!st.Active) finished.TrySetResult(); }
-                Fps.Changed += Changed;
-                try
-                {
-                    if (!Fps.Start(fsec, flabel)) { emit("fpsState", Fps.State); break; }
-                    await finished.Task.WaitAsync(TimeSpan.FromHours(5));
-                }
-                catch (TimeoutException) { Fps.Cancel(); }
-                finally { Fps.Changed -= Changed; }
-                emit("_fpsFinished", new { });
-                break;
-            case "fpsCancel": Fps.Cancel(); break;
+            // La captura de FPS no tiene botón desde 0.20.11; queda fuera del ayudante (prueba: Vigia --fps-probe).
             case "pawnInstall":
                 string? perr = null;
                 var pok = await Task.Run(() => Pawn.InstallIfMissing(out perr, asked: true));
@@ -330,6 +315,8 @@ public static class AdminOps
         void Check(bool ok, string what) => log.Add($"{(ok ? "OK  " : "FAIL")} {what}");
         Check(!Names.Contains("powershell") && !Names.Contains("run") && !Names.Contains("exec") && !Names.Contains("openUrl"), "ninguna operación genérica de ejecutar");
         Check(Soft.All(Names.Contains), "las suaves también están en la lista cerrada");
+        Check(!Names.Contains("fpsStart") && !Names.Contains("fpsCancel"), "la captura de FPS (sin botón) no pasa por el ayudante");
+        Check(Err("fpsStart", "{\"seconds\":60}") == nameof(InvalidOperationException), "fpsStart por la tubería: rechazado");
         string? Err(string cmd, string json)
         {
             try { Run(cmd, JsonNode.Parse(json)!.AsObject(), (_, _) => { }).GetAwaiter().GetResult(); return null; }
