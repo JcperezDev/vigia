@@ -1,44 +1,20 @@
-# Release readiness — NOT READY
+# Release readiness — NOT READY · SIGNING_BLOCKED
 
-> Resumen vigente en `FINAL_VALIDATION_REPORT.md`. Bloquean: clave de firma con posible exposición (rotación pendiente de ti), UAC sin probar en VM, temperaturas sin validar en hardware con el servicio, revisión independiente del servicio SYSTEM. Versión recomendada: 0.21.0.
-Fecha: 2026-10-29 · rama debloat-v2 · solo commits locales.
+Fecha: 2026-10-30 · rama `debloat-v2` · solo commits locales (sin push, merge ni release).
+Candidato local, notas, instalación, migración, recuperación y checklist de seguridad: **`RELEASE_CANDIDATE_0.21.0.md`**. Resumen completo: `FINAL_VALIDATION_REPORT.md`.
 
-## Ejecución verificada
+## Ejecución verificada hoy (no se reutilizan resultados viejos)
 | Prueba | Resultado |
 |---|---|
-| Build Vigía Release win-x64 | 0 errores, 0 warnings |
-| Build Puente Release win-x64 | 0 errores, 0 warnings |
-| Paquetes de laboratorio 0.21.0 / 0.21.1 (clave ficticia) | rc=0, desde HEAD `048de17` |
-| Selftest | 344/0 en `03ad4c4`+cambio (= `048de17`), Fortnite cerrado: las 7 de juegos pasan |
-| UI Apps | 44 OK / 0 fallos, scratch/ui61/ui.txt |
-| Puente | 74/0 (simulado) · validación real en VM: ver `VM_VALIDATION_REPORT.md` (20/22) |
-| release.sh | 31/0 en tanda actual; mock, no publicación |
-| Firmas históricas 0.20.17 | ZIP y Puente rc=0 |
-| Clave real, solo ACL | rc=3: CodexSandboxUsers tiene RX heredado |
+| Suite `s25` sobre `c260497` (2026-10-30 00:27) | builds Vigía/Puente/Puente-test rc 0, 0 warnings · selftest 358/0 · Puente 76/0 · release 31/0 · contrato OK · i18n pt/fr/de 2435 claves 0 errores · Apps 44/0 · Monitor 71/0 · LabGuard en el PC 22/0 · guarda del laboratorio 10/0 · `--sensor-service` rc 2 · 0 claves privadas en logs |
+| Candidato `VIGIA_RELEASE_SIGN=fuera` desde `c82336b` | rc 0 · selftest del empaquetado 358/0 · sin firmar (la clave no se tocó) |
+| VigiaLab 0.21.8 (clave de laboratorio) | servicio quitado antes de PawnIO; abre sin UAC; Monitor «N/D» sin °C (fila 32) |
 
-Cambios: fe5f5f2 firma separada; 9f83671 privacidad opcional y traducciones; ffe469e guardia de comandos de laboratorio. No push, merge ni release.
+## Por qué no está lista
+1. **Clave de firma** (`SIGNING_BLOCKED`, P0): `CodexSandboxUsers` puede leer `~/.vigia` por ACL explícita y la clave está sin cifrar. Sin prueba de lectura, pero tampoco se puede descartar. Retirar el acceso, custodiarla en una cuenta de firma y decidir la rotación necesita tu autorización (`SECURITY_KEY_REVIEW.md`, A/B/C).
+2. **Temperaturas en hardware físico** (HARDWARE_VALIDATION_PENDING): la VM no tiene sensores. Afecta además a una frase de las notas.
+3. **UAC con usuario estándar en un PC físico** (HARDWARE_VALIDATION_PENDING / NEEDS_OWNER_APPROVAL).
+4. **Servicio SYSTEM** (EXTERNAL_AUDIT_PENDING): fuera de 0.21.0. No bloquea 0.21.0, pero sí cualquier versión que lo incluya.
+5. **Decisión de publicar 0.21.0** (NEEDS_OWNER_APPROVAL), y aprobar los cambios de comportamiento: cierre del ayudante a los 10 min, texto de temperatura y servicio fuera del paquete.
 
-## Checklist obligatorio
-- [x] Compilaciones verificadas.
-- [x] Selftest, Puente, release mock y UI Apps pasan.
-- [ ] Instalación real en VM.
-- [ ] Migración desde 0.20.17.
-- [ ] UAC y cuenta estándar.
-- [ ] ACL y protección real de Program Files.
-- [ ] Debloat real y recuperación.
-- [ ] Revisión final completa de todos los parámetros privilegiados y staging.
-- [ ] Custodia real de firma separada y riesgo histórico resuelto.
-- [ ] Rollback real en VM.
-- [ ] Revalidación integral de cinco idiomas y diálogo nuevo de confirmación.
-- [ ] Auditoría final de regresiones de todas las pantallas y operaciones.
-- [x] Limitaciones identificadas sin llamarlas pruebas físicas.
-
-## Riesgos y bloqueos
-Hypervisor apagado por BCD del host: no se modifica sin autorización. Clave real accesible por grupo de sandbox: posible exposición, sin evidencia de lectura; no modificada ni rotada. La mitigación de código rechaza firmar con esta ACL, pero NO protege por sí sola el archivo frente a lectores.
-La prueba de modelo Hyper-V en LabGuard es una barrera contra errores, no autenticación ni garantía de aislamiento; una VM de producción también podría cumplirla.
-Privacidad implementada no equivale a efecto validado en Windows. Revisar además que el mapeo CSP/registro de datos satisfaga el criterio documental antes de promover.
-BIOS/UEFI: auditada la build (fuente y DLL compiladas de Vigía y Puente): 0 llamadas a SetFirmwareEnvironmentVariable / NtSetSystemEnvironmentValue, ningún privilegio SeSystemEnvironment, ninguna herramienta ni driver AMI, ningún .sys/.inf/.cat en el repo. Único driver empaquetado: el instalador oficial firmado de PawnIO (sensores). La única acción de firmware es «Reiniciar y entrar a la BIOS» (`shutdown /r /fw`, botón de dos pasos): no escribe nada. Nuevo en solo lectura: `BiosWatch` (comparación con la última lectura; 10 pruebas OK).
-Servicio «Sensores de Vigía» (LocalSystem, solo lectura, memoria compartida): `UNIT_TESTED` con publicador de prueba; nunca registrado en un Windows real. Revisión de seguridad independiente en curso; no promover sin VM.
-
-## Qué queda
-Informes VM y juegos enumeran pendientes. No se completó validación física, investigación nueva de los seis juegos ni fase BIOS. Auditoría final parcial, no aprobación de seguridad general. No se recomienda READY FOR RELEASE.
+La app **funciona sin el servicio de sensores**: la dependencia se quitó del empaquetado sin romper nada (selftest, interfaz y VM). Ese punto ya no bloquea.

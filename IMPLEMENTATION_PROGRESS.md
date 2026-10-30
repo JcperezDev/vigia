@@ -1,10 +1,10 @@
 # Vigía — progreso de implementación
 
-Actualizado 2026-10-29, rama `debloat-v2` (sin push ni merge). Una línea por requisito.
+Actualizado 2026-10-30, rama `debloat-v2` (sin push ni merge). Una línea por requisito.
 Estados: ✅ hecho y probado · 🟡 hecho, falta validación física/VM · ⛔ bloqueado (decisión tuya) · ⬜ pendiente.
 
-Pruebas de referencia ahora (suite `s20` sobre `dd36490`, 2026-10-29 23:3x): selftest **359/0** · Puente **76/0** · `release.sh` **31/0** ·
-contrato de sensores OK · traducciones pt/fr/de **2435 claves, 0 errores** · VigiaLab **31** pruebas reales (`VM_VALIDATION_REPORT.md`). Cifras anteriores de este archivo son históricas.
+Pruebas de referencia ahora (suite `s25` sobre `c260497`, 2026-10-30 00:27–00:28): selftest **358 OK / 0 FAIL** · Puente **76/0** · `release.sh` **31/0** ·
+contrato de sensores OK · traducciones pt/fr/de **2435 claves, 0 errores** · interfaz Apps **44/0** · interfaz Monitor **71/0** · LabGuard en el PC **22/0** · guarda del laboratorio **10/0** · `--sensor-service` en la compilación pública rc 2 · material de clave privada en logs **0** · VigiaLab **32** pruebas reales (`VM_VALIDATION_REPORT.md`). Cifras anteriores de este archivo son históricas.
 
 ## Validación real — 29 de octubre
 
@@ -126,7 +126,12 @@ Dato real de solo lectura de este PC: la RAM va a 5600 MT/s siendo de 6000 → E
 - ✅ Ayudante: el plazo de 10 min cuenta desde que termina el último pedido tuyo; nunca corta una tarea en marcha (selftest, simulado); no pierde medio mensaje al vencer el plazo (selftest); las lecturas automáticas no lo renuevan y, si está cerrado, no lo reabren ni piden UAC. VM 0.21.7: cierre ≈10 min con Monitor abierto, sin UAC espontáneo, nueva solicitud con UAC (fila 31). Regla escrita en `docs/PRIVILEGES.md`.
 - ✅ «Temperatura de CPU no disponible.» con motivo (`CpuTempWhy`), sin «°C» ni 0 °C; cinco idiomas; VM fila 30.
 - ✅ Servicio de sensores **fuera de la versión pública** (`SensorService`/`SENSOR_SERVICE`, `release.sh` aborta si se cuela, Puente 2.0.1 lo quita al actualizar; VM fila 29). Encargo externo: `SENSOR_SERVICE_EXTERNAL_REVIEW.md` (⛔ EXTERNAL_AUDIT_PENDING).
-- ✅ `LAB_ALLOW_GAME=1`: 0 usos en `app/` y `tools/`; en los scripts de laboratorio solo salta la pausa por juego. Identidad de VigiaLab siempre comprobada; prueba de regresión `scratch/lab/test/guard-test.ps1` 10/0 (la versión anterior da 10 FAIL). LabGuard en el host: `--tweaks-lab`, `--apps-run`, `--apps-restore` rc 3, también con `VIGIA_LAB=1` y `LAB_ALLOW_GAME=1`.
+- ✅ `LAB_ALLOW_GAME=1`: 0 usos en `app/` y `tools/`; en los scripts de laboratorio solo salta la pausa por juego. Identidad de VigiaLab siempre comprobada; prueba de regresión `scratch/lab/test/guard-test.ps1` 10/0 (la versión anterior da 10 FAIL). LabGuard en el PC: `tools/labguard-host-test.js` **22/0** con `VIGIA_LAB=1` y `LAB_ALLOW_GAME=1` (`--lab`, `--tweaks-lab`, `--apps-run`, `--apps-restore` rc 3 sin escribir nada; órdenes incompletas rc 2 sin abrir la interfaz; el Run del usuario sin cambios).
 - ✅ Clave: metadatos y ACL sin abrirla (sin cambios desde su creación); procedimiento exacto A/B/C en `SECURITY_KEY_REVIEW.md`. ⛔ `SIGNING_BLOCKED` hasta que lo autorices.
-- ✅ Versiones: público v0.20.17; 0.21.0 sigue siendo la siguiente válida (0.21.1–0.21.7 solo en VigiaLab con clave ficticia). Puente 2.0.1.
+- ✅ Versiones: público v0.20.17; 0.21.0 sigue siendo la siguiente válida (0.21.1–0.21.8 solo en VigiaLab con clave ficticia). Puente 2.0.1. Candidato local sin firmar en `out/0.21.0` (`RELEASE_CANDIDATE_0.21.0.md`).
 - 🟡 UAC con usuario estándar y temperaturas en hardware físico: pendientes (HARDWARE_VALIDATION_PENDING / NEEDS_OWNER_APPROVAL).
+
+- ✅ 30-10: en la versión pública Puente quita el servicio de laboratorio **antes** del paso de PawnIO, aunque este falle o tarde (`3aec484`; VM fila 32). El Monitor trata 0 °C, negativos y 150 °C o más como «sin dato» (`3aec484`; `tools/ui-monitor-test.js` 71/0 en cinco idiomas; con el `app.js` anterior da 45 FAIL).
+- ✅ 30-10: LabGuard también para lo que el laboratorio relaja en Apps (riesgo medio), `--autostart` y `--msdl-probe`; una orden de consola incompleta o solo de laboratorio sale con rc 2 en vez de abrir Vigía (`9db877f`). Antes, `--apps-run` incompleto arrancaba la app normal.
+- ✅ 30-10: la cifra «359» de la suite contaba una línea informativa en minúscula; son **358** pruebas. Conteo de la suite corregido.
+- 🟡 Nota de la 0.21.0 «los grados del procesador se ven mientras el ayudante está abierto»: es lo que hace el código, sin validar en hardware físico (HARDWARE_VALIDATION_PENDING). Validarla o quitar esa frase antes de publicar.

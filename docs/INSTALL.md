@@ -77,6 +77,12 @@ Lo que hace Puente 2.0 al ver la instalación vieja:
 Mientras no se migre, Vigía 0.21 en la carpeta vieja abre, pero **el ayudante de administrador no arranca** (la carpeta no
 está protegida) y la pantalla de actualizaciones ofrece «Actualizar» aunque sea la misma versión, para migrar.
 
+## Sensores y PawnIO (versión pública)
+- La temperatura del procesador se lee con **PawnIO**, el driver oficial firmado de su autor. Puente lo instala **solo si falta**, dentro del mismo permiso de administrador (UAC) de la instalación o actualización, y **no** con un juego abierto: en ese caso lo aplaza y queda escrito en `puente.log` («aplazado por juego abierto; reintentar con Reparar»). No hay un consentimiento aparte en el Monitor.
+- Si Vigía instaló PawnIO (lo apunta en `pawnio.json`), al desinstalar Vigía se quita con su desinstalador oficial. Si ya estaba antes, se deja como estaba. Windows conserva el driver registrado y parado.
+- El servicio «Sensores de Vigía» (SYSTEM) **no forma parte de la versión pública** mientras no tenga una revisión externa (`SENSOR_SERVICE_EXTERNAL_REVIEW.md`). `tools/release.sh` lo compila fuera y para si se cuela. Si una compilación de laboratorio lo dejó instalado, Puente lo quita al instalar, actualizar o reparar, antes de tocar PawnIO.
+- Sin servicio, Vigía abre como tu usuario y no puede abrir el driver: el Monitor dice «Temperatura de CPU no disponible.» con el motivo, sin número ni «°C». Con el ayudante de administrador abierto (después de una tarea que lo pidió), el código lee los grados a través de él; **eso falta comprobarlo en un PC físico**.
+
 ## Actualizaciones
 
 - Igual que la instalación nueva, en otra carpeta de `versiones\`: **nunca se sobrescribe una versión que esté abierta**, así
