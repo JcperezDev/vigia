@@ -98,3 +98,9 @@ Installed copies of Vigía and Puente only trust the compiled-in public key, so 
 **Puente only replaces itself with the whole release verified** (`app/Puente/Setup.cs`, `InstallFlow`): the package is downloaded and checked (size, SHA-256, signature) first; the new Puente must be a higher version and must accept this same signed release (`--verify-manifest`) before it takes the place of the running one; if the swap fails, the previous Puente comes back. So a bridge or post-rotation release whose zip is bad, or whose Puente would not trust its own signature, changes nothing: neither the program nor the trusted keys. Before this (VM, lab keys, code of `fea4ae0`), a release with an altered zip replaced Puente A+B by Puente B-only and left Vigía on the old version; with the fix (lab VM, from 0.20.17) the same release is rejected and Puente stays as it was (`VM_VALIDATION_REPORT.md`, row 41).
 
 Multi-key trust is implemented: `NextKeys` in `app/Puente/Program.cs` and `app/Vigia/Updates.cs` (empty today; tested with test keys in `tools/puente-test.js`). Step 2 only adds the new public key there.
+
+## Offline signing PC and key rotation A → B
+
+The step-by-step procedure (offline signing PC, creating key B there, encrypted backup, moving only public keys, signing
+with hashes carried separately, independent verification, retiring A, recovery) is in `docs/FIRMA_OFFLINE.md`. It
+supersedes the `--genkey` steps above for production keys.

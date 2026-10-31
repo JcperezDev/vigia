@@ -177,6 +177,19 @@ const writes = (mock, from) => mock.log.slice(from).filter((l) => l.method !== '
     check(r.code === 0 && relG?.draft === false && relG.assets.length === G.names.length
           && relG.assets.every((a) => Buffer.compare(a.data, fs.readFileSync(path.join(G.dir, a.name))) === 0),
       'firmado fuera (--sign-release): release.sh lo publica sin tener la clave', r.out);
+    {   // el paso 7 de docs/FIRMA_OFFLINE.md: comprobar lo firmado fuera en seco, sin publicar
+      mock.seed('prueba/gd', 'v0.20.17');
+      const Gd = artifacts(path.join(TMP, 'gd'), { signRelease: true });
+      fs.rmSync(path.join(Gd.dir, 'SHA256SUMS.txt'));
+      from = mock.log.length;
+      r = await release(mock, Gd, 'prueba/gd', '', { VIGIA_RELEASE_SIGNED: '1', VIGIA_RELEASE_DRY: '1' });
+      check(r.code === 0 && /Prueba en seco/.test(r.out) && mock.log.length === from && rels(mock, 'prueba/gd').length === 0,
+        'VIGIA_RELEASE_SIGNED=1 + DRY: comprueba lo firmado fuera y para sin tocar la red', r.out);
+      fs.writeFileSync(path.join(Gd.dir, 'vigia-manifest.json'), fs.readFileSync(path.join(Gd.dir, 'vigia-manifest.json')) + ' ');
+      fs.rmSync(path.join(Gd.dir, 'SHA256SUMS.txt'), { force: true });
+      r = await release(mock, Gd, 'prueba/gd', '', { VIGIA_RELEASE_SIGNED: '1', VIGIA_RELEASE_DRY: '1' });
+      check(r.code !== 0 && mock.log.length === from, 'en seco, un manifiesto cambiado después de firmar no pasa', r.out);
+    }
     const H = artifacts(path.join(TMP, 'h'), { unsigned: true });
     mock.seed('prueba/h', 'v0.20.17');
     from = mock.log.length;

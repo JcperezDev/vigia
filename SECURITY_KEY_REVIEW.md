@@ -445,3 +445,62 @@ Esa fecha coincide al segundo con un `stat -c '%s %y'` que el asistente lanzó d
 **Ruta de actualización de 0.20.17:** comprobada en VigiaLab (fila 41, `6f8e5ff`, claves de laboratorio): 0.20.17 con Puente 1.4.0 y la clave A baja y verifica el Puente de transición 2.0.2 (A+B), que reemplaza al antiguo comprobado por versión **y** SHA-256 (`03854adb…`); un Puente alterado o firmado con otra clave no se baja; relevo A→B; Puente 2.0.1→2.0.2→2.0.3; zip alterado rc 1 sin tocar Puente; downgrade con firma válida rechazado; rollback rc 0; 135/135 archivos de datos iguales.
 
 **Veredicto: `SIGNING_BLOCKED`** — `NEEDS_OWNER_APPROVAL`: custodia (equipo de firma), rotar o mover, y si desactivar `CodexSandboxOffline`/`Online` y reactivar UAC.
+
+## Firma fuera y relevo A → B preparados (31-10-2026) — sin tocar la clave real
+
+Sustituye a los pasos de «Entorno de firma separado — pasos exactos» de arriba (que creaban B con `Puente --genkey` en
+claro). El procedimiento vigente está en **`docs/FIRMA_OFFLINE.md`**.
+
+**Clave A — permisos comprobados de nuevo** (`scratch/p11/acl-a.ps1`: `icacls` y `Get-Item`, sin abrir el archivo):
+- `.vigia`: `SYSTEM`, `BUILTIN\Administrators`, `Pickle OS` (control total, `(OI)(CI)`); `release-key.pem` hereda esas tres
+  `(I)(F)` y nada más. Sin `CodexSandboxUsers`, `Users` ni `Everyone`.
+- 240 B; creada y escrita 27-10 23:03:06Z; último acceso **30-10 23:38:49.5591085Z**, el mismo antes y después de la consulta.
+- `CodexSandboxUsers` = `CodexSandboxOffline` (habilitada, último inicio 29-10 13:37:34) y `CodexSandboxOnline`
+  (habilitada, nunca). Administradores: `Administrator` y `Pickle OS`.
+- Riesgo histórico: sin cambios. Las ACL corregidas no dicen nada de lo que pasó antes del 30-10 17:35, y con
+  `EnableLUA = 0` todo lo que corre con tu cuenta puede leer la clave. **A se trata como posiblemente comprometida.**
+
+**Clave B:** no existe. Se crea en el equipo de firma con `VigiaFirma nueva` (nunca en claro en disco: `.dpapi` de esa
+cuenta + respaldo PKCS#8 cifrado con frase, AES-256-CBC, PBKDF2-SHA256 600 000). Al PC de desarrollo solo vuelve
+`vigia-B.publica.txt`. `tools/signing/sin-clave-b.ps1` en este PC: **rc 0, ninguna clave de VigiaFirma** en el perfil ni
+en `C:\ProgramData`.
+
+**Pública A registrada:** `tools/signing/claves-publicas/vigia-A.publica.txt`, huella
+`ab29dbf9ab37ae1848561d63b1811c0c764c2e37282e69aa82810b147136bc08`, la misma que llevan `app/Puente/Program.cs`,
+`app/Vigia/Updates.cs` y `v0.20.17`.
+
+### Herramientas del equipo de firma
+
+| Archivo | SHA-256 |
+|---|---|
+| `out/vigiafirma/VigiaFirma.exe` (11 641 265 B, de `tools/signing/estacion`) | `be9ab4d75483a74c96e7f6cff81ceb02c90281796432790355a641c6a669616f` |
+| `tools/signing/firmar-fuera.ps1` | `498c232c22168af4baffe99347230fce053225356f20d37f90a32cc1a55ea56c` |
+| `tools/signing/claves-publicas/vigia-A.publica.txt` | `1c9c9aea207cde2c47d45c542093b08edd9ebee39f35b4b9b0d0367ce1366b27` |
+
+`VigiaFirma.exe` no va en Vigía ni en Puente; no usa la red. Si se recompila, su huella cambia (la compilación de un
+solo archivo no es determinista): copia al equipo de firma **este** archivo y compara con esta tabla.
+
+### Qué protege cada comprobación (probado con claves de laboratorio)
+
+- `estacion-test.js`: **49 OK / 0 FAIL**, con el Puente de prueba recompilado del código actual (el anterior era de
+  antes del último cambio de `app/Puente`). Crea B sin nada en claro; el respaldo está cifrado y la salida no muestra ni
+  clave ni frase; `importar` no toca el `.pem`; `verificar` (código distinto del de Puente) rechaza otra clave, un
+  manifiesto cambiado, una pieza distinta de la hoja de huellas y firmas intercambiadas; `firmar-fuera.ps1` no firma con
+  red (rc 5), con la hoja dentro de la carpeta o piezas distintas (rc 4), quita las firmas si no verifican con la pública
+  exigida (rc 6) y, en la transición, no firma si el Puente de la versión no confía en B (rc 7).
+- `signing-test.js`: **48 OK / 0 FAIL** (antes 44; se adaptó a la interfaz nueva de `firmar-fuera.ps1` y se añadieron:
+  hoja de huellas dentro de la carpeta, manifiesto sustituido, firmado con A pero exigida otra pública).
+- `release-test.js`: **35 OK / 0 FAIL** (antes 33): `VIGIA_RELEASE_SIGNED=1 VIGIA_RELEASE_DRY=1` comprueba lo
+  firmado fuera y para sin tocar la red; un manifiesto cambiado después de firmar no pasa.
+- `candidate-check.js`: las claves de relevo tienen que estar registradas en `tools/signing/claves-publicas/`, ser
+  iguales en Puente y en Vigía y estar en el `Vigia.dll` compilado.
+
+### Riesgo que el relevo no quita
+
+Quien tenga A puede firmar una actualización falsa que aceptan 0.20.x (Puente 1.4.0) y la transición (Puente 2.0.2,
+A + B) hasta que instalen la versión que retira A (Puente 2.0.3). Esa actualización podría instalar un Puente que confíe
+en otra clave. La cadena A → B acorta la ventana, **no la elimina**. Mitigación: publicar la retirada de A poco después
+de la transición, y la recuperación manual por canal verificado aparte (`docs/FIRMA_OFFLINE.md`, «Recuperación»).
+
+**Veredicto: `SIGNING_BLOCKED`.** Falta el equipo de firma (lo preparas tú) y los pasos con claves reales:
+crear B, pasar A, firmar. Están marcados ⏸ en `docs/FIRMA_OFFLINE.md`.

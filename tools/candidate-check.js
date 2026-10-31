@@ -99,9 +99,20 @@ try {
   const pk = (/const string PublicKey = "([^"]+)"/.exec(fs.readFileSync(path.join(ROOT, 'app/Vigia/Updates.cs'), 'utf8')) || [])[1];
   const pkP = (/const string PublicKey = "([^"]+)"/.exec(fs.readFileSync(path.join(ROOT, 'app/Puente/Program.cs'), 'utf8')) || [])[1];
   check(!!pk && pk === pkP && has(pk), 'Vigía lleva la misma clave pública que Puente (la de confianza)');
-  const next = s => (/NextKeys\s*=\s*\[([^\]]*)\]/.exec(s) || [])[1]?.trim();
-  check(next(fs.readFileSync(path.join(ROOT, 'app/Puente/Program.cs'), 'utf8')) === '' && next(fs.readFileSync(path.join(ROOT, 'app/Vigia/Updates.cs'), 'utf8')) === '',
-    'sin claves de relevo (NextKeys vacío en Puente y Vigía): ninguna clave de laboratorio se coló');
+  // claves de relevo: solo las registradas en tools/signing/claves-publicas (vigia-<nombre>.publica.txt del equipo de
+  // firma, con huella comprobada), iguales en Puente y Vigía y presentes en Vigia.dll compilado; nunca una de laboratorio.
+  // (Que Puente.exe confía en ellas lo prueba la firma: firmar-fuera.ps1 / --sign-release verifican con el Puente de la versión.)
+  const relevo = require('./signing/preparar-relevo.js');
+  const next = s => ((/NextKeys\s*=\s*\[([^\]]*)\]/.exec(s) || [])[1] || '').split(',').map(x => x.trim().replace(/^"|"$/g, '')).filter(Boolean);
+  const nP = next(fs.readFileSync(path.join(ROOT, 'app/Puente/Program.cs'), 'utf8'));
+  const nV = next(fs.readFileSync(path.join(ROOT, 'app/Vigia/Updates.cs'), 'utf8'));
+  let approved = [], apErr = '';
+  try { approved = relevo.approvedKeys(ROOT); } catch (e) { apErr = e.message; }
+  const unknown = nP.filter(k => !approved.some(a => a.pub === k));
+  check(!apErr && JSON.stringify(nP) === JSON.stringify(nV) && unknown.length === 0 && nP.every(has),
+    nP.length ? `claves de relevo registradas (${nP.map(k => (approved.find(a => a.pub === k) || {}).nombre + ' ' + relevo.huella(k).slice(0, 16)).join(', ')}), iguales en Puente y Vigía y dentro de Vigia.dll compilado`
+      : 'sin claves de relevo (NextKeys vacío en Puente y Vigía): ninguna clave de laboratorio se coló',
+    apErr || (unknown.length ? `${unknown.length} clave(s) de relevo sin registrar en tools/signing/claves-publicas` : ''));
 } finally { try { fs.rmSync(tmp, { recursive: true, force: true }); } catch { } }
 
 console.log(`\ncandidate-check: ${ok} OK, ${fail} FAIL`);

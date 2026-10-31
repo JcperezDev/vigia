@@ -93,3 +93,19 @@ Regenerado con `VIGIA_RELEASE_SIGN=fuera bash tools/release.sh` (la clave no se 
 - `location-test.js` sobre el `Vigia.exe` del candidato: **29 OK / 0 FAIL**. 343 entradas en el zip, 0 `.sig`.
 - `Puente.exe` cambia de bytes (`cb68d8b7…` → `433270b7…`, 3 bytes menos) aunque `app/Puente` no cambió: la compilación de un solo archivo no es determinista. No afecta: 2.0.1 nunca se publicó y lo que se firma es exactamente lo que dice `candidato.txt`.
 - Pendiente: firmarlo fuera (tu autorización y custodia) y, ya firmado, instalación limpia y migración desde 0.20.17 en VigiaLab.
+
+## Revisión 31-10-2026 (firma fuera) — el candidato `def4b4e` no es el definitivo
+
+- Huellas comprobadas ahora con `sha256sum`, iguales a la tabla y a `candidato.txt`: zip
+  `0faaebb9d10254f85ffceb649834d48da0c7d04b7ab71f3a2cd81379b21218ba`, `Puente.exe` = `Vigia-Setup.exe`
+  `433270b7a0829079d3d2ccd65b6035f38245c57173e29a3add4eb9f314ae556e`, manifiesto
+  `228824ae56b7e030e5ef54de23a637ded393a3f6c8f29e786ada0712b4f1846b`. 0 `.sig`. candidate-check 24/0.
+- **No lleva la clave B**: `NextKeys` está vacío en Puente y en Vigía. Firmado así, 0.21.0 dejaría las instalaciones
+  confiando solo en A. Como la versión de transición tiene que llevar B, este candidato **no se firma**.
+- Siguiente candidato (cuando exista B, `docs/FIRMA_OFFLINE.md` paso 5): `preparar-relevo.js anadir vigia-B.publica.txt`
+  → Puente **2.0.2** con A + B, commit, `VIGIA_RELEASE_SIGN=fuera bash tools/release.sh`. Huellas nuevas: no se pueden
+  conocer antes de que B exista. `app/Vigia` solo cambia en la lista `NextKeys`; `app/Puente` en `NextKeys` y `<Version>`.
+- Puente 2.0.1 no llega a publicarse (no se distribuyen dos binarios con el mismo número; `release.sh` lo impide).
+- La ruta 0.20.17 (Puente 1.4.0, A) → 2.0.2 (A + B, firmado con A) → 2.0.3 (B) está validada en VigiaLab **con claves de
+  laboratorio** (fila 41, `6f8e5ff`); `app/Puente` no ha cambiado desde `6f8e5ff`. Con el paquete real queda pendiente
+  (`docs/FIRMA_OFFLINE.md` paso 8).

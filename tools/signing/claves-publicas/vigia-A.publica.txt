@@ -1,0 +1,4 @@
+vigia-clave-publica 1
+nombre A
+publica MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE2sn60BucOhX4a3HZt59BBg3gWbZ77dyDNEdmP0/+cFAaUg7jSEjaywk5q54fPIZKzpuUtQlsS01dcTNdbv0muA==
+huella ab29dbf9ab37ae1848561d63b1811c0c764c2e37282e69aa82810b147136bc08

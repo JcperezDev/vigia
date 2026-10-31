@@ -2,14 +2,18 @@
 // Cambia las claves PÚBLICAS de confianza de Vigía y de Puente a la vez (las dos listas tienen que ser iguales).
 // Nunca toca claves privadas: solo edita app/Puente/Program.cs y app/Vigia/Updates.cs.
 //
-//   node tools/signing/preparar-relevo.js anadir <clave-publica-base64> [raíz]
+//   node tools/signing/preparar-relevo.js anadir <vigia-B.publica.txt | clave-publica-base64> [raíz]
 //       versión puente: sigue confiando en la clave actual y además en la nueva (NextKeys). Se firma con la actual.
+//       Con un .publica.txt (el que deja `VigiaFirma nueva` en el equipo de firma) se comprueba que la huella anotada
+//       es la de la clave y se guarda una copia en tools/signing/claves-publicas/: candidate-check solo acepta claves
+//       de relevo que estén ahí (así una clave de laboratorio no puede colarse en una versión publicada).
 //   node tools/signing/preparar-relevo.js promover [raíz]
 //       versión siguiente: la clave de relevo pasa a ser la única de confianza (la vieja deja de valer). Se firma con la nueva.
 //   node tools/signing/preparar-relevo.js comprobar [raíz]
 //       solo mira que las dos listas sean iguales y que cada clave sea P-256 de verdad (rc 0 bien, 1 mal).
 //
-// La clave pública nueva sale de `Puente.exe --genkey <archivo>` ejecutado en el equipo de firma (lo que imprime).
+// La clave nueva se crea en el equipo de firma con `VigiaFirma nueva` (tools/signing/estacion), que nunca la deja en claro
+// en disco; al PC de desarrollo solo llega su vigia-<nombre>.publica.txt. Ver docs/FIRMA_OFFLINE.md.
 //
 // anadir y promover suben además la versión de Puente (app/Puente/Puente.csproj, el último número). Sin eso, una
 // instalación que ya tiene Puente con ese número no lo cambia (Puente solo se sustituye por uno MÁS NUEVO), se queda con
@@ -42,6 +46,27 @@ function validP256(b64) {
     return k.asymmetricKeyType === 'ec' && k.asymmetricKeyDetails.namedCurve === 'prime256v1'
       && Buffer.from(k.export({ format: 'der', type: 'spki' })).toString('base64') === b64;
   } catch { return false; }
+}
+
+const huella = b64 => crypto.createHash('sha256').update(Buffer.from(b64, 'base64')).digest('hex');
+
+// Lee un vigia-<nombre>.publica.txt (formato de VigiaFirma) y comprueba clave P-256 y huella. Lanza si algo no cuadra.
+function readPublica(file) {
+  const t = fs.readFileSync(file, 'utf8');
+  if (/PRIVATE|BEGIN/.test(t)) throw new Error(`${path.basename(file)} parece contener una clave privada: aquí solo va la pública.`);
+  const g = k => (new RegExp(`^${k} (\\S+)\\s*$`, 'm').exec(t) || [])[1];
+  const nombre = g('nombre'), pub = g('publica'), h = g('huella');
+  if (!t.startsWith('vigia-clave-publica 1') || !nombre || !pub || !h) throw new Error(`${path.basename(file)} no es un archivo de clave pública de Vigía.`);
+  if (!validP256(pub)) throw new Error(`${path.basename(file)}: la clave no es P-256.`);
+  if (h.toLowerCase() !== huella(pub)) throw new Error(`${path.basename(file)}: la huella anotada no es la de la clave.`);
+  return { nombre, pub, huella: huella(pub), text: t };
+}
+
+const PUB_DIR = 'tools/signing/claves-publicas';
+function approvedKeys(root) {
+  const d = path.join(root, PUB_DIR);
+  if (!fs.existsSync(d)) return [];
+  return fs.readdirSync(d).filter(f => f.endsWith('.publica.txt')).map(f => readPublica(path.join(d, f)));
 }
 
 function read(root) {
@@ -93,12 +118,24 @@ function main(argv) {
   }
   if (before.length) { before.forEach(p => console.error(p)); console.error('Arregla esto antes de cambiar claves.'); return 1; }
   if (cmd === 'anadir') {
-    const k = (rest[0] || '').trim();
-    if (!validP256(k)) { console.error('Eso no es una clave pública P-256 en base64 (lo que imprime Puente.exe --genkey).'); return 1; }
+    let k = (rest[0] || '').trim(), pubFile = null;
+    if (/\.publica\.txt$/i.test(k)) {
+      try { pubFile = readPublica(k); } catch (e) { console.error(e.message); return 1; }
+      k = pubFile.pub;
+    }
     if (/PRIVATE|BEGIN/.test(k)) { console.error('Eso parece una clave privada. Aquí solo va la pública.'); return 1; }
+    if (!validP256(k)) { console.error('Eso no es una clave pública P-256 en base64 ni un vigia-<nombre>.publica.txt.'); return 1; }
     if (k === st[0].pub) { console.error('Esa es la clave actual; el relevo tiene que ser otra.'); return 1; }
     if (st[0].next.includes(k)) { console.log('Esa clave de relevo ya estaba; no cambio nada.'); return 0; }
     write(st, st[0].pub, [...st[0].next, k]);
+    if (pubFile) {
+      const d = path.join(root, PUB_DIR);
+      fs.mkdirSync(d, { recursive: true });
+      const dest = path.join(d, `vigia-${pubFile.nombre}.publica.txt`);
+      if (fs.existsSync(dest) && fs.readFileSync(dest, 'utf8') !== pubFile.text) { console.error(`${dest} ya existe con otra clave.`); return 1; }
+      fs.writeFileSync(dest, pubFile.text);
+      console.log(`clave de relevo ${pubFile.nombre}, huella ${pubFile.huella} (compárala con la que mostró el equipo de firma)`);
+    }
   } else if (cmd === 'promover') {
     if (st[0].next.length !== 1) { console.error(`Para promover tiene que haber exactamente una clave de relevo (hay ${st[0].next.length}).`); return 1; }
     write(st, st[0].next[0], []);
@@ -116,4 +153,4 @@ function main(argv) {
 }
 
 if (require.main === module) process.exit(main(process.argv.slice(2)));
-module.exports = { validP256, main };
+module.exports = { validP256, main, readPublica, approvedKeys, huella };

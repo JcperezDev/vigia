@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Herramienta del EQUIPO DE FIRMA (separado, sin red). No va en el paquete de Vigía ni en Puente.
+       Crea la clave nueva sin dejarla nunca en claro en disco, guarda el respaldo cifrado con frase y comprueba firmas
+       con un código distinto del de Puente. Ver docs/FIRMA_OFFLINE.md. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>VigiaFirma</AssemblyName>
+    <Version>1.0.0</Version>
+    <Product>Firma de Vigía (equipo de firma)</Product>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <PublishTrimmed>true</PublishTrimmed>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <JsonSerializerIsReflectionEnabledByDefault>false</JsonSerializerIsReflectionEnabledByDefault>
+    <NoWarn>$(NoWarn);CA1416</NoWarn>
+  </PropertyGroup>
+</Project>

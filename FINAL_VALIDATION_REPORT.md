@@ -118,3 +118,17 @@ Probado en Windows real (VM): inventario AppX/Win32/aprovisionadas/dependencias,
 | Firma de producción y VM con el firmado | BLOCKED | necesita tu autorización y la custodia resuelta |
 
 Pruebas sobre el código final: location-test 29/0, signing-test 44/0, candidate-check 24/0 y selftest 371/0 sobre el candidato de `def4b4e`. puente-test 85/0 y release-test 33/0 siguen valiendo (sin cambios en `app/Puente` ni `release.sh`).
+
+## Estado 31-10-2026 (firma fuera preparada) — NOT READY · SIGNING_BLOCKED
+
+| Bloque | Estado | Detalle |
+|---|---|---|
+| Clave A | posiblemente comprometida · ACL correctas | `icacls`/`Get-Item` sin abrirla: SYSTEM, Administradores, tu cuenta; última fecha de acceso sin cambios (30-10 23:38:49Z) |
+| Clave B | **no existe** | se crea en el equipo de firma; este PC: `sin-clave-b.ps1` rc 0 |
+| Equipo de firma | **por preparar (tú)** | `docs/FIRMA_OFFLINE.md`; herramientas y huellas en `SECURITY_KEY_REVIEW.md` |
+| Herramientas de firma (laboratorio) | OK | estacion-test 49/0, signing-test 48/0, release-test 35/0 |
+| Relevo 1.4.0/A → 2.0.2/A+B → 2.0.3/B desde 0.20.17 | VM_VALIDATED (laboratorio) | fila 41; `app/Puente` sin cambios desde `6f8e5ff` |
+| Candidato `def4b4e` | huellas comprobadas · **no sirve como transición** | `NextKeys` vacío: falta B. Se regenera con B (Puente 2.0.2) |
+| Firma de producción | BLOCKED | nada firmado |
+| VigiaLab con el paquete firmado | BLOCKED | depende de la firma |
+| Wi-Fi | apagado por defecto · HARDWARE_VALIDATION_PENDING | sin cambios |

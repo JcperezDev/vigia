@@ -234,3 +234,9 @@ Fuentes: Prompt 4 (Program Files y ayudante), Prompt 5 (firma, sensores, validac
 - Custodia: ACL y grupos revisados sin abrir la clave; la última fecha de acceso viene de un `stat` de git-bash del asistente (documentado en `SECURITY_KEY_REVIEW.md`).
 - Candidato regenerado sin firmar sobre `def4b4e` con el juego cerrado: selftest 371/0, candidate-check 24/0, location-test 29/0.
 - Pendiente: firma de producción (tu autorización), VM con el firmado, prueba Wi‑Fi física.
+- Firma fuera preparada (sin tocar claves reales): `tools/signing/estacion` (VigiaFirma: `nueva`, `importar`, `publica`,
+  `comprobar-respaldo`, `restaurar`, `verificar`, `huellas`); `firmar-fuera.ps1` exige hoja de huellas aparte, pública
+  esperada y, en la transición, que el Puente confíe en B; `preparar-relevo.js` acepta `vigia-<nombre>.publica.txt` y las
+  registra en `tools/signing/claves-publicas/`; `candidate-check` solo acepta claves de relevo registradas;
+  `sin-clave-b.ps1`. Pruebas: estacion-test 49/0, signing-test 48/0, release-test 35/0, candidate-check 24/0.
+- Procedimiento: `docs/FIRMA_OFFLINE.md`. El candidato `def4b4e` no lleva B: se regenera cuando B exista.

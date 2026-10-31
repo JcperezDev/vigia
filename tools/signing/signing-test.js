@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 // Pruebas de las herramientas de firma, SOLO con claves de prueba creadas aquí en una carpeta temporal.
 // No lee, no copia y no nombra la clave de publicación.
-//   node tools/signing/signing-test.js <Puente-test.exe>   (out/puente-test/Puente-test.exe, compilado con -p:PuenteTest=true)
+//   node tools/signing/signing-test.js <Puente-test.exe> [<VigiaFirma.exe>]
+//     Puente-test.exe: out/puente-test/Puente-test.exe, compilado con -p:PuenteTest=true
+//     VigiaFirma.exe: out/vigiafirma/VigiaFirma.exe (dotnet publish tools/signing/estacion -c Release -o out/vigiafirma)
 'use strict';
 const fs = require('fs');
 const os = require('os');
@@ -144,22 +146,44 @@ check(r.code === 0, 'clave de prueba cifrada con DPAPI de esta cuenta (como en e
 }
 const huella = crypto.createHash('sha256').update(fs.readFileSync(PT)).digest('hex').toUpperCase();
 const sigs = () => fs.readdirSync(V).filter(f => f.endsWith('.sig'));
-r = ps(ff, ['-Version', V, '-Clave', dp, '-Puente', PT, '-HuellaPuente', '00' + huella.slice(2), '-PermitirRed'], env);
+// lo que firmar-fuera exige además: la hoja de huellas (llega aparte) y la clave pública con la que tiene que verificar
+const FIRMA = path.resolve(process.argv[3] || path.join(repo, 'out', 'vigiafirma', 'VigiaFirma.exe'));
+const H = path.join(TMP, 'aparte', 'huellas-0.99.0.txt'); fs.mkdirSync(path.dirname(H));
+const piezas = ['Vigia-0.99.0-win-x64.zip', 'Puente.exe', 'Vigia-Setup.exe', 'vigia-manifest.json'];
+fs.writeFileSync(H, piezas.map(p => `sha256 ${crypto.createHash('sha256').update(fs.readFileSync(path.join(V, p))).digest('hex')} *${p}`).join('\n') + '\n');
+const pubFile = (n, k) => { const f = path.join(TMP, 'aparte', `vigia-${n}.publica.txt`); fs.writeFileSync(f, `vigia-clave-publica 1\nnombre ${n}\npublica ${k}\nhuella ${crypto.createHash('sha256').update(Buffer.from(k, 'base64')).digest('hex')}\n`); return f; };
+const PA = pubFile('pruebaA', pubA);
+const ffa = (clave, extra = [], pub = PA, hoja = H) => ['-Version', V, '-Clave', clave, '-Publica', pub, '-Huellas', hoja, '-Puente', PT, '-Firma', FIRMA, ...extra];
+check(fs.existsSync(FIRMA), 'VigiaFirma.exe para la comprobación aparte (' + path.relative(repo, FIRMA) + ')');
+r = ps(ff, ffa(dp, ['-HuellaPuente', '00' + huella.slice(2), '-PermitirRed']), env);
 check(r.code === 4 && sigs().length === 0, 'un Puente.exe distinto del anotado: no firma nada (rc 4)', r.out);
-r = ps(ff, ['-Version', V, '-Clave', dp, '-Puente', PT, '-HuellaPuente', huella], env);
+r = ps(ff, ffa(dp, ['-HuellaPuente', huella]), env);
 const red = sh(PS, ['-NoProfile', '-Command', "@(Get-NetAdapter -EA SilentlyContinue | ? Status -eq 'Up').Count"]).out.trim();
 check(red === '0' ? r.code === 0 : (r.code === 5 && sigs().length === 0), red === '0' ? 'sin red: firma' : 'con red activa: no firma sin -PermitirRed (rc 5)', r.out);
+if (red === '0') for (const s of sigs()) fs.rmSync(path.join(V, s));
+const Hdentro = path.join(V, 'huellas.txt'); fs.copyFileSync(H, Hdentro);
+r = ps(ff, ffa(dp, ['-HuellaPuente', huella, '-PermitirRed'], PA, Hdentro), env);
+check(r.code === 4 && sigs().length === 0, 'la hoja de huellas dentro de la carpeta de la versión (puede venir cambiada con ella): no firma (rc 4)', r.out);
+fs.rmSync(Hdentro);
+const mf = path.join(V, 'vigia-manifest.json'), mf0 = fs.readFileSync(mf);
+fs.writeFileSync(mf, Buffer.concat([mf0, Buffer.from(' ')]));
+r = ps(ff, ffa(dp, ['-HuellaPuente', huella, '-PermitirRed']), env);
+check(r.code === 4 && sigs().length === 0, 'un manifiesto sustituido (no es el de la hoja): no firma (rc 4)', r.out);
+fs.writeFileSync(mf, mf0);
 const kopen = path.join(TMP, 'estacion', 'abierta.pem'); fs.copyFileSync(keyA, kopen); sh(ICACLS, [kopen, '/grant', '*S-1-5-32-545:R']);
-r = ps(ff, ['-Version', V, '-Clave', kopen, '-Puente', PT, '-HuellaPuente', huella, '-PermitirRed'], env);
+r = ps(ff, ffa(kopen, ['-HuellaPuente', huella, '-PermitirRed']), env);
 check(r.code === 3 && sigs().length === 0, 'una clave que otro grupo puede leer: no firma (rc 3)', r.out);
 const kin2 = path.join(V, 'clave.pem'); fs.copyFileSync(keyA, kin2);
-r = ps(ff, ['-Version', V, '-Clave', kin2, '-Puente', PT, '-HuellaPuente', huella, '-PermitirRed'], env);
+r = ps(ff, ffa(kin2, ['-HuellaPuente', huella, '-PermitirRed']), env);
 check(r.code === 1 && sigs().length === 0, 'la clave dentro de la carpeta que vuelve al PC de desarrollo: no firma', r.out);
 fs.rmSync(kin2);
 const keyB = path.join(TMP, 'claves', 'b.pem'); sh(PT, ['--genkey', keyB]);
-r = ps(ff, ['-Version', V, '-Clave', keyB, '-Puente', PT, '-HuellaPuente', huella, '-PermitirRed'], env);
+r = ps(ff, ffa(keyB, ['-HuellaPuente', huella, '-PermitirRed']), env);
 check(r.code === 1 && sigs().length === 0, 'una clave que no es la de confianza de ese Puente: lo firmado no cuadra y se borra', r.out);
-r = ps(ff, ['-Version', V, '-Clave', dp, '-Puente', PT, '-HuellaPuente', huella, '-PermitirRed'], env);
+const pubB0 = crypto.createPublicKey(fs.readFileSync(keyB)).export({ format: 'der', type: 'spki' }).toString('base64');
+r = ps(ff, ffa(dp, ['-HuellaPuente', huella, '-PermitirRed'], pubFile('pruebaB', pubB0)), env);
+check(r.code === 6 && sigs().length === 0, 'firmado bien con A, pero las instalaciones verificarán con otra clave (-Publica): firmas quitadas (rc 6)', r.out);
+r = ps(ff, ffa(dp, ['-HuellaPuente', huella, '-PermitirRed']), env);
 check(r.code === 0 && sigs().length === 4 && fs.existsSync(path.join(V, 'firmas-0.99.0.txt')), 'con todo en orden: las cuatro firmas y el archivo de huellas', r.out);
 const txt = fs.readFileSync(path.join(V, 'firmas-0.99.0.txt'), 'utf8');
 check((txt.match(/^[0-9a-f]{64}  /gim) || []).length === 4 && !/PRIVATE|BEGIN/.test(txt), 'el archivo de huellas trae 4 SHA-256 y nada de la clave');
@@ -174,7 +198,7 @@ check(sh(PT, ['--verify', path.join(V, 'Puente.exe')], { env: { ...process.env, 
   'después de rotar (solo la clave nueva de confianza), lo firmado con la vieja ya no pasa');
 check(sh(PT, ['--verify', path.join(V, 'Puente.exe')], { env: { ...process.env, PUENTE_TEST_PUBKEY: pubB + ';' + pubA } }).code === 0,
   'durante el relevo (vieja y nueva de confianza), lo firmado con la vieja sigue pasando');
-r = ps(ff, ['-Version', V, '-Clave', dp, '-Puente', PT, '-HuellaPuente', huella, '-PermitirRed'], env);
+r = ps(ff, ffa(dp, ['-HuellaPuente', huella, '-PermitirRed']), env);
 check(r.code === 1 && sigs().length === 4, 'no pisa firmas que ya están', r.out);
 
 // ---------------------------------------------------------------- limpieza (solo la carpeta temporal de esta prueba)
