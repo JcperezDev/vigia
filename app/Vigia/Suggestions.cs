@@ -154,7 +154,12 @@ public static class Suggestions
         var tGw = gwIp is null ? Task.FromResult<PingStats?>(null) : Task.Run<PingStats?>(() => PingMany(gwIp.ToString(), 20));
         var tNet = Task.Run<PingStats?>(() => { var p = PingMany("1.1.1.1", 20); return p.Lost == p.Sent ? PingMany("8.8.8.8", 20) : p; });
         var link = main.Speed > 0 ? main.Speed / 1_000_000 : 0;
-        WifiFacts? wifi = kind == "wifi" ? Wlan.Read(main.Id, link) : null;
+        WifiFacts? wifi = null;
+        if (kind == "wifi")
+        {
+            if (Wlan.SignalOn) wifi = Wlan.Read(main.Id, link);
+            else LocationGuard.Trace("wifi: lectura de señal apagada en esta versión (sin consultas WLAN)");
+        }
         Task.WaitAll(tGw, tNet);
         return new(kind, main.Description, link, wifi, tGw.Result, tNet.Result, spare);
     }
@@ -203,6 +208,13 @@ public static class Suggestions
 
         // wlan_intf_opcode_channel_number, _realtime_connection_quality (Windows 11 24H2+) y _rssi
         public const int OpChannel = 8, OpRealtime = 19, OpRssi = 0x10000102;
+        /// <summary>
+        /// La lectura de señal no se ha comprobado aún con un Wi-Fi real conectado y la ubicación apagada, así que viene
+        /// APAGADA: sin esto no se abre ni una consulta WLAN y las Sugerencias de red se basan solo en las pruebas de
+        /// espera (router e internet). VIGIA_WIFI_SIGNAL=1 la enciende para esa validación (LOCATION_PRIVACY_FIX.md).
+        /// </summary>
+        public static bool SignalOn => Environment.GetEnvironmentVariable("VIGIA_WIFI_SIGNAL") == "1";
+
         /// <summary>Las únicas consultas permitidas. Ninguna está en la lista de Microsoft que exige ubicación.</summary>
         public static readonly int[] Allowed = [OpRealtime, OpRssi, OpChannel];
 

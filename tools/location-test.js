@@ -52,6 +52,11 @@ check(!!ops && ops[1] === '8' && ops[2] === '19' && ops[3].toLowerCase() === '0x
 const wq = code.filter((f) => /WlanQueryInterface\s*\(/.test(strip(read(f)))).map(rel);
 check(wq.length === 1 && wq[0] === 'app/Vigia/Suggestions.cs', 'WlanQueryInterface solo en Suggestions.cs (pasa por Wlan.Allowed)');
 check(/Array\.IndexOf\(Allowed, op\) < 0\) throw/.test(sug), 'la consulta fuera de la lista lanza');
+check(/SignalOn\s*=>\s*Environment\.GetEnvironmentVariable\("VIGIA_WIFI_SIGNAL"\)\s*==\s*"1"/.test(sug), 'la señal Wi-Fi viene apagada (solo VIGIA_WIFI_SIGNAL=1 la enciende)');
+{ const reads = strip(sug).split('\n').filter((l) => /Wlan\.Read\(/.test(l));
+  check(reads.length === 1 && /if \(Wlan\.SignalOn\) wifi = Wlan\.Read\(/.test(reads[0]), 'las Sugerencias solo leen Wi-Fi con la señal encendida'); }
+{ const lg = strip(read(path.join(ROOT, 'app', 'Vigia', 'LocationGuard.cs')));
+  check(/if \(!Suggestions\.Wlan\.SignalOn\)[^\n]*continue;/.test(lg), '--wifi-check tampoco consulta WLAN con la señal apagada'); }
 check(!/\bSsid\b|SameChannel|Bssid/i.test(strip(sug).replace(/BSSID\)?/g, '')), 'WifiFacts sin nombre de red, BSSID ni redes vecinas');
 
 // 3) Toda WebView2 deniega los permisos de página
@@ -80,7 +85,13 @@ if (exe) {
   const txt = fs.existsSync(log) ? read(log) : '';
   check(!/-?\d{1,3}\.\d{4,}|[0-9a-f]{2}(:[0-9a-f]{2}){5}|GHz|dBm/i.test(txt), 'privacidad.log sin coordenadas, BSSID, frecuencia ni señal');
   const w = path.join(tmp, 'wifi.txt');
-  const r2 = spawnSync(exe, ['--wifi-check', w], { env: { ...process.env, VIGIA_DATA: path.join(tmp, 'datos') }, timeout: 60000, windowsHide: true });
+  const env0 = { ...process.env, VIGIA_DATA: path.join(tmp, 'datos') }; delete env0.VIGIA_WIFI_SIGNAL;
+  const r0 = spawnSync(exe, ['--wifi-check', w], { env: env0, timeout: 60000, windowsHide: true });
+  const w0 = fs.existsSync(w) ? read(w) : '';
+  const l0 = fs.existsSync(log) ? read(log) : '';
+  check(r0.status === 0 && !/datos=/.test(w0) && (!/estado=/.test(w0) || /señal=apagada/.test(w0)) && !/wifi: lectura sin ubicación/.test(l0),
+    'por defecto --wifi-check no hace ninguna consulta WLAN (señal apagada)');
+  const r2 = spawnSync(exe, ['--wifi-check', w], { env: { ...env0, VIGIA_WIFI_SIGNAL: '1' }, timeout: 60000, windowsHide: true });
   const wl = fs.existsSync(log) ? read(log) : '';
   check(r2.status === 0 && !/rc=5\b/.test(wl), 'Wi-Fi: ninguna consulta devolvió acceso denegado (rc=5)');
   fs.rmSync(tmp, { recursive: true, force: true });

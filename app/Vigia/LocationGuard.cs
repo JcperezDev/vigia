@@ -109,6 +109,7 @@ public static class LocationGuard
         foreach (var ni in NetworkInterface.GetAllNetworkInterfaces().Where(i => i.NetworkInterfaceType == NetworkInterfaceType.Wireless80211))
         {
             n++;
+            if (!Suggestions.Wlan.SignalOn) { lines.Add($"adaptador {n}: estado={ni.OperationalStatus} señal=apagada (VIGIA_WIFI_SIGNAL=1 para validarla)"); continue; }
             var f = Suggestions.Wlan.Read(ni.Id, 0);
             lines.Add($"adaptador {n}: estado={ni.OperationalStatus} datos={(f is null ? "no" : "sí")}");
         }
