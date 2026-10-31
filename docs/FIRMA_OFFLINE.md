@@ -216,3 +216,11 @@ Para quien se haya quedado en 0.20.x tras retirar A, o sospeche de una actualiza
 3. Comprobar la firma con un programa distinto del instalador:
    `VigiaFirma.exe verificar <carpeta-con-las-piezas> vigia-B.publica.txt`.
 4. Instalar. Los datos de usuario se conservan (los guarda la instalación; probado en VigiaLab con 135 archivos).
+
+## Prueba real de la clave B con el agente de Bitwarden (31-10-2026, 04:42 UTC)
+
+- Lanzada por el propietario en su PowerShell (`VigiaFirma prueba-agente`), con aprobación manual en Bitwarden. Desde Hermes la misma orden se niega antes de pedir nada (comprobado).
+- Texto firmado: `vigia-prueba-agente 1` + fecha + azar; SHA-256 `02cf003ff2b3d11928e8501a4eb9c30c5bd7df897e8f5f41f68d6d475aa13645` (87 bytes). Prefijo de prueba: Puente no lo acepta como firma de una versión.
+- Clave: `SHA256:jBQLJ8JYVIDMJorrwJe8TYPsTrKiGN+WcYWu0fS1G3c` (vigia-B.publica.txt).
+- Verificado tres veces por separado: VigiaFirma (verificador propio), `verificar-b.js` (OpenSSL, rc 0) y `Puente-test --ed25519-raw` (rc 0). El mismo texto con un bit cambiado no verifica (OpenSSL).
+- Esto demuestra que Bitwarden firma con B en el formato que Puente 2.0.2 verifica. No es una firma de versión: la 0.21.0 sigue sin firmar.
