@@ -85,3 +85,11 @@ Vigía 0.20.17 (`v0.20.17:app/Vigia/Updates.cs`) baja Puente de la última publi
 pública incluida y lo lanza; el Puente que reciba hace la migración.
 
 Relevo de punta a punta desde 0.20.17: `VM_VALIDATION_REPORT.md`, fila 40.
+
+## Revisión 31-10-2026 — lectura Wi‑Fi apagada por defecto (commit `f243c4b`)
+- **Por qué:** según la documentación de WLAN de Microsoft, las consultas de la conexión actual y de las redes cercanas pueden pedir permiso de ubicación desde Windows 11 24H2. Aquí no hay hardware para demostrar lo contrario (3 adaptadores Wi‑Fi, todos `Disconnected`). Por tu regla, lo no demostrado queda apagado.
+- **Qué cambia:** `Suggestions.cs` ya no llama a `Wlan.Read` salvo `Wlan.SignalOn` (solo con `VIGIA_WIFI_SIGNAL=1`, para la prueba física). Apagada, Vigía no abre `wlanapi` y deja en `privacidad.log` la línea «wifi: lectura de señal apagada en esta versión (sin consultas WLAN)», sin nombres de red, BSSID, MAC ni coordenadas. Se pierden en 0.21.0 calidad, RSSI, banda, PHY y velocidad del Wi‑Fi; las sugerencias de red por cable y DNS no cambian.
+- **WebView2:** `LocationGuard.Harden` deniega `PermissionRequested` de geolocalización (sin cambios desde `1ea871f`).
+- **Pruebas (build de `f243c4b`, `scratch/p10/vb/Vigia.exe`, 0 avisos, 0 errores):** `location-test.js` **29 OK / 0 FAIL** (incluye: sin `WlanGetNetworkBssList`, sin `geolocation`/Geolocator, barrera presente, `privacidad.log` sin SSID/BSSID/MAC/coordenadas). `candidate-check.js` ahora exige la barrera en el `Vigia.exe` del candidato.
+- **`--selftest`** de ese build con datos aislados: 7 FAIL, todos en el bloque de juegos (se niega a escribir perfiles con un juego abierto). El selftest completo se repite en `release.sh` al regenerar el candidato, con el juego cerrado.
+- **Sigue `HARDWARE_VALIDATION_PENDING`:** falta la prueba de arriba (pasos 1–5) en un equipo con Wi‑Fi conectado y la ubicación de Windows desactivada, lanzando con `VIGIA_WIFI_SIGNAL=1`. Si pasa y no sale el aviso, se puede encender en una versión posterior. No se modificó la ubicación de Windows ni ninguna política.

@@ -66,3 +66,7 @@ Todo lo de abajo se ejecutó de verdad dentro de la VM y se comprobó el estado 
 
 ## Sin probar en VM
 UAC con usuario estándar (pide la contraseña de un admin; no se teclea ninguna), red cortada a mitad de descarga real (solo el corte del proceso), disco lleno, reinstalación desde Microsoft Store, Win32 con su desinstalador (no se ejecuta solo, por diseño), lectura de temperaturas reales (procedimiento en `SENSOR_RYZEN_VALIDATION.md`; la VM no tiene sensores). Esto último queda para hardware físico autorizado.
+
+## Revisión 31-10-2026 — resultados de la fila 41 releídos de los registros
+Releído de `scratch/lab/fin/e2e-directo-6f8e5ff.txt` y `e2e-escalon-6f8e5ff.txt` (ronda del 30-10 con `LAB_ALLOW_GAME=1` autorizado; claves de laboratorio, nunca la real): 0.20.17 con Puente 1.4.0 (`0760dcfa…`) → Puente de transición alterado o firmado con C: no se baja (rc 1) → bueno: 2.0.2 (`03854adb…`, coincide, distinto del antiguo) → 0.21.3 con zip alterado: rc 1, se queda en 0.21.2 → después de promover, 0.21.4 firmada con C: rc 1 → rollback rc 0 → instalar 0.21.0 más vieja: rc 1 → downgrade con firma **válida**: rc 1 → `install-check` rc 0 → datos: 135 antes, 135 iguales (1 archivo nuevo de registro). Escalón: lo mismo pasando por 0.21.1 (2.0.1 con A+B, mismo número).
+Pendiente en VM: instalación limpia y migración desde 0.20.17 **con el artefacto firmado de producción** (bloqueado por la firma). El candidato cambia con `f243c4b` (Wi‑Fi apagado), pero ni Puente ni el flujo de instalación cambian; no se repite la fila 41.

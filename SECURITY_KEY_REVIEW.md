@@ -419,3 +419,29 @@ Volver atrás: `icacls "%USERPROFILE%" /restore "%USERPROFILE%\acl-puente-signin
 ## Próximo paso
 Tus decisiones de `OWNER_DECISIONS_0.21.0.md` §6 b–d (rotar o mover; permisos fuera de `.vigia`; firmar fuera). Mientras
 tanto `release.sh` no firma con la clave de este PC y la release sigue **`SIGNING_BLOCKED`**.
+
+## Revisión 31-10-2026 (madrugada) — solo metadatos, con controles en archivo ficticio
+**Acceso de otras cuentas (comprobado ahora, con `icacls` y `Get-LocalGroupMember`, que no abren la clave):**
+- `.vigia`: herencia cortada; solo `SYSTEM`, `Administradores` y `Pickle OS`, control total. `release-key.pem` hereda esas tres y nada más. Ninguna entrada de `CodexSandboxUsers`, `Users`, `Everyone` ni `Authenticated Users`.
+- `CodexSandboxUsers` = `CodexSandboxOffline` (habilitada, último inicio 29-10 13:37) y `CodexSandboxOnline` (habilitada, nunca). **Ninguna de las dos está en Administradores** (allí solo `Administrator`, deshabilitada, y `Pickle OS`) ni en Operadores de copia. → **Sin acceso a `.vigia`.**
+- **Pero** `EnableLUA = 0` y tu cuenta es administradora: cualquier programa que corra como tú (agentes incluidos) lee la clave sin aviso. Las ACL impiden el acceso a otras cuentas, no a lo que corre en la tuya.
+
+**Fecha de último acceso de la clave: `2026-10-30 23:38:49Z`** (escritura 27-10 23:03:06Z, 240 B; `DisableLastAccess = 0`).
+Control con un archivo ficticio (`scratch/p10/atime-control.txt`): `Get-Item`, `Get-Acl` e `icacls` **no** mueven esa fecha; leer el contenido, un escaneo de Defender y **`stat`/`ls -l` de git-bash sí** (MSYS abre el archivo y lee sus primeros bytes para decidir si es ejecutable).
+Esa fecha coincide al segundo con un `stat -c '%s %y'` que el asistente lanzó desde git-bash el 30-10 a las 23:38:50Z para «leer metadatos»: **fue esa orden**. El contenido no se imprimió ni se guardó (la orden solo devolvía tamaño y fecha), pero es una apertura con lectura hecha por un proceso de tu cuenta. Corregido: sobre la clave solo se usan `icacls` y `Get-Item` de PowerShell. Lo que pasara antes del 30-10 no se puede reconstruir con esa fecha (se sobrescribe).
+
+**Riesgo residual (sin presuponer que las ACL lo borran):**
+- La clave estuvo legible para `CodexSandboxUsers` (ReadAndExecute explícito) hasta el 30-10 17:35, y siempre para todo lo que corre como tú con UAC apagado. No hay registro de acceso a archivos (auditoría SACL desactivada), así que **no se puede demostrar que nadie la copió**. Hay que tratarla como **posiblemente expuesta**.
+- Recomendación (decisión tuya): **rotar** con relevo escalonado. 0.21.0 se firma una última vez con la clave actual **desde el equipo de firma** y lleva la nueva en `NextKeys`; la siguiente se firma solo con la nueva. Si prefieres no rotar, la custodia mínima es sacarla de este PC y cifrarla con `--protect-key` allí.
+
+**`--protect-key` con claves de laboratorio** (`signing-test.js`, **44 OK / 0 FAIL**, 5 casos nuevos): el `.dpapi` no contiene la clave en claro; queda con herencia cortada y una sola entrada (tu cuenta); no pisa un `.dpapi` existente; un `.dpapi` alterado no descifra ni firma nada; con el bueno firma y la firma pasa con la clave pública de prueba. DPAPI de usuario: otra cuenta u otro equipo no puede descifrarlo; **un proceso de tu misma cuenta sí**, así que la protección real es el equipo aparte.
+
+**Entorno de firma separado — pasos exactos (manual, sin secretos aquí):** ver «Procedimiento exacto» §2–§3 arriba y `docs/SIGNING.md` («Dedicated signing environment»). Resumen para el día que lo apruebes:
+1. Equipo de firma sin red, sin agentes ni herramientas de desarrollo. Compila allí `Puente.exe` desde el commit revisado (o cópialo y anota su SHA-256 en papel).
+2. Rotar (recomendado): allí `Puente.exe --genkey C:\VigiaFirma\nueva.pem`, luego `--protect-key nueva.pem nueva.dpapi`, borra el `.pem`. Trae **solo la clave pública** y aquí `node tools/signing/preparar-relevo.js anadir <pública>` (sube Puente a 2.0.2), commit, nuevo candidato.
+3. Mover la actual (si así lo decides): USB → equipo de firma → `--protect-key` → borrar el `.pem` del USB y de `~/.vigia`. **Mover o borrar la clave real necesita tu autorización explícita.**
+4. Aquí: `VIGIA_RELEASE_SIGN=fuera bash tools/release.sh "<notas>"` → `out\0.21.0` con `candidato.txt`. Allí: `firmar-fuera.ps1 -Version E:\0.21.0 -Clave C:\VigiaFirma\release-key.dpapi -Puente C:\VigiaFirma\Puente.exe -HuellaPuente <SHA-256>`. Vuelven solo los `.sig` y `firmas-0.21.0.txt`. Aquí: `node.exe tools/candidate-check.js out/0.21.0` y `VIGIA_RELEASE_SIGNED=1` (se niega si lo firmado no es lo compilado).
+
+**Ruta de actualización de 0.20.17:** comprobada en VigiaLab (fila 41, `6f8e5ff`, claves de laboratorio): 0.20.17 con Puente 1.4.0 y la clave A baja y verifica el Puente de transición 2.0.2 (A+B), que reemplaza al antiguo comprobado por versión **y** SHA-256 (`03854adb…`); un Puente alterado o firmado con otra clave no se baja; relevo A→B; Puente 2.0.1→2.0.2→2.0.3; zip alterado rc 1 sin tocar Puente; downgrade con firma válida rechazado; rollback rc 0; 135/135 archivos de datos iguales.
+
+**Veredicto: `SIGNING_BLOCKED`** — `NEEDS_OWNER_APPROVAL`: custodia (equipo de firma), rotar o mover, y si desactivar `CodexSandboxOffline`/`Online` y reactivar UAC.

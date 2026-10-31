@@ -105,3 +105,16 @@ Probado en Windows real (VM): inventario AppX/Win32/aprovisionadas/dependencias,
 
 ## Versión
 **0.21.0** sigue siendo la siguiente versión válida: lo público es 0.20.17 y 0.21.1–0.21.8 (más los paquetes de relevo de la fila 38) solo existieron en VigiaLab con claves de laboratorio. Puente 2.0.1 confía en la misma clave pública y `NextKeys` está vacía: publicarla no corta la actualización ni la recuperación de lo instalado. Candidato, notas, instalación, migración, recuperación y checklist: `RELEASE_CANDIDATE_0.21.0.md`.
+
+## Estado 31-10-2026 — NOT READY · SIGNING_BLOCKED
+| Bloque | Estado | Detalle |
+|---|---|---|
+| Custodia de la clave | **SIGNING_BLOCKED** · NEEDS_OWNER_APPROVAL | ACL correctas (solo SYSTEM, Administradores, tu cuenta); sandbox sin acceso ni admin; clave sin cifrar en la cuenta de desarrollo con UAC apagado; posible exposición anterior no descartable → recomendado rotar desde un equipo de firma |
+| `--protect-key` (laboratorio) | OK | signing-test 44/0 |
+| Relevo A→B, Puente 2.0.1/2.0.2/2.0.3, ruta desde 0.20.17 | VM_VALIDATED (laboratorio) | fila 41 releída de los registros |
+| Ubicación / WebView2 | OK | sin APIs de ubicación; geolocalización denegada |
+| Wi‑Fi | Apagado por defecto · HARDWARE_VALIDATION_PENDING | falta equipo con Wi‑Fi conectado |
+| Candidato | **por regenerar** sobre `c2259ca` | el de `6f8e5ff` (hashes verificados completos) no trae la barrera Wi‑Fi |
+| Firma de producción y VM con el firmado | BLOCKED | necesita tu autorización y la custodia resuelta |
+
+Pruebas sobre el código final: location-test 29/0, signing-test 44/0, candidate-check (código nuevo, sobre el zip anterior) 22/2 esperados. puente-test 85/0 y release-test 33/0 siguen valiendo (sin cambios en `app/Puente` ni `release.sh`). selftest 371/0 pendiente de la regeneración.

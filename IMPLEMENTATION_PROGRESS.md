@@ -227,3 +227,9 @@ Fuentes: Prompt 4 (Program Files y ayudante), Prompt 5 (firma, sensores, validac
 - **Wi‑Fi conectado:** sin equipo (3 adaptadores Wi‑Fi, todos desconectados) → HARDWARE_VALIDATION_PENDING.
 - **Firma:** clave real no abierta, copiada ni rotada; ACL = SYSTEM, Administradores y tu usuario; sin cifrar;
   `CodexSandboxOffline/Online` siguen habilitadas. **SIGNING_BLOCKED.**
+
+## 31-10-2026
+- `f243c4b` Wi‑Fi: lectura de señal apagada por defecto (`VIGIA_WIFI_SIGNAL=1` solo para la prueba física); location-test 29/0; build 0 avisos/0 errores.
+- `c2259ca` Pruebas: `candidate-check` revisa claves privadas, drivers y servicio en el zip y la barrera Wi‑Fi; `signing-test` cubre `--protect-key` (44/0).
+- Custodia: ACL y grupos revisados sin abrir la clave; la última fecha de acceso viene de un `stat` de git-bash del asistente (documentado en `SECURITY_KEY_REVIEW.md`).
+- Pendiente: regenerar el candidato sobre `c2259ca` con el juego cerrado (automático), firma de producción (tu autorización), prueba Wi‑Fi física.
