@@ -75,6 +75,6 @@ Procedimiento completo en `docs/INSTALL.md`:
 | 11 | Temperaturas reales del Ryzen | ⛔ HARDWARE_VALIDATION_PENDING |
 | 12 | Revisión externa del servicio SYSTEM | ⛔ EXTERNAL_AUDIT_PENDING (el servicio no va en 0.21.0) |
 | 13 | Firmar en un equipo aparte (`firmar-fuera.ps1`), repetir instalación limpia y migración en VigiaLab con ese paquete exacto, publicar | ⛔ NEEDS_OWNER_APPROVAL — no ejecutar sin tu orden |
-| 14 | Puente solo se sustituye con la publicación entera comprobada (zip malo o Puente que no acepta su propia firma ⇒ no cambia nada, ni las claves de confianza) | ✅ PC `puente-test` 85/0 (`6ea6126`) · fallo reproducido en VM con el código anterior (fila 41) · ⏳ VM con el arreglo pendiente (pausada por juego abierto) |
+| 14 | Puente solo se sustituye con la publicación entera comprobada (zip malo o Puente que no acepta su propia firma ⇒ no cambia nada, ni las claves de confianza) | ✅ PC `puente-test` 85/0 (`6ea6126`) · fallo reproducido en VM con el código anterior y **VM_VALIDATED con el arreglo** desde 0.20.17 (fila 41) |
 | 15 | Lo firmado fuera = lo compilado y probado, del mismo commit | ✅ `candidato.txt` + `release.sh` (release-test 33/0) · `candidate-check.js` 19/0 |
 | 16 | Wi‑Fi conectado con ubicación apagada: sin aviso, señal correcta, sin datos de red en logs | ⛔ HARDWARE_VALIDATION_PENDING (aquí no hay Wi‑Fi conectado; pasos en `LOCATION_PRIVACY_FIX.md`) |

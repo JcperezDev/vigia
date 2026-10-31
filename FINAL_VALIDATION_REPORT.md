@@ -15,7 +15,8 @@ Solo commits locales: sin push, merge ni release. La instalación principal del 
 - **Candidato 0.21.0 rehecho sobre `6f8e5ff`, sin firmar:** zip `6254ed47…836c`, Puente 2.0.1 `cb68d8b7…a257`,
   manifiesto `dd165736…e1e5`; selftest 371/0; `candidate-check` 19/0. Puente 2.0.1 > 1.4.0 (el de `v0.20.17`): coherente.
 - **Relevo:** `rot2` (A→B, 7 pasos) y `directo2`/`escalon` revisados: correctos salvo el caso de la fila 41.
-  Repetición en VM con el arreglo: **pendiente** (la guarda de juego la pausó).
+  Repetido en VigiaLab con el arreglo (`directo` y `escalon` desde 0.20.17, paquetes desde `6f8e5ff`): zip alterado
+  → rc 1 y Puente sigue en 2.0.2; transición, promoción, rollback, downgrade y datos correctos (fila 41).
 - **Wi‑Fi conectado:** sin equipo (3 adaptadores Wi‑Fi, todos desconectados) → HARDWARE_VALIDATION_PENDING.
 - **Firma:** clave real no abierta, copiada ni rotada; ACL = SYSTEM, Administradores y tu usuario; sin cifrar;
   `CodexSandboxOffline/Online` siguen habilitadas. **SIGNING_BLOCKED.**
