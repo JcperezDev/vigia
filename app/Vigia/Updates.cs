@@ -175,7 +175,7 @@ public static class Updates
     // la misma clave pública que lleva Puente: solo se instala un Puente firmado por nosotros
     const string PublicKey = "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE2sn60BucOhX4a3HZt59BBg3gWbZ77dyDNEdmP0/+cFAaUg7jSEjaywk5q54fPIZKzpuUtQlsS01dcTNdbv0muA==";
     // claves de relevo, las mismas que lleva Puente (ver Puente/Program.cs): hoy vacío
-    static readonly string[] NextKeys = [];
+    static readonly string[] NextKeys = ["MCowBQYDK2VwAyEAEkn3rbxCd87kBztyUZQePT8Sj5O8K2eCBKeVpO94Big="];
 
     /// <summary>Si falta Puente, lo baja de GitHub y comprueba la firma antes de dejarlo en su carpeta. Devuelve null si está listo.</summary>
     /// <param name="fresh">Para actualizar: se baja y se comprueba otra vez aunque ya exista, así nunca se abre un Puente

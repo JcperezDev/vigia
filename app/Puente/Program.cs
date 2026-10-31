@@ -32,7 +32,7 @@ static partial class Program
     // Claves de relevo para cambiar de clave sin dejar tiradas las instalaciones: una versión que confía en la actual y
     // en la nueva se firma con la actual; la siguiente ya puede venir firmada con la nueva. Hoy no hay relevo: vacío.
     // Solo claves públicas (base64 SubjectPublicKeyInfo); nunca se leen de archivos ni del entorno en la versión publicada.
-    static readonly string[] NextKeys = [];
+    static readonly string[] NextKeys = ["MCowBQYDK2VwAyEAEkn3rbxCd87kBztyUZQePT8Sj5O8K2eCBKeVpO94Big="];
 
     static string LogFile => Native.IsAdmin ? Path.Combine(Layout.LogDir, "puente.log")
         : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Vigia", "puente.log");
