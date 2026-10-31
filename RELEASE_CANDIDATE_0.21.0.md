@@ -8,9 +8,9 @@ Fecha: 2026-10-30 (noche, 2.ª) · rama `debloat-v2` · commit **`6f8e5ff`** (lo
 
 | Archivo | Tamaño | SHA-256 |
 |---|---|---|
-| `Vigia-0.21.0-win-x64.zip` (343 entradas) | 59 803 716 | `6254ed4770768da13364db04441396b24d9a5a5cdccda0430c282c31f3c4836c` |
-| `Puente.exe` (2.0.1) = `Vigia-Setup.exe` | 12 557 783 | `cb68d8b779c98cb40b7070400e0b02bc92b215c3b0d164db862869d47dcea257` |
-| `vigia-manifest.json` (versión 0.21.0, Puente 2.0.1, tamaños y SHA-256 de los dos de arriba) | 412 | `dd165736f860c6b36fd3380454c9e866c23c91ed3917294a3569b35721d5e1e5` |
+| `Vigia-0.21.0-win-x64.zip` (343 entradas) | 59 803 977 | `0faaebb9d10254f85ffceb649834d48da0c7d04b7ab71f3a2cd81379b21218ba` |
+| `Puente.exe` (2.0.1) = `Vigia-Setup.exe` | 12 557 780 | `433270b7a0829079d3d2ccd65b6035f38245c57173e29a3add4eb9f314ae556e` |
+| `vigia-manifest.json` (versión 0.21.0, Puente 2.0.1, tamaños y SHA-256 de los dos de arriba) | 412 | `228824ae56b7e030e5ef54de23a637ded393a3f6c8f29e786ada0712b4f1846b` |
 
 Hashes anteriores (`a6ffaa5`: zip `a393d2fc…`; `c8f0921`: zip `2f90087f…f9974`; `d8e24d9`: zip `6e2ba33d…28d3`) quedan sustituidos. **Versión de Puente:** la última publicada es la de `v0.20.17`, **Puente 1.4.0**; 2.0.1 no se publicó nunca, así que el 2.0.1 de este candidato es mayor que el instalado en cualquier PC real y lo sustituye de verdad (comprobado por versión y SHA‑256 en la VM). Cambiar sus bytes antes de publicar no deja a nadie con un 2.0.1 distinto. `release.sh` lo comprueba contra la última etiqueta.
 
@@ -83,4 +83,13 @@ Procedimiento completo en `docs/INSTALL.md`:
 - Hashes **completos** del candidato de `6f8e5ff` recalculados con `sha256sum` sobre `out/0.21.0`: zip `6254ed4770768da13364db04441396b24d9a5a5cdccda0430c282c31f3c4836c`, Puente `cb68d8b779c98cb40b7070400e0b02bc92b215c3b0d164db862869d47dcea257`, manifiesto `dd165736f860c6b36fd3380454c9e866c23c91ed3917294a3569b35721d5e1e5` → **idénticos** a la tabla de arriba y a `candidato.txt` (commit `6f8e5ff19aad…`).
 - **Puente:** el de `v0.20.17` es **1.4.0** (comprobado en el binario de 0.20.17 en la VM y por `candidate-check`), así que el 2.0.1 del candidato sustituye de verdad; 2.0.1 nunca se publicó. Contradicción cerrada.
 - `candidate-check.js` ampliado (`c2259ca`): sin archivos de clave en el zip; ningún archivo del zip ni `Puente.exe` contiene una clave privada PEM (patrón probado con una clave P-256 generada al vuelo dentro de un binario); en `drivers/` solo `PawnIO_setup.exe`, idéntico al del repo y sin cambios desde `v0.20.17` (es el instalador del driver oficial que ya llevaba 0.20.17, no un driver experimental); ningún ejecutable de servicio de sensores; barrera Wi‑Fi presente. Sobre el zip de `6f8e5ff`: claves, PEM, drivers y servicio **OK**; 2 FAIL esperados: no trae la barrera Wi‑Fi y `app/` cambió después.
-- **Por eso el candidato de `6f8e5ff` queda sustituido.** El nuevo se regenera sin firmar sobre `c2259ca` con `VIGIA_RELEASE_SIGN=fuera` (incluye el selftest completo) en cuanto no haya un juego abierto (el selftest de perfiles se niega con un juego abierto). Sus huellas se apuntan aquí al terminar; hasta entonces no hay candidato vigente que firmar.
+- **Por eso el candidato de `6f8e5ff` quedó sustituido** (ver abajo). El nuevo se regenera sin firmar sobre `c2259ca` con `VIGIA_RELEASE_SIGN=fuera` (incluye el selftest completo) en cuanto no haya un juego abierto (el selftest de perfiles se niega con un juego abierto). Sus huellas se apuntan aquí al terminar; hasta entonces no hay candidato vigente que firmar.
+
+## Candidato vigente — commit `def4b4e` (31-10-2026, 21:01–21:2x), SIN FIRMAR
+Regenerado con `VIGIA_RELEASE_SIGN=fuera bash tools/release.sh` (la clave no se toca) con el juego cerrado. La tabla de arriba ya lleva estas huellas; las de `6f8e5ff` (zip `6254ed47…`, Puente `cb68d8b7…`, manifiesto `dd165736…`) quedan sustituidas.
+- `candidato.txt`: commit `def4b4e347636331a38eed4caab9845d9e9d5a8e`, Puente 2.0.1, las cuatro huellas de la tabla. Respecto a `6f8e5ff`, `app/` solo cambia en `Suggestions.cs` y `LocationGuard.cs` (Wi‑Fi apagado por defecto).
+- selftest del `Vigia.exe` empaquetado: **371 OK / 0 FAIL** (incluido el bloque de juegos, que antes fallaba solo porque había un juego abierto).
+- `node.exe tools/candidate-check.js out/0.21.0`: **24 OK / 0 FAIL** (origen y huellas, manifiesto, Puente 2.0.1 > 1.4.0, compilación pública, `--install-check`, sin servicio SYSTEM, arreglo de ubicación, barrera Wi‑Fi, sin claves ni PEM privados, solo el instalador de PawnIO de 0.20.17, sin ejecutable de servicio, misma clave pública, `NextKeys` vacía).
+- `location-test.js` sobre el `Vigia.exe` del candidato: **29 OK / 0 FAIL**. 343 entradas en el zip, 0 `.sig`.
+- `Puente.exe` cambia de bytes (`cb68d8b7…` → `433270b7…`, 3 bytes menos) aunque `app/Puente` no cambió: la compilación de un solo archivo no es determinista. No afecta: 2.0.1 nunca se publicó y lo que se firma es exactamente lo que dice `candidato.txt`.
+- Pendiente: firmarlo fuera (tu autorización y custodia) y, ya firmado, instalación limpia y migración desde 0.20.17 en VigiaLab.

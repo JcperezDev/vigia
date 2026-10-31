@@ -114,7 +114,7 @@ Probado en Windows real (VM): inventario AppX/Win32/aprovisionadas/dependencias,
 | Relevo A→B, Puente 2.0.1/2.0.2/2.0.3, ruta desde 0.20.17 | VM_VALIDATED (laboratorio) | fila 41 releída de los registros |
 | Ubicación / WebView2 | OK | sin APIs de ubicación; geolocalización denegada |
 | Wi‑Fi | Apagado por defecto · HARDWARE_VALIDATION_PENDING | falta equipo con Wi‑Fi conectado |
-| Candidato | **por regenerar** sobre `c2259ca` | el de `6f8e5ff` (hashes verificados completos) no trae la barrera Wi‑Fi |
+| Candidato | **listo sin firmar** sobre `def4b4e` | zip `0faaebb9…`, Puente `433270b7…`, manifiesto `228824ae…`; candidate-check 24/0 |
 | Firma de producción y VM con el firmado | BLOCKED | necesita tu autorización y la custodia resuelta |
 
-Pruebas sobre el código final: location-test 29/0, signing-test 44/0, candidate-check (código nuevo, sobre el zip anterior) 22/2 esperados. puente-test 85/0 y release-test 33/0 siguen valiendo (sin cambios en `app/Puente` ni `release.sh`). selftest 371/0 pendiente de la regeneración.
+Pruebas sobre el código final: location-test 29/0, signing-test 44/0, candidate-check 24/0 y selftest 371/0 sobre el candidato de `def4b4e`. puente-test 85/0 y release-test 33/0 siguen valiendo (sin cambios en `app/Puente` ni `release.sh`).

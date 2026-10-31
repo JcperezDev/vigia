@@ -232,4 +232,5 @@ Fuentes: Prompt 4 (Program Files y ayudante), Prompt 5 (firma, sensores, validac
 - `f243c4b` Wi‑Fi: lectura de señal apagada por defecto (`VIGIA_WIFI_SIGNAL=1` solo para la prueba física); location-test 29/0; build 0 avisos/0 errores.
 - `c2259ca` Pruebas: `candidate-check` revisa claves privadas, drivers y servicio en el zip y la barrera Wi‑Fi; `signing-test` cubre `--protect-key` (44/0).
 - Custodia: ACL y grupos revisados sin abrir la clave; la última fecha de acceso viene de un `stat` de git-bash del asistente (documentado en `SECURITY_KEY_REVIEW.md`).
-- Pendiente: regenerar el candidato sobre `c2259ca` con el juego cerrado (automático), firma de producción (tu autorización), prueba Wi‑Fi física.
+- Candidato regenerado sin firmar sobre `def4b4e` con el juego cerrado: selftest 371/0, candidate-check 24/0, location-test 29/0.
+- Pendiente: firma de producción (tu autorización), VM con el firmado, prueba Wi‑Fi física.
