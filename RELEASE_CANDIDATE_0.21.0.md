@@ -109,3 +109,6 @@ Regenerado con `VIGIA_RELEASE_SIGN=fuera bash tools/release.sh` (la clave no se 
 - La ruta 0.20.17 (Puente 1.4.0, A) → 2.0.2 (A + B, firmado con A) → 2.0.3 (B) está validada en VigiaLab **con claves de
   laboratorio** (fila 41, `6f8e5ff`); `app/Puente` no ha cambiado desde `6f8e5ff`. Con el paquete real queda pendiente
   (`docs/FIRMA_OFFLINE.md` paso 8).
+
+## 31-10-2026 — firmado con A y validado en VigiaLab
+Firmado por el propietario (clave A) sobre `abc9a2b`; hashes sin cambios. Puente 1.4.0 de la 0.20.17 publicada acepta la firma y rechaza un archivo alterado. VigiaLab: migración desde 0.20.17 con datos (135/135) y la instalación limpia, ambas rc 0; ZIP alterado rechazado sin cambiar nada (filas 42–43 de `VM_VALIDATION_REPORT.md`). La prueba real de B con Bitwarden verificó (`docs/FIRMA_OFFLINE.md`). **Sin publicar.** Publicar = `VIGIA_RELEASE_SIGNED=1 tools/release.sh` (genera SHA256SUMS, push, release); solo con «publica 0.21.0».
