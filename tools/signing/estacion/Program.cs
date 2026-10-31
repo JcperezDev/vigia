@@ -10,6 +10,15 @@
 //                                                         comprueba firmas y manifiesto con UNA clave pública concreta
 //   VigiaFirma huellas <carpeta-versión>                  SHA-256 de las cuatro piezas (formato de candidato.txt)
 //
+// Proveedor "bitwarden-ssh-agent" (clave B Ed25519 dentro de Bitwarden Desktop; aquí nunca se ve la privada):
+//   VigiaFirma publica-ssh "<ssh-ed25519 AAAA...>" <carpeta> <nombre>
+//                                                         escribe vigia-<nombre>.publica.txt a partir de la clave PÚBLICA SSH
+//   VigiaFirma agente [<publica.txt>]                     claves públicas que ofrece el agente (marca la que coincide)
+//   VigiaFirma prueba-agente <publica.txt> <salida.txt>   firma de PRUEBA (texto que Puente nunca acepta) para ver el formato
+//   VigiaFirma firmar-agente <carpeta-versión> <publica.txt> <huellas.txt>
+//                                                         firma una versión: comprueba piezas y huellas, enseña qué se firma,
+//                                                         pide que escribas "FIRMAR <versión>" y luego la aprobación en Bitwarden
+//
 // Por cada clave deja tres archivos:
 //   vigia-<nombre>.dpapi         la de uso diario, cifrada con DPAPI de ESTA cuenta en ESTE equipo (otra cuenta u otro
 //                                equipo no la pueden abrir) y con permisos solo para esta cuenta. Puente --sign-release la usa.
@@ -46,6 +55,10 @@ static class Program
                 ("restaurar", 3) => Restaurar(a[1], a[2]),
                 ("verificar", 3 or 4) => Verificar(a[1], a[2], a.Length == 4 ? a[3] : null),
                 ("huellas", 2) => Huellas(a[1]),
+                ("publica-ssh", 4) => PublicaSsh(a[1], a[2], a[3]),
+                ("agente", 1 or 2) => AgenteLista(a.Length == 2 ? a[1] : null),
+                ("prueba-agente", 3) => PruebaAgente(a[1], a[2]),
+                ("firmar-agente", 4) => FirmarAgente(a[1], a[2], a[3]),
                 _ => Uso(),
             };
         }
@@ -56,7 +69,9 @@ static class Program
     {
         Console.Error.WriteLine("Uso: VigiaFirma nueva <carpeta> <nombre> | importar <clave.pem> <carpeta> <nombre> [<esperada.publica.txt>]\n" +
             "     | publica <archivo> | comprobar-respaldo <respaldo.pem> <publica.txt> | restaurar <respaldo.pem> <salida.dpapi>\n" +
-            "     | verificar <carpeta-versión> <publica.txt> [<huellas.txt>] | huellas <carpeta-versión>");
+            "     | verificar <carpeta-versión> <publica.txt> [<huellas.txt>] | huellas <carpeta-versión>\n" +
+            "     | publica-ssh \"<ssh-ed25519 AAAA...>\" <carpeta> <nombre> | agente [<publica.txt>]\n" +
+            "     | prueba-agente <publica.txt> <salida.txt> | firmar-agente <carpeta-versión> <publica.txt> <huellas.txt>");
         return 2;
     }
 
@@ -184,12 +199,18 @@ static class Program
     static int Verificar(string dir, string publica, string? huellas)
     {
         var (nombre, pub) = LeerPublica(publica);
+        var ed = Ed25519Firma.RawFromSpki(pub);   // B (Bitwarden) es Ed25519; A es P-256
         using var ec = ECDsa.Create();
-        ec.ImportSubjectPublicKeyInfo(Convert.FromBase64String(pub), out _);
+        if (ed is null) ec.ImportSubjectPublicKeyInfo(Convert.FromBase64String(pub), out _);
         int bad = 0;
         void Res(bool ok, string what) { if (!ok) bad++; Console.WriteLine((ok ? "OK   " : "FAIL ") + what); }
-        bool Firma(string f) => File.Exists(f) && File.Exists(f + ".sig") && Sig(File.ReadAllText(f + ".sig")) is { } s
-            && ec.VerifyData(File.ReadAllBytes(f), s, HashAlgorithmName.SHA256);
+        bool Firma(string f)
+        {
+            if (!File.Exists(f) || !File.Exists(f + ".sig")) return false;
+            var st = File.ReadAllText(f + ".sig");
+            if (ed is not null) return Ed25519Firma.VerifyHash(Sha(f), st, ed);
+            return Sig(st) is { } s && ec.VerifyData(File.ReadAllBytes(f), s, HashAlgorithmName.SHA256);
+        }
 
         var man = Path.Combine(dir, "vigia-manifest.json");
         Res(Firma(man), $"el manifiesto está firmado con la clave {nombre}");
@@ -232,6 +253,148 @@ static class Program
         return 0;
     }
 
+    // ---------------------------------------------------------------- proveedor bitwarden-ssh-agent
+
+    static byte[] PublicaEd25519(string publica, out string nombre)
+    {
+        var (n, pub) = LeerPublica(publica);
+        nombre = n;
+        return Ed25519Firma.RawFromSpki(pub) ?? throw new InvalidDataException(Path.GetFileName(publica) + " no es una clave Ed25519 (el agente de Bitwarden firma con Ed25519).");
+    }
+
+    static int PublicaSsh(string lineOrFile, string dir, string nombre)
+    {
+        if (!NombreRx.IsMatch(nombre)) { Console.Error.WriteLine("Nombre de clave: letras, números o guiones (máx. 16)."); return 2; }
+        var line = File.Exists(lineOrFile) ? File.ReadAllText(lineOrFile) : lineOrFile;
+        if (line.Contains("PRIVATE", StringComparison.OrdinalIgnoreCase)) { Console.Error.WriteLine("Eso parece una clave PRIVADA. Solo se usa la pública (ssh-ed25519 AAAA...)."); return 1; }
+        var raw = Agente.FromOpenSshLine(line);
+        var spki = Ed25519Firma.SpkiFromRaw(raw);
+        Directory.CreateDirectory(dir);
+        var fp = Path.Combine(dir, $"vigia-{nombre}.publica.txt");
+        if (File.Exists(fp)) { Console.Error.WriteLine("Ya existe " + fp + "; no se sobrescribe."); return 1; }
+        File.WriteAllText(fp, TextoPublica(nombre, spki), new UTF8Encoding(false));
+        Console.WriteLine($"Escrito {fp} (Ed25519, como la ve Bitwarden: {Agente.SshFingerprint(raw)})");
+        Imprimir(nombre, spki);
+        return 0;
+    }
+
+    static int AgenteLista(string? publica)
+    {
+        byte[]? want = publica is null ? null : PublicaEd25519(publica, out _);
+        var ids = Agente.Identities();
+        Console.WriteLine($"El agente SSH ofrece {ids.Count} clave(s) (solo públicas):");
+        bool found = false;
+        foreach (var (type, blob, comment) in ids)
+        {
+            var raw = Agente.Ed25519Raw(blob);
+            var fp = "SHA256:" + Convert.ToBase64String(SHA256.HashData(blob)).TrimEnd('=');
+            var match = want is not null && raw is not null && raw.AsSpan().SequenceEqual(want);
+            found |= match;
+            Console.WriteLine($"  {type} {fp} \"{comment}\"{(match ? "   <- es la de " + Path.GetFileName(publica) : "")}");
+        }
+        if (want is not null && !found) { Console.Error.WriteLine("La clave de " + Path.GetFileName(publica) + " NO está en el agente."); return 1; }
+        return 0;
+    }
+
+    /// <summary>
+    /// Pide confirmación escrita. Con el agente real: solo desde una consola de verdad y no lanzado por un agente de IA o
+    /// un automatismo (comprobación de buena fe, no una barrera). La aprobación que vale es la de Bitwarden.
+    /// </summary>
+    static bool Confirmar(string palabra)
+    {
+        if (Agente.PipeLab is null)
+        {
+            if (Console.IsInputRedirected) { Console.Error.WriteLine("La firma con Bitwarden solo se hace desde una ventana de PowerShell abierta por ti (entrada no interactiva)."); return false; }
+            var anc = Agente.Ancestors();
+            string[] veto = ["hermes", "codex", "claude", "opencode", "antigravity", "agy", "node", "python", "bash", "mintty", "uv"];
+            if (anc.FirstOrDefault(n => veto.Any(v => Path.GetFileNameWithoutExtension(n).Contains(v, StringComparison.OrdinalIgnoreCase))) is { } who)
+            { Console.Error.WriteLine($"No se firma: esta orden la lanzó {who}. Ábrela tú en una ventana de PowerShell nueva."); return false; }
+        }
+        Console.Error.Write($"Para seguir escribe exactamente  {palabra}  y pulsa Enter (cualquier otra cosa cancela): ");
+        var r = Console.ReadLine();
+        if (r?.Trim() != palabra) { Console.Error.WriteLine("Cancelado: no se pidió ninguna firma."); return false; }
+        return true;
+    }
+
+    const int AgentTimeoutMs = 180_000;
+
+    static int PruebaAgente(string publica, string salida)
+    {
+        var raw = PublicaEd25519(publica, out var nombre);
+        if (File.Exists(salida)) { Console.Error.WriteLine("Ya existe " + salida + "; no se sobrescribe."); return 1; }
+        // texto de PRUEBA: otro prefijo de dominio, así que Puente nunca lo acepta como firma de una versión
+        var msg = Encoding.UTF8.GetBytes($"vigia-prueba-agente 1\nfecha {DateTime.UtcNow:yyyy-MM-ddTHH:mm:ssZ}\nazar {Convert.ToHexString(RandomNumberGenerator.GetBytes(16)).ToLowerInvariant()}\n");
+        Console.WriteLine("FIRMA DE PRUEBA (no sirve para publicar; Puente la rechaza). Se pedirá a Bitwarden que firme este texto:");
+        foreach (var l in Encoding.UTF8.GetString(msg).TrimEnd('\n').Split('\n')) Console.WriteLine("  | " + l);
+        Console.WriteLine($"  SHA-256 del texto: {Convert.ToHexString(SHA256.HashData(msg)).ToLowerInvariant()}  ({msg.Length} bytes)");
+        Console.WriteLine($"  clave: {nombre}  {Agente.SshFingerprint(raw)}");
+        if (!Confirmar("PRUEBA")) return 1;
+        Console.WriteLine("Aprueba la solicitud en Bitwarden (tienes 3 minutos)...");
+        var sig = Agente.SignEd25519(raw, msg, AgentTimeoutMs);
+        if (!Ed25519Firma.Verify(raw, msg, sig)) { Console.Error.WriteLine("El agente devolvió una firma que NO verifica con la clave " + nombre + "."); return 1; }
+        File.WriteAllText(salida, $"vigia-prueba-agente-resultado 1\nmensaje {Convert.ToBase64String(msg)}\nfirma {Convert.ToBase64String(sig)}\n", new UTF8Encoding(false));
+        Console.WriteLine($"OK: firma Ed25519 de 64 bytes que verifica con la clave {nombre}. Guardada en {salida} (solo datos públicos).");
+        Console.WriteLine("Compruébala aparte con:  node tools/signing/verificar-b.js <publica.txt> --prueba " + salida);
+        return 0;
+    }
+
+    /// <summary>
+    /// Firma una versión con B mediante el agente: una sola aprobación en Bitwarden, sobre la declaración que lista el
+    /// SHA-256 de las cuatro piezas. Antes comprueba piezas, manifiesto y la hoja de huellas llevada aparte; después
+    /// vuelve a calcular los SHA-256 (nada cambió mientras se aprobaba) y verifica la firma con la clave pública B.
+    /// </summary>
+    static int FirmarAgente(string dir, string publica, string huellas)
+    {
+        var raw = PublicaEd25519(publica, out var nombre);
+        var zips = Directory.GetFiles(dir, "Vigia-*-win-x64.zip");
+        string pu = Path.Combine(dir, "Puente.exe"), setup = Path.Combine(dir, "Vigia-Setup.exe"), man = Path.Combine(dir, "vigia-manifest.json");
+        if (zips.Length != 1 || !File.Exists(pu) || !File.Exists(setup) || !File.Exists(man))
+        { Console.Error.WriteLine("Faltan piezas: un Vigia-*-win-x64.zip, Puente.exe, Vigia-Setup.exe y vigia-manifest.json."); return 1; }
+        string[] files = [zips[0], pu, setup, man];
+        if (files.Any(f => File.Exists(f + ".sig"))) { Console.Error.WriteLine("Ya hay firmas en esa carpeta; no se pisan."); return 1; }
+        var h = files.ToDictionary(f => f, Sha);
+        JsonObject? o = null;
+        try { o = JsonNode.Parse(File.ReadAllBytes(man)) as JsonObject; } catch { }
+        var ver = (string?)o?["version"];
+        if (o is null || (int?)o["schema"] != 1 || (string?)o["product"] != "Vigia" || ver is null || !Regex.IsMatch(ver, @"^\d+\.\d+\.\d+$"))
+        { Console.Error.WriteLine("El manifiesto no es de Vigía."); return 1; }
+        bool Pieza(string key, string f) => o[key] is JsonObject p && (string?)p["name"] == Path.GetFileName(f)
+            && (long?)p["size"] == new FileInfo(f).Length && string.Equals((string?)p["sha256"], h[f], StringComparison.OrdinalIgnoreCase);
+        if (Path.GetFileName(zips[0]) != $"Vigia-{ver}-win-x64.zip" || !Pieza("package", zips[0]) || !Pieza("puente", pu))
+        { Console.Error.WriteLine("El zip o Puente.exe no coinciden con el manifiesto (nombre, tamaño o SHA-256)."); return 1; }
+        if (h[pu] != h[setup]) { Console.Error.WriteLine("Vigia-Setup.exe no es el mismo archivo que Puente.exe."); return 1; }
+        var want = LeerHuellas(huellas);
+        if (want.Count != 4 || files.Any(f => !want.TryGetValue(Path.GetFileName(f), out var w) || w != h[f]))
+        { Console.Error.WriteLine("Las piezas NO son exactamente las de " + Path.GetFileName(huellas) + ": no se firma."); return 1; }
+
+        var decl = Ed25519Firma.Declaracion(ver, files.Select(f => (h[f], Path.GetFileName(f))));
+        var declSha = Convert.ToHexString(SHA256.HashData(decl)).ToLowerInvariant();
+        Console.WriteLine($"VERSIÓN {ver}  —  se firmará con la clave {nombre} ({Agente.SshFingerprint(raw)})");
+        foreach (var f in files) Console.WriteLine($"  {h[f]}  {new FileInfo(f).Length,12:N0} B  {Path.GetFileName(f)}");
+        Console.WriteLine($"  declaración que firma Bitwarden: SHA-256 {declSha} ({decl.Length} bytes)");
+        Console.WriteLine("Compara estas huellas con tu hoja (" + Path.GetFileName(huellas) + ") o calcúlalas tú:  Get-FileHash -Algorithm SHA256 <archivo>");
+        if (!Confirmar("FIRMAR " + ver)) return 1;
+        if (files.Any(f => Sha(f) != h[f])) { Console.Error.WriteLine("Algo cambió después de revisarlo: no se pide la firma."); return 1; }
+        Console.WriteLine("Aprueba la solicitud en Bitwarden (tienes 3 minutos)...");
+        var sig = Agente.SignEd25519(raw, decl, AgentTimeoutMs);
+        if (!Ed25519Firma.Verify(raw, decl, sig)) { Console.Error.WriteLine("La firma devuelta NO verifica con la clave " + nombre + ": no se escribe nada."); return 1; }
+        if (files.Any(f => Sha(f) != h[f])) { Console.Error.WriteLine("Algo cambió mientras se firmaba: no se escribe nada."); return 1; }
+        var text = Ed25519Firma.SigText(decl, sig);
+        var hechos = new List<string>();
+        try
+        {
+            foreach (var f in files) { using (var w = new FileStream(f + ".sig", FileMode.CreateNew)) w.Write(Encoding.ASCII.GetBytes(text)); hechos.Add(f + ".sig"); }
+            foreach (var f in files) if (!Ed25519Firma.VerifyHash(Sha(f), File.ReadAllText(f + ".sig"), raw)) throw new CryptographicException(Path.GetFileName(f) + ": la firma escrita no verifica");
+        }
+        catch { foreach (var s in hechos) try { File.Delete(s); } catch { } throw; }
+        // registro sin nada secreto: versión, huellas, huella de la declaración y de la clave pública
+        File.AppendAllText(Path.Combine(dir, "firma-b.txt"), $"{DateTime.UtcNow:yyyy-MM-ddTHH:mm:ssZ} version {ver} clave {nombre} {Agente.SshFingerprint(raw)} declaracion {declSha}\n"
+            + string.Concat(files.Select(f => $"  sha256 {h[f]} {Path.GetFileName(f)}\n")), new UTF8Encoding(false));
+        Console.WriteLine($"Firmada la versión {ver} con la clave {nombre}: cuatro .sig escritos y comprobados.");
+        Console.WriteLine($"Compruébala aparte:  VigiaFirma verificar \"{dir}\" \"{publica}\" \"{huellas}\"   y   node tools/signing/verificar-b.js \"{publica}\" <archivo>");
+        return 0;
+    }
+
     // ---------------------------------------------------------------- utilidades
 
     internal static Dictionary<string, string> LeerHuellas(string file)
@@ -253,9 +416,12 @@ static class Program
         var nombre = G("nombre"); var pub = G("publica"); var h = G("huella");
         if (!t.StartsWith("vigia-clave-publica 1") || nombre is null || pub is null || h is null)
             throw new InvalidDataException(Path.GetFileName(file) + " no es un archivo de clave pública de Vigía.");
-        using var ec = ECDsa.Create();
-        ec.ImportSubjectPublicKeyInfo(Convert.FromBase64String(pub), out _);
-        if (ec.KeySize != 256 || Pub(ec) != pub) throw new InvalidDataException(Path.GetFileName(file) + ": la clave no es P-256.");
+        if (Ed25519Firma.RawFromSpki(pub) is null)
+        {
+            using var ec = ECDsa.Create();
+            ec.ImportSubjectPublicKeyInfo(Convert.FromBase64String(pub), out _);
+            if (ec.KeySize != 256 || Pub(ec) != pub) throw new InvalidDataException(Path.GetFileName(file) + ": la clave no es P-256 ni Ed25519.");
+        }
         if (!string.Equals(h, Huella(pub), StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException(Path.GetFileName(file) + ": la huella no corresponde a la clave.");
         return (nombre, pub);
     }

@@ -133,7 +133,7 @@ public static class Updates
             Check(!PuenteSigOk(fake, good, [PublicKey]), "sin la clave nueva en la lista, esa misma firma no pasa");
             // claves de relevo: puede no haber ninguna; si las hay, cada una es una clave pública P-256 de verdad y no
             // repite la actual (tools/signing/preparar-relevo.js las pone igual aquí y en Puente)
-            Check(NextKeys.All(n => n != PublicKey && ValidP256(n)) && NextKeys.Distinct().Count() == NextKeys.Length,
+            Check(NextKeys.All(n => n != PublicKey && (ValidP256(n) || Ed25519Firma.IsEd25519Spki(n))) && NextKeys.Distinct().Count() == NextKeys.Length,
                 NextKeys.Length == 0 ? "esta versión no trae claves de relevo (no hay rotación en curso)"
                                      : $"claves de relevo válidas ({NextKeys.Length}), distintas de la actual");
             Check(!ValidP256("no-es-una-clave") && ValidP256(pub), "una clave de relevo mal pegada se detecta");
@@ -238,10 +238,17 @@ public static class Updates
     internal static bool PuenteSigOk(byte[] exe, string sig, IReadOnlyList<string>? keys = null)
     {
         if (exe.Length == 0 || exe.Length > MaxPuenteBytes) return false;
+        // clave Ed25519 (B, agente de Bitwarden): la firma es una declaración firmada con el SHA-256 de Puente (Ed25519.cs)
+        if (Ed25519Firma.LooksLikeSig(sig))
+        {
+            var h = Ed25519Firma.Sha256Hex(exe);
+            return (keys ?? [PublicKey, .. NextKeys]).Any(k => Ed25519Firma.RawFromSpki(k) is { } raw && Ed25519Firma.VerifyHash(h, sig, raw));
+        }
         byte[] s;
         try { s = Convert.FromBase64String(sig.Trim()); } catch (FormatException) { return false; }
         foreach (var k in keys ?? [PublicKey, .. NextKeys])
         {
+            if (Ed25519Firma.IsEd25519Spki(k)) continue;
             using var ec = System.Security.Cryptography.ECDsa.Create();
             ec.ImportSubjectPublicKeyInfo(Convert.FromBase64String(k), out _);
             if (ec.VerifyData(exe, s, System.Security.Cryptography.HashAlgorithmName.SHA256)) return true;

@@ -19,4 +19,8 @@
     <JsonSerializerIsReflectionEnabledByDefault>false</JsonSerializerIsReflectionEnabledByDefault>
     <NoWarn>$(NoWarn);CA1416</NoWarn>
   </PropertyGroup>
+  <ItemGroup>
+    <!-- el verificador Ed25519 (solo verificación) para comprobar lo que devuelve el agente de Bitwarden -->
+    <Compile Include="..\..\..\app\Puente\Ed25519.cs" Link="Ed25519.cs" />
+  </ItemGroup>
 </Project>

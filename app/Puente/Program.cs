@@ -44,9 +44,9 @@ static partial class Program
 
     static readonly HashSet<string> Commands = ["--render", "--genkey", "--sign", "--verify", "--check", "--zip-test", "--manifest",
         "--protect-key", "--verify-manifest", "--acl-test", "--state", "--fetch-test", "--rollback", "--uninstall",
-        "--key-check", "--sign-release",
+        "--key-check", "--sign-release", "--trusted-keys",
 #if PUENTE_TEST
-        "--as-user", "--lock-hold",
+        "--as-user", "--lock-hold", "--ed25519-raw",
 #endif
     ];
     static readonly HashSet<string> Flags = ["--quiet", "--repair", "--offline", "--wait", "--elevated", "--yes", "--relaunched",
@@ -95,9 +95,9 @@ static partial class Program
             return 0;
         }
         var cli = args.FirstOrDefault() is "--genkey" or "--sign" or "--verify" or "--check" or "--zip-test" or "--manifest"
-            or "--protect-key" or "--verify-manifest" or "--acl-test" or "--state" or "--key-check" or "--sign-release"
+            or "--protect-key" or "--verify-manifest" or "--acl-test" or "--state" or "--key-check" or "--sign-release" or "--trusted-keys"
 #if PUENTE_TEST
-            or "--as-user" or "--lock-hold"
+            or "--as-user" or "--lock-hold" or "--ed25519-raw"
 #endif
             ;
         if (cli)
@@ -119,6 +119,7 @@ static partial class Program
                 case "--protect-key": return ProtectKey(args[1], args[2]);
                 case "--key-check": return KeyCheck(args[1]);
                 case "--sign-release": return SignRelease(args[1], args[2]);
+                case "--trusted-keys": return TrustedKeys();
                 case "--check": return await Check();
                 case "--state": return PrintState();
                 case "--acl-test": return AclTest();
@@ -126,6 +127,8 @@ static partial class Program
                 case "--fetch-test": return await FetchTest(args[1]);
 #if PUENTE_TEST
                 case "--as-user": return TestHooks.AsUser(args[1]);
+                case "--ed25519-raw":   // <pub hex> <msg hex> <firma hex>: verificación Ed25519 pura, para los vectores del RFC 8032
+                    return Ed25519Firma.Verify(Convert.FromHexString(args[1]), Convert.FromHexString(args[2]), Convert.FromHexString(args[3])) ? 0 : 1;
                 case "--lock-hold":   // tiene el candado N segundos, para probar que un segundo Puente no entra
                     Directory.CreateDirectory(Layout.Root);
                     using (var held = Acl.Lock(Layout.Root)) { Console.WriteLine(held is null ? "ocupado" : "tengo el candado"); Console.Out.Flush(); Thread.Sleep(int.Parse(args[1]) * 1000); return held is null ? 1 : 0; }
@@ -430,9 +433,26 @@ static partial class Program
     static string[] Keys => [PublicKey, .. NextKeys];
 #endif
 
-    static bool VerifyBytes(byte[] data, string sigB64) => VerifyWith(sigB64, ec => ec.VerifyData(data, SigBytes(sigB64)!, HashAlgorithmName.SHA256));
+    /// <summary>
+    /// Claves en las que confía ESTE Puente (tipo y SHA-256 de la clave pública), para comprobar a mano una versión de
+    /// transición antes de firmarla: tiene que listar A y B. Solo datos públicos.
+    /// </summary>
+    static int TrustedKeys()
+    {
+        foreach (var k in Keys)
+        {
+            var tipo = Ed25519Firma.IsEd25519Spki(k) ? "Ed25519" : "P-256";
+            string h;
+            try { h = Ed25519Firma.Sha256Hex(Convert.FromBase64String(k)); } catch (FormatException) { h = "(mal formada)"; }
+            Console.WriteLine($"{tipo} {h}");
+        }
+        return 0;
+    }
 
-    static bool Verify(string file, string sigB64) => VerifyWith(sigB64, ec =>
+    static bool VerifyBytes(byte[] data, string sigB64) => VerifyWith(sigB64, () => Ed25519Firma.Sha256Hex(data),
+        ec => ec.VerifyData(data, SigBytes(sigB64)!, HashAlgorithmName.SHA256));
+
+    static bool Verify(string file, string sigB64) => VerifyWith(sigB64, () => { using var fs = File.OpenRead(file); return Ed25519Firma.Sha256Hex(fs); }, ec =>
     {
         using var fs = File.OpenRead(file);
         return ec.VerifyData(fs, SigBytes(sigB64)!, HashAlgorithmName.SHA256);
@@ -440,13 +460,25 @@ static partial class Program
 
     static byte[]? SigBytes(string b64) { try { return Convert.FromBase64String(b64.Trim()); } catch (FormatException) { return null; } }
 
-    /// <summary>Vale si la firma es de cualquiera de las claves de confianza (la actual o una de relevo).</summary>
-    static bool VerifyWith(string sigB64, Func<ECDsa, bool> check)
+    /// <summary>
+    /// Vale si la firma es de cualquiera de las claves de confianza (la actual o una de relevo). Las claves ECDSA P-256
+    /// (A) verifican la firma de siempre sobre el archivo; las Ed25519 (B, agente de Bitwarden) verifican una declaración
+    /// firmada que contiene el SHA-256 del archivo (Ed25519.cs). Una firma de un tipo nunca se prueba con una clave del otro.
+    /// </summary>
+    static bool VerifyWith(string sigB64, Func<string> sha256Hex, Func<ECDsa, bool> check)
     {
         if (PublicKey.StartsWith("__")) throw new InvalidOperationException("este Puente se compiló sin clave pública.");
+        if (Ed25519Firma.LooksLikeSig(sigB64))
+        {
+            string? h = null;
+            foreach (var k in Keys)
+                if (Ed25519Firma.RawFromSpki(k) is { } raw && Ed25519Firma.VerifyHash(h ??= sha256Hex(), sigB64, raw)) return true;
+            return false;
+        }
         if (SigBytes(sigB64) is null) return false;
         foreach (var k in Keys)
         {
+            if (Ed25519Firma.IsEd25519Spki(k)) continue;
             using var ec = ECDsa.Create();
             ec.ImportSubjectPublicKeyInfo(Convert.FromBase64String(k), out _);
             if (check(ec)) return true;

@@ -10,7 +10,7 @@
 //   node tools/signing/preparar-relevo.js promover [raíz]
 //       versión siguiente: la clave de relevo pasa a ser la única de confianza (la vieja deja de valer). Se firma con la nueva.
 //   node tools/signing/preparar-relevo.js comprobar [raíz]
-//       solo mira que las dos listas sean iguales y que cada clave sea P-256 de verdad (rc 0 bien, 1 mal).
+//       solo mira que las dos listas sean iguales y que cada clave sea P-256 o Ed25519 de verdad (rc 0 bien, 1 mal).
 //
 // La clave nueva se crea en el equipo de firma con `VigiaFirma nueva` (tools/signing/estacion), que nunca la deja en claro
 // en disco; al PC de desarrollo solo llega su vigia-<nombre>.publica.txt. Ver docs/FIRMA_OFFLINE.md.
@@ -48,6 +48,19 @@ function validP256(b64) {
   } catch { return false; }
 }
 
+// B vive en el agente SSH de Bitwarden, que firma con Ed25519 (no con P-256). Puente/Vigía verifican Ed25519 con
+// app/Puente/Ed25519.cs; aquí se exige la codificación SPKI exacta (44 bytes) para que no haya dos formas de la misma clave.
+function validEd25519(b64) {
+  try {
+    const d = Buffer.from(b64, 'base64');
+    const k = crypto.createPublicKey({ key: d, format: 'der', type: 'spki' });
+    return k.asymmetricKeyType === 'ed25519' && d.length === 44 && d.toString('base64') === b64
+      && Buffer.from(k.export({ format: 'der', type: 'spki' })).equals(d);
+  } catch { return false; }
+}
+const validKey = b64 => validP256(b64) || validEd25519(b64);
+const keyType = b64 => validP256(b64) ? 'P-256' : validEd25519(b64) ? 'Ed25519' : 'no válida';
+
 const huella = b64 => crypto.createHash('sha256').update(Buffer.from(b64, 'base64')).digest('hex');
 
 // Lee un vigia-<nombre>.publica.txt (formato de VigiaFirma) y comprueba clave P-256 y huella. Lanza si algo no cuadra.
@@ -57,7 +70,7 @@ function readPublica(file) {
   const g = k => (new RegExp(`^${k} (\\S+)\\s*$`, 'm').exec(t) || [])[1];
   const nombre = g('nombre'), pub = g('publica'), h = g('huella');
   if (!t.startsWith('vigia-clave-publica 1') || !nombre || !pub || !h) throw new Error(`${path.basename(file)} no es un archivo de clave pública de Vigía.`);
-  if (!validP256(pub)) throw new Error(`${path.basename(file)}: la clave no es P-256.`);
+  if (!validKey(pub)) throw new Error(`${path.basename(file)}: la clave no es P-256 ni Ed25519.`);
   if (h.toLowerCase() !== huella(pub)) throw new Error(`${path.basename(file)}: la huella anotada no es la de la clave.`);
   return { nombre, pub, huella: huella(pub), text: t };
 }
@@ -88,9 +101,9 @@ function problems(st) {
   if (a.pub !== b.pub) out.push('PublicKey distinta en Puente y en Vigía');
   if (JSON.stringify(a.next) !== JSON.stringify(b.next)) out.push('NextKeys distinta en Puente y en Vigía');
   for (const s of st) {
-    if (!validP256(s.pub)) out.push(`${s.f}: PublicKey no es una clave P-256 válida`);
+    if (!validKey(s.pub)) out.push(`${s.f}: PublicKey no es una clave P-256 ni Ed25519 válida`);
     s.next.forEach((k, i) => {
-      if (!validP256(k)) out.push(`${s.f}: NextKeys[${i}] no es una clave P-256 válida`);
+      if (!validKey(k)) out.push(`${s.f}: NextKeys[${i}] no es una clave P-256 ni Ed25519 válida`);
       if (k === s.pub) out.push(`${s.f}: NextKeys[${i}] repite la clave actual`);
     });
     if (new Set(s.next).size !== s.next.length) out.push(`${s.f}: NextKeys tiene claves repetidas`);
@@ -124,7 +137,7 @@ function main(argv) {
       k = pubFile.pub;
     }
     if (/PRIVATE|BEGIN/.test(k)) { console.error('Eso parece una clave privada. Aquí solo va la pública.'); return 1; }
-    if (!validP256(k)) { console.error('Eso no es una clave pública P-256 en base64 ni un vigia-<nombre>.publica.txt.'); return 1; }
+    if (!validKey(k)) { console.error('Eso no es una clave pública P-256 o Ed25519 en base64 ni un vigia-<nombre>.publica.txt.'); return 1; }
     if (k === st[0].pub) { console.error('Esa es la clave actual; el relevo tiene que ser otra.'); return 1; }
     if (st[0].next.includes(k)) { console.log('Esa clave de relevo ya estaba; no cambio nada.'); return 0; }
     write(st, st[0].pub, [...st[0].next, k]);
@@ -134,7 +147,7 @@ function main(argv) {
       const dest = path.join(d, `vigia-${pubFile.nombre}.publica.txt`);
       if (fs.existsSync(dest) && fs.readFileSync(dest, 'utf8') !== pubFile.text) { console.error(`${dest} ya existe con otra clave.`); return 1; }
       fs.writeFileSync(dest, pubFile.text);
-      console.log(`clave de relevo ${pubFile.nombre}, huella ${pubFile.huella} (compárala con la que mostró el equipo de firma)`);
+      console.log(`clave de relevo ${pubFile.nombre} (${keyType(k)}), huella ${pubFile.huella} (compárala con la que mostró el equipo de firma)`);
     }
   } else if (cmd === 'promover') {
     if (st[0].next.length !== 1) { console.error(`Para promover tiene que haber exactamente una clave de relevo (hay ${st[0].next.length}).`); return 1; }
@@ -153,4 +166,4 @@ function main(argv) {
 }
 
 if (require.main === module) process.exit(main(process.argv.slice(2)));
-module.exports = { validP256, main, readPublica, approvedKeys, huella };
+module.exports = { validP256, validEd25519, validKey, keyType, main, readPublica, approvedKeys, huella };

@@ -20,6 +20,8 @@
     <EmbeddedResource Include="apps.json" LogicalName="Vigia.apps.json" />
     <Content Include="drivers\PawnIO_setup.exe" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="assets\vigiaos.jpg" CopyToOutputDirectory="PreserveNewest" />
+    <!-- el mismo verificador Ed25519 que Puente (clave de relevo B en el agente SSH de Bitwarden del dueño) -->
+    <Compile Include="..\Puente\Ed25519.cs" Link="Ed25519.cs" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="LibreHardwareMonitorLib" Version="0.9.6" />
