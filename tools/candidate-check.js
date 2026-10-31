@@ -80,6 +80,22 @@ try {
   const has = s => dll.includes(Buffer.from(s, 'utf8')) || dll.includes(Buffer.from(s, 'utf16le'));
   check(has('LocationGuard') && has('Harden'), 'trae el arreglo de ubicación (LocationGuard.Harden)');
   check(!has('WlanGetNetworkBssList'), 'no llama a WlanGetNetworkBssList (redes vecinas y BSSID, que piden ubicación)');
+  check(has('VIGIA_WIFI_SIGNAL'), 'la lectura de señal Wi-Fi viene apagada salvo VIGIA_WIFI_SIGNAL=1 (privacidad aún sin validar con Wi-Fi real)');
+  // 7. nada que no deba ir: claves privadas, drivers que no sean el oficial ya publicado, servicio SYSTEM
+  const all = []; (function walk(d) { for (const e of fs.readdirSync(d, { withFileTypes: true })) { const q = path.join(d, e.name); e.isDirectory() ? walk(q) : all.push(q); } })(x);
+  const rel = q => path.relative(x, q).split(path.sep).join('/');
+  const keyFiles = all.filter(q => /\.(pem|key|pfx|p12|snk|dpapi)$/i.test(q)).map(rel);
+  check(keyFiles.length === 0, 'el zip no trae archivos de clave (.pem, .key, .pfx, .p12, .snk, .dpapi)', keyFiles.join(', '));
+  const pemRe = /-----BEGIN [A-Z ]*PRIVATE KEY-----[\sA-Za-z0-9+/=]{40,}-----END/;
+  const withPem = [...all, f('Puente.exe')].filter(q => pemRe.test(fs.readFileSync(q).toString('latin1'))).map(q => q.startsWith(x) ? rel(q) : path.basename(q));
+  check(withPem.length === 0, 'ningún archivo del zip ni Puente.exe contiene una clave privada en PEM', withPem.join(', '));
+  const drv = all.map(rel).filter(r => /^drivers\//i.test(r) || /\.(sys|inf|cat)$/i.test(r));
+  const pawnSrc = path.join(ROOT, 'app/Vigia/drivers/PawnIO_setup.exe');
+  check(drv.length === 1 && drv[0] === 'drivers/PawnIO_setup.exe' && fs.existsSync(pawnSrc) && sha(path.join(x, drv[0])) === sha(pawnSrc)
+    && (!lastTag || git('diff', '--quiet', lastTag, 'HEAD', '--', 'app/Vigia/drivers').code === 0),
+    `drivers: solo el instalador oficial de PawnIO, idéntico al del repo y al de ${lastTag || '-'} (sin .sys, .inf ni drivers nuevos)`, drv.join(', '));
+  const svc = all.map(rel).filter(r => /sensor.*\.exe$|servicio|service.*\.exe$/i.test(r));
+  check(svc.length === 0, 'ningún ejecutable de servicio de sensores en el zip', svc.join(', '));
   const pk = (/const string PublicKey = "([^"]+)"/.exec(fs.readFileSync(path.join(ROOT, 'app/Vigia/Updates.cs'), 'utf8')) || [])[1];
   const pkP = (/const string PublicKey = "([^"]+)"/.exec(fs.readFileSync(path.join(ROOT, 'app/Puente/Program.cs'), 'utf8')) || [])[1];
   check(!!pk && pk === pkP && has(pk), 'Vigía lleva la misma clave pública que Puente (la de confianza)');

@@ -125,6 +125,23 @@ const dp = path.join(TMP, 'estacion', 'clave.dpapi');
 fs.mkdirSync(path.dirname(dp));
 r = sh(PT, ['--protect-key', keyA, dp]);
 check(r.code === 0, 'clave de prueba cifrada con DPAPI de esta cuenta (como en el equipo de firma)', r.out);
+{ // --protect-key: lo que queda en disco no es la clave, solo la abre esta cuenta, y no se pisa ni se acepta alterado
+  const blob = fs.readFileSync(dp);
+  check(!/BEGIN|PRIVATE/.test(blob.toString('latin1')) && !blob.includes(fs.readFileSync(keyA).subarray(40, 90)), '--protect-key: el .dpapi no contiene la clave en claro', `${blob.length} bytes`);
+  const acl = sh(PS, ['-NoProfile', '-Command', `$a = Get-Acl -LiteralPath '${dp.replace(/'/g, "''")}'; '' + $a.AreAccessRulesProtected + '|' + (@($a.Access | ForEach-Object { '' + $_.IdentityReference + ':' + $_.AccessControlType + ':' + $_.IsInherited }) -join ';')`]).out.trim();
+  const me = sh(PS, ['-NoProfile', '-Command', '[Security.Principal.WindowsIdentity]::GetCurrent().Name']).out.trim();
+  check(acl === `True|${me}:Allow:False`, '--protect-key: el .dpapi solo lo puede abrir tu cuenta (sin herencia, una sola entrada)', acl);
+  r = sh(PT, ['--protect-key', keyA, dp]);
+  check(r.code === 1 && fs.readFileSync(dp).equals(blob), '--protect-key no sobrescribe un .dpapi que ya existe', r.out);
+  const bad = path.join(TMP, 'estacion', 'alterada.dpapi'); const b2 = Buffer.from(blob); b2[b2.length >> 1] ^= 0xff; fs.writeFileSync(bad, b2);
+  sh(ICACLS, [bad, '/inheritance:r', '/grant:r', `${me}:F`]);
+  const tf = path.join(TMP, 'estacion', 'nota.txt'); fs.writeFileSync(tf, 'prueba');
+  r = sh(PT, ['--sign', tf, bad]);
+  check(r.code !== 0 && !fs.existsSync(tf + '.sig'), 'un .dpapi alterado no descifra y no firma nada', r.out);
+  r = sh(PT, ['--sign', tf, dp]);
+  check(r.code === 0 && sh(PT, ['--verify', tf], env).code === 0, 'con el .dpapi bueno firma y la firma pasa con la clave pública de prueba', r.out);
+  fs.rmSync(tf + '.sig', { force: true });
+}
 const huella = crypto.createHash('sha256').update(fs.readFileSync(PT)).digest('hex').toUpperCase();
 const sigs = () => fs.readdirSync(V).filter(f => f.endsWith('.sig'));
 r = ps(ff, ['-Version', V, '-Clave', dp, '-Puente', PT, '-HuellaPuente', '00' + huella.slice(2), '-PermitirRed'], env);
